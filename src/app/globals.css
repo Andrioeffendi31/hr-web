@@ -1,26 +1,226 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
-}
+  --font-heading: var(--font-poppins);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-surface-2: var(--surface-2);
+  --color-subtle: var(--subtle);
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --shadow-sm: 0 1px 2px rgba(20, 22, 27, 0.06), 0 1px 1px rgba(20, 22, 27, 0.04);
+  --shadow-md: 0 4px 12px rgba(20, 22, 27, 0.08), 0 2px 4px rgba(20, 22, 27, 0.05);
+  --shadow-lg: 0 16px 48px rgba(20, 22, 27, 0.16), 0 4px 12px rgba(20, 22, 27, 0.08);
+  --animate-fadeup: fadeup 0.28s ease;
+  --animate-pulsedot: pulsedot 2.4s ease-in-out infinite;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  @keyframes fadeup {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes pulsedot {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Tokens ported 1:1 from the "Ruang HR Lite" mockup, mapped onto shadcn's
+   token names so shadcn components inherit the design without restyling.
+   Note: the mockup's --accent (brand indigo) is shadcn's --primary;
+   shadcn's --accent is the neutral hover surface. */
+:root {
+  --radius: 0.6875rem;
+
+  --background: #f5f6f8;
+  --foreground: #14161b;
+  --card: #ffffff;
+  --card-foreground: #14161b;
+  --popover: #ffffff;
+  --popover-foreground: #14161b;
+  --surface-2: #fbfcfd;
+
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --primary-subtle: #eef2ff;
+
+  --secondary: #eef0f3;
+  --secondary-foreground: #14161b;
+  --muted: #eef0f3;
+  --muted-foreground: #59606d;
+  --subtle: #8b93a1;
+  --accent: #eef0f3;
+  --accent-foreground: #14161b;
+
+  --success: #0f7b5a;
+  --success-subtle: #e6f5ee;
+  --warning: #b4530b;
+  --warning-subtle: #fbf0e2;
+  --danger: #d4342c;
+  --danger-subtle: #fcebeb;
+  --destructive: #d4342c;
+  --info: #2563eb;
+  --info-subtle: #e8f0fe;
+
+  --border: #e6e8ec;
+  --border-strong: #d4d8df;
+  --input: #d4d8df;
+  --ring: #4f46e5;
+
+  --sidebar: #fbfcfd;
+  --sidebar-border: #e6e8ec;
+
+  --chart-1: #4f46e5;
+  --chart-2: #0f7b5a;
+  --chart-3: #b4530b;
+  --chart-4: #2563eb;
+  --chart-5: #8b93a1;
+}
+
+.dark {
+  --background: #0b0c0f;
+  --foreground: #eef1f5;
+  --card: #141519;
+  --card-foreground: #eef1f5;
+  --popover: #141519;
+  --popover-foreground: #eef1f5;
+  --surface-2: #101116;
+
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --primary-subtle: rgb(99 102 241 / 0.15);
+
+  --secondary: #1c1e24;
+  --secondary-foreground: #eef1f5;
+  --muted: #1c1e24;
+  --muted-foreground: #99a1af;
+  --subtle: #69707d;
+  --accent: #1c1e24;
+  --accent-foreground: #eef1f5;
+
+  --success: #34d399;
+  --success-subtle: rgb(52 211 153 / 0.13);
+  --warning: #fbbf5a;
+  --warning-subtle: rgb(251 191 90 / 0.13);
+  --danger: #f87171;
+  --danger-subtle: rgb(248 113 113 / 0.14);
+  --destructive: #f87171;
+  --info: #60a5fa;
+  --info-subtle: rgb(96 165 250 / 0.14);
+
+  --border: #262a31;
+  --border-strong: #383d47;
+  --input: #383d47;
+  --ring: #6366f1;
+
+  --sidebar: #101116;
+  --sidebar-border: #262a31;
+
+  --chart-1: #6366f1;
+  --chart-2: #34d399;
+  --chart-3: #fbbf5a;
+  --chart-4: #60a5fa;
+  --chart-5: #69707d;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground text-sm leading-normal antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-heading;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* numeric columns read better tabular + mono, as in the mockup */
+  .tnum {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  ::selection {
+    background: var(--primary-subtle);
+    color: var(--foreground);
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

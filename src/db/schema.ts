@@ -1,0 +1,211 @@
+import {
+  boolean,
+  date,
+  integer,
+  numeric,
+  pgEnum,
+  pgTable,
+  serial,
+  text,
+  time,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
+
+export const roleEnum = pgEnum("role", ["hr_admin", "manager", "employee"]);
+export const contractEnum = pgEnum("contract_type", ["Tetap", "Kontrak"]);
+export const attendanceStatusEnum = pgEnum("attendance_status", [
+  "hadir",
+  "telat",
+  "wfh",
+  "cuti",
+  "izin",
+  "sakit",
+  "belum_absen",
+]);
+export const requestStatusEnum = pgEnum("request_status", [
+  "menunggu",
+  "disetujui",
+  "ditolak",
+  "dibatalkan",
+]);
+export const leaveTypeEnum = pgEnum("leave_type", [
+  "Cuti Tahunan",
+  "Cuti Sakit",
+  "Izin Khusus",
+]);
+export const overtimeKindEnum = pgEnum("overtime_kind", [
+  "Hari kerja",
+  "Hari libur",
+]);
+export const annCategoryEnum = pgEnum("ann_category", [
+  "Kebijakan",
+  "Libur",
+  "Administrasi",
+  "Pelatihan",
+]);
+export const folderEnum = pgEnum("doc_folder", [
+  "personal",
+  "kontrak",
+  "sertif",
+  "legal",
+]);
+
+export const employees = pgTable("employees", {
+  id: serial("id").primaryKey(),
+  nik: text("nik").notNull().unique(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  role: roleEnum("role").notNull().default("employee"),
+  division: text("division").notNull(),
+  position: text("position").notNull(),
+  contractType: contractEnum("contract_type").notNull(),
+  joinedAt: date("joined_at").notNull(),
+  workLocation: text("work_location").notNull().default("Kantor Pusat"),
+  /** direct supervisor — approver in a later phase, reference only in v1 (PRD §4) */
+  managerId: integer("manager_id"),
+  active: boolean("active").notNull().default(true),
+});
+
+export const attendance = pgTable(
+  "attendance",
+  {
+    id: serial("id").primaryKey(),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    clockIn: time("clock_in"),
+    clockOut: time("clock_out"),
+    status: attendanceStatusEnum("status").notNull(),
+    location: text("location"),
+    note: text("note"),
+    selfieUrl: text("selfie_url"),
+    lat: numeric("lat", { precision: 9, scale: 6 }),
+    lng: numeric("lng", { precision: 9, scale: 6 }),
+  },
+  (t) => [uniqueIndex("attendance_emp_date").on(t.employeeId, t.date)],
+);
+
+export const leaveRequests = pgTable("leave_requests", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id")
+    .notNull()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  type: leaveTypeEnum("type").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  /** working days, computed server-side (PRD §6.2) */
+  days: integer("days").notNull(),
+  reason: text("reason").notNull(),
+  delegateId: integer("delegate_id"),
+  status: requestStatusEnum("status").notNull().default("menunggu"),
+  decisionNote: text("decision_note"),
+  decidedById: integer("decided_by_id"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const overtimeRequests = pgTable("overtime_requests", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id")
+    .notNull()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  startTime: time("start_time").notNull(),
+  endTime: time("end_time").notNull(),
+  minutes: integer("minutes").notNull(),
+  kind: overtimeKindEnum("kind").notNull(),
+  /** rupiah, computed server-side from settings.overtimeRatePerHour */
+  estimatedCost: integer("estimated_cost").notNull(),
+  reason: text("reason").notNull(),
+  status: requestStatusEnum("status").notNull().default("menunggu"),
+  decisionNote: text("decision_note"),
+  decidedById: integer("decided_by_id"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const announcements = pgTable("announcements", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  category: annCategoryEnum("category").notNull(),
+  audience: text("audience").notNull().default("Semua karyawan"),
+  pinned: boolean("pinned").notNull().default(false),
+  authorId: integer("author_id").references(() => employees.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const announcementReads = pgTable(
+  "announcement_reads",
+  {
+    announcementId: integer("announcement_id")
+      .notNull()
+      .references(() => announcements.id, { onDelete: "cascade" }),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    readAt: timestamp("read_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ann_read_pk").on(t.announcementId, t.employeeId)],
+);
+
+export const documents = pgTable("documents", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  ext: text("ext").notNull(),
+  folder: folderEnum("folder").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  /** null = company-wide doc, visible to everyone */
+  ownerId: integer("owner_id").references(() => employees.id, {
+    onDelete: "cascade",
+  }),
+  url: text("url").notNull().default(""),
+  uploadedAt: timestamp("uploaded_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/** Holidays feed the working-day calculation for leave (PRD §11 open question:
+    resolved as HR-managed rows rather than an external API). */
+export const holidays = pgTable("holidays", {
+  date: date("date").primaryKey(),
+  name: text("name").notNull(),
+});
+
+export const auditLog = pgTable("audit_log", {
+  id: serial("id").primaryKey(),
+  actorId: integer("actor_id").references(() => employees.id),
+  action: text("action").notNull(),
+  entity: text("entity").notNull(),
+  entityId: integer("entity_id"),
+  detail: text("detail"),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** single-row config table; avoids hardcoding rates/quotas in app code (PRD §6.3) */
+export const settings = pgTable("settings", {
+  id: integer("id").primaryKey().default(1),
+  companyName: text("company_name").notNull().default("PT Nusantara Digital"),
+  overtimeRatePerHour: integer("overtime_rate_per_hour").notNull().default(95000),
+  overtimeHolidayMultiplier: numeric("ot_holiday_multiplier", {
+    precision: 3,
+    scale: 2,
+  })
+    .notNull()
+    .default("1.50"),
+  weeklyOvertimeCapHours: integer("weekly_ot_cap_hours").notNull().default(14),
+  baseLeaveQuota: integer("base_leave_quota").notNull().default(12),
+  shiftStart: time("shift_start").notNull().default("08:00:00"),
+  shiftEnd: time("shift_end").notNull().default("17:00:00"),
+  lateToleranceMinutes: integer("late_tolerance_minutes").notNull().default(15),
+  monthlyOvertimeBudget: integer("monthly_ot_budget").notNull().default(190000000),
+});
