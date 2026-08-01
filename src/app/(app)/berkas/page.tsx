@@ -1,10 +1,12 @@
-import { count, desc, eq, sql } from "drizzle-orm";
+import { asc, count, desc, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Download, FolderClosed } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
 import { documents, employees } from "@/db/schema";
-import { Empty, PageHead, Panel, Pill, type Tone } from "@/components/bits";
+import { PageHead, Pill, type Tone } from "@/components/bits";
+import { DataTable, type Column } from "@/components/data-table";
+import { parsePaging, parseSort } from "@/lib/paging";
 import { cn } from "@/lib/utils";
 
 const FOLDERS = [
@@ -21,10 +23,25 @@ const mb = (bytes: number) =>
     ? `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`
     : `${Math.round(bytes / 1024)} KB`;
 
+type Search = {
+  folder?: string;
+  owner?: string;
+  page?: string;
+  perPage?: string;
+  sort?: string;
+  dir?: string;
+};
+
+const SORTABLE = {
+  nama: documents.name,
+  ukuran: documents.sizeBytes,
+  tanggal: documents.uploadedAt,
+};
+
 export default async function BerkasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ folder?: string; owner?: string }>;
+  searchParams: Promise<Search>;
 }) {
   const sp = await searchParams;
   const folder = (FOLDERS.find((f) => f.v === sp.folder)?.v ?? "personal") as
@@ -35,7 +52,21 @@ export default async function BerkasPage({
   const ownerFilter = sp.owner ? Number(sp.owner) : null;
   const owner = alias(employees, "owner");
 
-  const [counts, files, [total]] = await Promise.all([
+  const where = ownerFilter
+    ? eq(documents.ownerId, ownerFilter)
+    : eq(documents.folder, folder);
+
+  const { page, perPage, offset } = parsePaging(sp);
+  const sorting = parseSort(sp, SORTABLE, "tanggal");
+  const orderColumn = sorting.column ?? documents.uploadedAt;
+  const order =
+    sorting.key === "tanggal" && !sp.dir
+      ? desc(documents.uploadedAt)
+      : sorting.dir === "desc"
+        ? desc(orderColumn)
+        : asc(orderColumn);
+
+  const [counts, files, [total], [fileCount]] = await Promise.all([
     db
       .select({
         folder: documents.folder,
@@ -56,23 +87,79 @@ export default async function BerkasPage({
       })
       .from(documents)
       .leftJoin(owner, eq(owner.id, documents.ownerId))
-      .where(
-        ownerFilter
-          ? eq(documents.ownerId, ownerFilter)
-          : eq(documents.folder, folder),
-      )
-      .orderBy(desc(documents.uploadedAt)),
+      .where(where)
+      .orderBy(order)
+      .limit(perPage)
+      .offset(offset),
 
     db
       .select({
         bytes: sql<number>`coalesce(sum(${documents.sizeBytes}), 0)`.mapWith(Number),
       })
       .from(documents),
+
+    db.select({ n: count() }).from(documents).where(where),
   ]);
 
   const title = ownerFilter
     ? `Berkas ${files[0]?.ownerName ?? "karyawan"}`
     : FOLDERS.find((f) => f.v === folder)!.label;
+
+  const columns: Column<(typeof files)[number]>[] = [
+    {
+      key: "nama",
+      header: "Nama berkas",
+      sortable: true,
+      cell: (f) => (
+        <span className="flex items-center gap-2.5">
+          <Pill tone={EXT_TONE[f.ext] ?? "neutral"} className="tnum text-[9.5px]">
+            {f.ext}
+          </Pill>
+          <span className="truncate text-[13px] font-medium">{f.name}</span>
+        </span>
+      ),
+    },
+    {
+      key: "pemilik",
+      header: "Pemilik",
+      className: "text-muted-foreground text-[12.5px]",
+      cell: (f) => f.ownerName ?? "Perusahaan",
+    },
+    {
+      key: "ukuran",
+      header: "Ukuran",
+      sortable: true,
+      className: "tnum text-muted-foreground text-[12.5px]",
+      cell: (f) => mb(f.sizeBytes),
+    },
+    {
+      key: "tanggal",
+      header: "Tanggal",
+      sortable: true,
+      className: "tnum text-muted-foreground text-[12.5px]",
+      cell: (f) =>
+        f.uploadedAt.toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "short",
+          timeZone: "Asia/Jakarta",
+        }),
+    },
+    {
+      key: "aksi",
+      header: "Aksi",
+      cell: (f) => (
+        <button
+          type="button"
+          disabled
+          title="Object storage belum terhubung"
+          aria-label={`Unduh ${f.name}`}
+          className="text-subtle flex size-8 items-center justify-center rounded-lg border disabled:opacity-40"
+        >
+          <Download className="size-4" aria-hidden />
+        </button>
+      ),
+    },
+  ];
 
   return (
     <>
@@ -121,7 +208,7 @@ export default async function BerkasPage({
         })}
       </div>
 
-      <Panel
+      <DataTable
         title={title}
         action={
           ownerFilter && (
@@ -133,60 +220,19 @@ export default async function BerkasPage({
             </Link>
           )
         }
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left">
-            <thead>
-              <tr className="bg-surface-2 text-subtle border-b text-[11px] font-semibold tracking-[0.05em] uppercase">
-                <th className="px-4 py-2.5 font-semibold">Nama berkas</th>
-                <th className="px-3 py-2.5 font-semibold">Pemilik</th>
-                <th className="px-3 py-2.5 font-semibold">Ukuran</th>
-                <th className="px-3 py-2.5 font-semibold">Tanggal</th>
-                <th className="px-4 py-2.5 font-semibold">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {files.map((f) => (
-                <tr key={f.id} className="hover:bg-surface-2 border-b last:border-0">
-                  <td className="px-4 py-2.5">
-                    <span className="flex items-center gap-2.5">
-                      <Pill tone={EXT_TONE[f.ext] ?? "neutral"} className="tnum text-[9.5px]">
-                        {f.ext}
-                      </Pill>
-                      <span className="truncate text-[13px] font-medium">{f.name}</span>
-                    </span>
-                  </td>
-                  <td className="text-muted-foreground px-3 py-2.5 text-[12.5px]">
-                    {f.ownerName ?? "Perusahaan"}
-                  </td>
-                  <td className="tnum text-muted-foreground px-3 py-2.5 text-[12.5px]">
-                    {mb(f.sizeBytes)}
-                  </td>
-                  <td className="tnum text-muted-foreground px-3 py-2.5 text-[12.5px]">
-                    {f.uploadedAt.toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "short",
-                      timeZone: "Asia/Jakarta",
-                    })}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <button
-                      type="button"
-                      disabled
-                      title="Object storage belum terhubung"
-                      aria-label={`Unduh ${f.name}`}
-                      className="text-subtle flex size-8 items-center justify-center rounded-lg border disabled:opacity-40"
-                    >
-                      <Download className="size-4" aria-hidden />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {files.length === 0 && <Empty>Belum ada berkas di folder ini.</Empty>}
-        </div>
-      </Panel>
+        rows={files}
+        columns={columns}
+        total={fileCount.n}
+        page={page}
+        perPage={perPage}
+        path="/berkas"
+        sp={sp}
+        sort={sorting.key}
+        dir={sorting.dir}
+        minWidth={640}
+        empty="Belum ada berkas di folder ini."
+        rowKey={(f) => f.id}
+      />
     </>
   );
 }

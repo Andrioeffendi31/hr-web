@@ -1,18 +1,21 @@
-import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { MapPin } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
 import { attendance, employees, settings } from "@/db/schema";
 import { AttBadge, Empty, PageHead, Panel, Stat } from "@/components/bits";
-import { RemindButton } from "./remind-button";
+import { DataTable, type Column } from "@/components/data-table";
+import { DateField } from "@/components/date-field";
+import { AbsenteePanel } from "./absentee-panel";
+import { SelectField } from "@/components/select-field";
 import {
   type AttStatus,
   initials,
   jam,
-  statusGroup,
   tanggalPanjang,
   todayWib,
 } from "@/lib/hr";
+import { FEED_PAGE, parsePaging, parseSort } from "@/lib/paging";
 import { cn } from "@/lib/utils";
 
 type Search = {
@@ -20,6 +23,16 @@ type Search = {
   tab?: "today" | "recap";
   div?: string;
   status?: string;
+  page?: string;
+  perPage?: string;
+  sort?: string;
+  dir?: string;
+};
+
+const SORTABLE = {
+  nama: employees.name,
+  divisi: employees.division,
+  masuk: attendance.clockIn,
 };
 
 // Status filtering is driven by the stat cards above the table — they double as
@@ -50,50 +63,121 @@ export default async function KehadiranPage({
     .from(employees)
     .orderBy(asc(employees.division));
 
-  const rows = await db
-    .select({
-      id: employees.id,
-      name: employees.name,
-      nik: employees.nik,
-      division: employees.division,
-      status: attendance.status,
-      clockIn: attendance.clockIn,
-      clockOut: attendance.clockOut,
-      location: attendance.location,
-    })
-    .from(employees)
-    .leftJoin(
-      attendance,
-      and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
-    )
-    .where(
-      and(
-        eq(employees.active, true),
-        divFilter === "all" ? undefined : eq(employees.division, divFilter),
-      ),
-    )
-    .orderBy(asc(employees.name));
+  // Status lives in SQL now: with pagination the page can no longer derive the
+  // stat cards or the status filter from the rows it happens to have fetched.
+  const statusText = sql`coalesce(${attendance.status}::text, 'belum_absen')`;
+  const GROUP_SQL = {
+    hadir: sql`${statusText} in ('hadir','wfh')`,
+    telat: sql`${statusText} = 'telat'`,
+    cuti: sql`${statusText} in ('cuti','izin','sakit')`,
+    belum: sql`${statusText} = 'belum_absen'`,
+  } as const;
 
-  const all = rows.map((r) => ({
+  const divWhere =
+    divFilter === "all" ? undefined : eq(employees.division, divFilter);
+  const baseWhere = and(eq(employees.active, true), divWhere);
+  const groupWhere = GROUP_SQL[statusFilter as keyof typeof GROUP_SQL];
+  const boardWhere = and(baseWhere, groupWhere);
+
+  const { page, perPage, offset } = parsePaging(sp);
+  const sorting = parseSort(sp, SORTABLE, "nama");
+  const orderColumn = sorting.column ?? employees.name;
+  const order = sorting.dir === "desc" ? desc(orderColumn) : asc(orderColumn);
+
+  const boardSelect = {
+    id: employees.id,
+    name: employees.name,
+    nik: employees.nik,
+    division: employees.division,
+    status: attendance.status,
+    clockIn: attendance.clockIn,
+    clockOut: attendance.clockOut,
+    location: attendance.location,
+  };
+  const [[counts], visibleRaw, [boardTotal], absenteeRows, [absenteeTotal], onLeaveRaw] =
+    await Promise.all([
+      db
+        .select({
+          total: sql<number>`count(*)`.mapWith(Number),
+          hadir: sql<number>`count(*) filter (where ${GROUP_SQL.hadir})`.mapWith(Number),
+          telat: sql<number>`count(*) filter (where ${GROUP_SQL.telat})`.mapWith(Number),
+          cuti: sql<number>`count(*) filter (where ${GROUP_SQL.cuti})`.mapWith(Number),
+          belum: sql<number>`count(*) filter (where ${GROUP_SQL.belum})`.mapWith(Number),
+        })
+        .from(employees)
+        .leftJoin(
+          attendance,
+          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+        )
+        .where(baseWhere),
+
+      db
+        .select(boardSelect)
+        .from(employees)
+        .leftJoin(
+          attendance,
+          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+        )
+        .where(boardWhere)
+        .orderBy(order)
+        .limit(perPage)
+        .offset(offset),
+
+      db
+        .select({ n: sql<number>`count(*)`.mapWith(Number) })
+        .from(employees)
+        .leftJoin(
+          attendance,
+          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+        )
+        .where(boardWhere),
+
+      db
+        .select({ id: employees.id, name: employees.name, division: employees.division })
+        .from(employees)
+        .leftJoin(
+          attendance,
+          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+        )
+        .where(and(baseWhere, GROUP_SQL.belum))
+        .orderBy(asc(employees.name))
+        .limit(FEED_PAGE),
+
+      db
+        .select({ n: sql<number>`count(*)`.mapWith(Number) })
+        .from(employees)
+        .leftJoin(
+          attendance,
+          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+        )
+        .where(and(baseWhere, GROUP_SQL.belum)),
+
+      db
+        .select({
+          id: employees.id,
+          name: employees.name,
+          division: employees.division,
+          location: attendance.location,
+          status: attendance.status,
+        })
+        .from(employees)
+        .leftJoin(
+          attendance,
+          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+        )
+        .where(and(baseWhere, GROUP_SQL.cuti))
+        .orderBy(asc(employees.name))
+        .limit(50),
+    ]);
+
+  const visible = visibleRaw.map((r) => ({
     ...r,
     status: (r.status ?? "belum_absen") as AttStatus,
   }));
-
-  const counts = {
-    total: all.length,
-    hadir: all.filter((r) => statusGroup(r.status) === "hadir").length,
-    telat: all.filter((r) => statusGroup(r.status) === "telat").length,
-    cuti: all.filter((r) => statusGroup(r.status) === "cuti").length,
-    belum: all.filter((r) => statusGroup(r.status) === "belum").length,
-  };
-
-  const visible =
-    statusFilter === "all"
-      ? all
-      : all.filter((r) => statusGroup(r.status) === statusFilter);
-
-  const absentees = all.filter((r) => r.status === "belum_absen");
-  const onLeave = all.filter((r) => statusGroup(r.status) === "cuti");
+  const onLeave = onLeaveRaw.map((r) => ({
+    ...r,
+    status: (r.status ?? "belum_absen") as AttStatus,
+  }));
 
   // Monthly recap — aggregated in SQL so the page stays fast at scale (PRD §9)
   const recap =
@@ -125,10 +209,139 @@ export default async function KehadiranPage({
             ),
           )
           .groupBy(employees.id, employees.name, employees.division)
-          .orderBy(asc(employees.name))
+          .orderBy(order)
+          .limit(perPage)
+          .offset(offset)
       : [];
 
+  // the recap groups by employee, so its total is simply the head-count
+  const recapTotal = counts.total;
+
   const base: Search = { date, tab, div: divFilter, status: statusFilter };
+
+  const boardColumns: Column<(typeof visible)[number]>[] = [
+    {
+      key: "nama",
+      header: "Karyawan",
+      sortable: true,
+      cell: (r) => (
+        <Link
+          href={`/karyawan?open=${r.id}`}
+          className="flex items-center gap-2.5 hover:underline"
+        >
+          <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold">
+            {initials(r.name)}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-[13px] font-medium">{r.name}</span>
+            <span className="text-subtle tnum block text-[11px]">{r.nik}</span>
+          </span>
+        </Link>
+      ),
+    },
+    {
+      key: "divisi",
+      header: "Divisi",
+      sortable: true,
+      className: "text-muted-foreground text-[12.5px]",
+      cell: (r) => r.division,
+    },
+    {
+      key: "masuk",
+      header: "Masuk",
+      sortable: true,
+      className: "tnum text-[12.5px]",
+      cell: (r) => jam(r.clockIn),
+    },
+    {
+      key: "keluar",
+      header: "Keluar",
+      className: "tnum text-[12.5px]",
+      cell: (r) => jam(r.clockOut),
+    },
+    {
+      key: "lokasi",
+      header: "Lokasi",
+      className: "text-muted-foreground text-[12.5px]",
+      cell: (r) =>
+        r.location ? (
+          <span className="flex items-center gap-1.5">
+            <MapPin className="size-3.5 shrink-0" aria-hidden />
+            <span className="truncate">{r.location}</span>
+          </span>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      cell: (r) => <AttBadge status={r.status} />,
+    },
+  ];
+
+  const recapColumns: Column<(typeof recap)[number]>[] = [
+    {
+      key: "nama",
+      header: "Karyawan",
+      sortable: true,
+      cell: (r) => (
+        <>
+          <span className="block text-[13px] font-medium">{r.name}</span>
+          <span className="text-subtle block text-[11px]">{r.division}</span>
+        </>
+      ),
+    },
+    {
+      key: "hadir",
+      header: "Hadir",
+      className: "tnum text-success text-[13px]",
+      cell: (r) => r.hadir,
+    },
+    {
+      key: "telat",
+      header: "Telat",
+      className: "tnum text-warning text-[13px]",
+      cell: (r) => r.telat,
+    },
+    {
+      key: "cuti",
+      header: "Cuti",
+      className: "tnum text-muted-foreground text-[13px]",
+      cell: (r) => r.cuti,
+    },
+    {
+      key: "absen",
+      header: "Absen",
+      className: "tnum text-danger text-[13px]",
+      cell: (r) => r.absen,
+    },
+    {
+      key: "tingkat",
+      header: "Tingkat kehadiran",
+      cell: (r) => {
+        const pct = r.hari ? Math.round(((r.hadir + r.telat) / r.hari) * 100) : 0;
+        return (
+          <div className="flex items-center gap-2.5">
+            <div
+              className="bg-muted h-1.5 w-full max-w-[120px] overflow-hidden rounded-full"
+              role="img"
+              aria-label={`Tingkat kehadiran ${pct} persen`}
+            >
+              <div
+                className={cn(
+                  "h-full rounded-full",
+                  pct >= 95 ? "bg-success" : pct >= 85 ? "bg-warning" : "bg-danger",
+                )}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <span className="tnum text-[12.5px] font-semibold">{pct}%</span>
+          </div>
+        );
+      },
+    },
+  ];
 
   return (
     <>
@@ -146,20 +359,8 @@ export default async function KehadiranPage({
             >
               Tanggal
             </label>
-            <input
-              id="tanggal"
-              type="date"
-              name="date"
-              defaultValue={date}
-              className="bg-card border-border-strong tnum h-9 rounded-[9px] border px-2.5 text-[13px]"
-            />
+            <DateField id="tanggal" name="date" defaultValue={date} autoSubmit />
           </div>
-          <button
-            type="submit"
-            className="bg-card border-border-strong hover:bg-accent h-9 rounded-[9px] border px-3.5 text-[13px] font-medium transition-colors"
-          >
-            Terapkan
-          </button>
           <a
             href={`/api/export/kehadiran?date=${date}&div=${divFilter}`}
             className="bg-card border-border-strong hover:bg-accent flex h-9 items-center rounded-[9px] border px-3.5 text-[13px] font-medium transition-colors"
@@ -241,193 +442,65 @@ export default async function KehadiranPage({
               <label htmlFor="div" className="sr-only">
                 Filter divisi
               </label>
-              <select
+              <SelectField
                 id="div"
                 name="div"
                 defaultValue={divFilter}
-                className="bg-surface-2 h-8 rounded-lg border px-2 text-[12.5px]"
-              >
-                <option value="all">Semua divisi</option>
-                {divisions.map((d) => (
-                  <option key={d.division} value={d.division}>
-                    {d.division}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                className="bg-surface-2 hover:bg-accent h-8 rounded-lg border px-2.5 text-[12.5px] font-medium transition-colors"
-              >
-                Filter
-              </button>
+                ariaLabel="Filter divisi"
+                autoSubmit
+                className="bg-surface-2 data-[size=default]:h-8 rounded-lg text-[12.5px]"
+                options={[
+                  { value: "all", label: "Semua divisi" },
+                  ...divisions.map((d) => ({ value: d.division, label: d.division })),
+                ]}
+              />
             </form>
           </div>
 
-          <div className="overflow-x-auto">
-            {tab === "today" ? (
-              <table className="w-full min-w-[720px] text-left">
-                <thead>
-                  <tr className="bg-surface-2 text-subtle border-b text-[11px] font-semibold tracking-[0.05em] uppercase">
-                    <th className="px-4 py-2.5 font-semibold">Karyawan</th>
-                    <th className="px-3 py-2.5 font-semibold">Divisi</th>
-                    <th className="px-3 py-2.5 font-semibold">Masuk</th>
-                    <th className="px-3 py-2.5 font-semibold">Keluar</th>
-                    <th className="px-3 py-2.5 font-semibold">Lokasi</th>
-                    <th className="px-4 py-2.5 font-semibold">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visible.map((r) => (
-                    <tr key={r.id} className="hover:bg-surface-2 border-b last:border-0">
-                      <td className="px-4 py-2.5">
-                        <Link
-                          href={`/karyawan?open=${r.id}`}
-                          className="flex items-center gap-2.5 hover:underline"
-                        >
-                          <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold">
-                            {initials(r.name)}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-[13px] font-medium">
-                              {r.name}
-                            </span>
-                            <span className="text-subtle tnum block text-[11px]">
-                              {r.nik}
-                            </span>
-                          </span>
-                        </Link>
-                      </td>
-                      <td className="text-muted-foreground px-3 py-2.5 text-[12.5px]">
-                        {r.division}
-                      </td>
-                      <td className="tnum px-3 py-2.5 text-[12.5px]">{jam(r.clockIn)}</td>
-                      <td className="tnum px-3 py-2.5 text-[12.5px]">{jam(r.clockOut)}</td>
-                      <td className="text-muted-foreground px-3 py-2.5 text-[12.5px]">
-                        {r.location ? (
-                          <span className="flex items-center gap-1.5">
-                            <MapPin className="size-3.5 shrink-0" aria-hidden />
-                            <span className="truncate">{r.location}</span>
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <AttBadge status={r.status} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <table className="w-full min-w-[720px] text-left">
-                <thead>
-                  <tr className="bg-surface-2 text-subtle border-b text-[11px] font-semibold tracking-[0.05em] uppercase">
-                    <th className="px-4 py-2.5 font-semibold">Karyawan</th>
-                    <th className="px-3 py-2.5 font-semibold">Hadir</th>
-                    <th className="px-3 py-2.5 font-semibold">Telat</th>
-                    <th className="px-3 py-2.5 font-semibold">Cuti</th>
-                    <th className="px-3 py-2.5 font-semibold">Absen</th>
-                    <th className="px-4 py-2.5 font-semibold">Tingkat kehadiran</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recap.map((r) => {
-                    const pct = r.hari
-                      ? Math.round(((r.hadir + r.telat) / r.hari) * 100)
-                      : 0;
-                    return (
-                      <tr key={r.id} className="hover:bg-surface-2 border-b last:border-0">
-                        <td className="px-4 py-2.5">
-                          <span className="block text-[13px] font-medium">{r.name}</span>
-                          <span className="text-subtle block text-[11px]">
-                            {r.division}
-                          </span>
-                        </td>
-                        <td className="tnum text-success px-3 py-2.5 text-[13px]">
-                          {r.hadir}
-                        </td>
-                        <td className="tnum text-warning px-3 py-2.5 text-[13px]">
-                          {r.telat}
-                        </td>
-                        <td className="tnum text-muted-foreground px-3 py-2.5 text-[13px]">
-                          {r.cuti}
-                        </td>
-                        <td className="tnum text-danger px-3 py-2.5 text-[13px]">
-                          {r.absen}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-2.5">
-                            <div
-                              className="bg-muted h-1.5 w-full max-w-[120px] overflow-hidden rounded-full"
-                              role="img"
-                              aria-label={`Tingkat kehadiran ${pct} persen`}
-                            >
-                              <div
-                                className={cn(
-                                  "h-full rounded-full",
-                                  pct >= 95
-                                    ? "bg-success"
-                                    : pct >= 85
-                                      ? "bg-warning"
-                                      : "bg-danger",
-                                )}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                            <span className="tnum text-[12.5px] font-semibold">
-                              {pct}%
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-            {(tab === "today" ? visible : recap).length === 0 && (
-              <Empty>Tidak ada data untuk filter ini.</Empty>
-            )}
-          </div>
+          {tab === "today" ? (
+            <DataTable
+              rows={visible}
+              columns={boardColumns}
+              total={boardTotal.n}
+              page={page}
+              perPage={perPage}
+              path="/kehadiran"
+              sp={sp}
+              sort={sorting.key}
+              dir={sorting.dir}
+              minWidth={720}
+              empty="Tidak ada data untuk filter ini."
+              rowKey={(r) => r.id}
+              className="rounded-none border-0 shadow-none"
+            />
+          ) : (
+            <DataTable
+              rows={recap}
+              columns={recapColumns}
+              total={recapTotal}
+              page={page}
+              perPage={perPage}
+              path="/kehadiran"
+              sp={sp}
+              sort={sorting.key}
+              dir={sorting.dir}
+              minWidth={720}
+              empty="Tidak ada data untuk filter ini."
+              rowKey={(r) => r.id}
+              className="rounded-none border-0 shadow-none"
+            />
+          )}
         </Panel>
 
         <div className="flex w-full shrink-0 flex-col gap-4 lg:w-[290px]">
-          <Panel
-            title={`Belum absen masuk (${absentees.length})`}
-            action={
-              absentees.length > 0 && (
-                <RemindButton
-                  ids={absentees.map((a) => a.id)}
-                  date={date}
-                  label="Ingatkan semua"
-                />
-              )
-            }
-          >
-            {absentees.length === 0 ? (
-              <Empty>Semua karyawan sudah absen masuk.</Empty>
-            ) : (
-              <ul className="divide-y">
-                {absentees.map((a) => (
-                  <li key={a.id} className="flex items-center gap-2.5 px-4 py-2.5">
-                    <span className="bg-danger-subtle text-danger flex size-7 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold">
-                      {initials(a.name)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12.5px] font-medium">
-                        {a.name}
-                      </span>
-                      <span className="text-subtle block text-[11px]">{a.division}</span>
-                    </span>
-                    <RemindButton ids={[a.id]} date={date} label="Ingatkan" compact />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
+          <AbsenteePanel
+            date={date}
+            div={divFilter}
+            initial={absenteeRows}
+            total={absenteeTotal.n}
+          />
 
-          <Panel title={`Sedang cuti / izin (${onLeave.length})`}>
+          <Panel title={`Sedang cuti / izin (${counts.cuti})`}>
             {onLeave.length === 0 ? (
               <Empty>Tidak ada yang cuti hari ini.</Empty>
             ) : (

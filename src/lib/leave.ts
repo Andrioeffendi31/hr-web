@@ -1,6 +1,6 @@
 /** Annual-leave balance. The formula used to live inline in three pages;
  *  it lives here so /cuti, /karyawan and /laporan can never disagree. */
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   employees,
@@ -43,7 +43,10 @@ export async function holidaySet(year: number): Promise<Set<string>> {
 export async function leaveBalances(
   year: number,
   employeeId?: number,
+  paging?: { limit: number; offset: number },
+  employeeIds?: number[],
 ): Promise<LeaveBalance[]> {
+  if (employeeIds && employeeIds.length === 0) return [];
   const yearStart = `${year}-01-01`;
   const yearEnd = `${year}-12-31`;
 
@@ -75,12 +78,16 @@ export async function leaveBalances(
         ),
       )
       .where(
-        employeeId
-          ? eq(employees.id, employeeId)
-          : eq(employees.active, true),
+        employeeIds
+          ? inArray(employees.id, employeeIds)
+          : employeeId
+            ? eq(employees.id, employeeId)
+            : eq(employees.active, true),
       )
       .groupBy(employees.id, employees.name, employees.joinedAt)
-      .orderBy(employees.name),
+      .orderBy(employees.name)
+      .limit(paging?.limit ?? 1000)
+      .offset(paging?.offset ?? 0),
 
     db
       .select({ date: holidays.date })
@@ -112,4 +119,16 @@ export async function leaveBalances(
       remaining: remainingLeave(quota, r.adjustment, r.usedRequests, usedCollective),
     };
   });
+}
+
+/** Attach each requester's remaining balance — one query for the whole page,
+ *  scoped to the employees actually on it (not a full-table scan). */
+export async function withRemaining<T extends { employeeId: number }>(
+  rows: T[],
+  year: number,
+): Promise<(T & { remaining: number | null })[]> {
+  const ids = [...new Set(rows.map((r) => r.employeeId))];
+  const balances = await leaveBalances(year, undefined, undefined, ids);
+  const map = new Map(balances.map((b) => [b.id, b.remaining]));
+  return rows.map((r) => ({ ...r, remaining: map.get(r.employeeId) ?? null }));
 }

@@ -1,16 +1,37 @@
-import { and, asc, desc, eq, gte, ilike, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import Link from "next/link";
 import { db } from "@/db";
 import { attendance, employees, overtimeRequests } from "@/db/schema";
-import { AttBadge, Empty, PageHead, Panel, Pill } from "@/components/bits";
-import { EmployeeDrawer } from "./drawer";
+import { AttBadge, PageHead, Pill } from "@/components/bits";
+import { DataTable, type Column } from "@/components/data-table";
+import { EmployeeDetail } from "./detail-modal";
 import { EmployeeForm } from "./employee-form";
 import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
+import { SelectField } from "@/components/select-field";
 import { type AttStatus, initials, tanggalPendek, todayWib } from "@/lib/hr";
 import { leaveBalances } from "@/lib/leave";
+import { parsePaging, parseSort } from "@/lib/paging";
 
-type Search = { q?: string; div?: string; status?: string; open?: string };
+type Search = {
+  q?: string;
+  div?: string;
+  status?: string;
+  open?: string;
+  page?: string;
+  perPage?: string;
+  sort?: string;
+  dir?: string;
+};
+
+/** whitelist for ?sort= — anything else falls back to name A-Z */
+const SORTABLE = {
+  nama: employees.name,
+  divisi: employees.division,
+  jabatan: employees.position,
+  mulai: employees.joinedAt,
+};
 
 const STATUS = ["aktif", "nonaktif", "semua"] as const;
 
@@ -41,35 +62,49 @@ export default async function KaryawanPage({
       .orderBy(asc(employees.name)),
   ]);
 
-  const rows = await db
-    .select({
-      id: employees.id,
-      name: employees.name,
-      nik: employees.nik,
-      division: employees.division,
-      position: employees.position,
-      contractType: employees.contractType,
-      joinedAt: employees.joinedAt,
-      active: employees.active,
-      status: attendance.status,
-    })
-    .from(employees)
-    .leftJoin(
-      attendance,
-      and(eq(attendance.employeeId, employees.id), eq(attendance.date, today)),
-    )
-    .where(
-      and(
-        divFilter === "all" ? undefined : eq(employees.division, divFilter),
-        q ? ilike(employees.name, `%${q}%`) : undefined,
-        statusFilter === "semua"
-          ? undefined
-          : eq(employees.active, statusFilter === "aktif"),
-      ),
-    )
-    .orderBy(asc(employees.name));
+  const where = and(
+    divFilter === "all" ? undefined : eq(employees.division, divFilter),
+    q ? ilike(employees.name, `%${q}%`) : undefined,
+    statusFilter === "semua"
+      ? undefined
+      : eq(employees.active, statusFilter === "aktif"),
+  );
 
-  // Drawer detail — only queried when a row is open, so the list stays cheap.
+  const { page, perPage, offset } = parsePaging(sp);
+  const sorting = parseSort(sp, SORTABLE, "nama");
+  const orderColumn = sorting.column ?? employees.name;
+
+  const [rows, [totalRow]] = await Promise.all([
+    db
+      .select({
+        id: employees.id,
+        name: employees.name,
+        nik: employees.nik,
+        email: employees.email,
+        role: employees.role,
+        division: employees.division,
+        position: employees.position,
+        contractType: employees.contractType,
+        joinedAt: employees.joinedAt,
+        workLocation: employees.workLocation,
+        managerId: employees.managerId,
+        active: employees.active,
+        status: attendance.status,
+      })
+      .from(employees)
+      .leftJoin(
+        attendance,
+        and(eq(attendance.employeeId, employees.id), eq(attendance.date, today)),
+      )
+      .where(where)
+      .orderBy(sorting.dir === "desc" ? desc(orderColumn) : asc(orderColumn))
+      .limit(perPage)
+      .offset(offset),
+    db.select({ n: count() }).from(employees).where(where),
+  ]);
+  const total = totalRow.n;
+
+  // Detail modal — only queried when a row is open, so the list stays cheap.
   let detail = null;
   if (openId) {
     const [emp] = await db
@@ -164,9 +199,110 @@ export default async function KaryawanPage({
   };
   const divisionNames = divisions.map((d) => d.division);
 
+  const columns: Column<(typeof rows)[number]>[] = [
+    {
+      key: "nama",
+      header: "Karyawan",
+      sortable: true,
+      cell: (r) => (
+        <Link
+          href={`?${params({ open: String(r.id) })}`}
+          scroll={false}
+          className="flex items-center gap-2.5 hover:underline"
+        >
+          <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold">
+            {initials(r.name)}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-[13px] font-medium">
+              {r.name}
+              {!r.active && (
+                <span className="text-subtle ml-1.5 text-[11px] font-normal">
+                  (nonaktif)
+                </span>
+              )}
+            </span>
+            <span className="text-subtle tnum block text-[11px]">{r.nik}</span>
+          </span>
+        </Link>
+      ),
+    },
+    {
+      key: "divisi",
+      header: "Divisi",
+      sortable: true,
+      className: "text-muted-foreground text-[12.5px]",
+      cell: (r) => r.division,
+    },
+    {
+      key: "jabatan",
+      header: "Jabatan",
+      sortable: true,
+      className: "text-[12.5px]",
+      cell: (r) => r.position,
+    },
+    {
+      key: "tipe",
+      header: "Tipe",
+      cell: (r) => (
+        <Pill tone={r.contractType === "Tetap" ? "success" : "neutral"}>
+          {r.contractType}
+        </Pill>
+      ),
+    },
+    {
+      key: "mulai",
+      header: "Mulai kerja",
+      sortable: true,
+      className: "tnum text-muted-foreground text-[12.5px]",
+      cell: (r) => `${tanggalPendek(r.joinedAt)} ${r.joinedAt.slice(0, 4)}`,
+    },
+    {
+      key: "hariini",
+      header: "Hari ini",
+      cell: (r) => <AttBadge status={(r.status ?? "belum_absen") as AttStatus} />,
+    },
+    {
+      key: "aksi",
+      header: "Aksi",
+      sticky: true,
+      cell: (r) => (
+        <EmployeeForm
+          divisions={divisionNames}
+          managers={allEmployees}
+          initial={{
+            id: r.id,
+            nik: r.nik,
+            name: r.name,
+            email: r.email,
+            role: r.role,
+            division: r.division,
+            position: r.position,
+            contractType: r.contractType,
+            joinedAt: r.joinedAt,
+            workLocation: r.workLocation,
+            managerId: r.managerId,
+            active: r.active,
+          }}
+          trigger={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Ubah data ${r.name}`}
+              title={`Ubah data ${r.name}`}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Pencil className="size-3.5" aria-hidden />
+            </Button>
+          }
+        />
+      ),
+    },
+  ];
+
   return (
     <>
-      <PageHead title="Data Karyawan" desc={`${rows.length} karyawan ditampilkan`}>
+      <PageHead title="Data Karyawan" desc={`${total} karyawan`}>
         <form className="flex items-end gap-2">
           <div>
             <label
@@ -190,19 +326,16 @@ export default async function KaryawanPage({
             >
               Divisi
             </label>
-            <select
+            <SelectField
               id="div"
               name="div"
               defaultValue={divFilter}
-              className="bg-card border-border-strong h-9 rounded-[9px] border px-2 text-[13px]"
-            >
-              <option value="all">Semua divisi</option>
-              {divisions.map((d) => (
-                <option key={d.division} value={d.division}>
-                  {d.division}
-                </option>
-              ))}
-            </select>
+              autoSubmit
+              options={[
+                { value: "all", label: "Semua divisi" },
+                ...divisions.map((d) => ({ value: d.division, label: d.division })),
+              ]}
+            />
           </div>
           <div>
             <label
@@ -211,22 +344,24 @@ export default async function KaryawanPage({
             >
               Status
             </label>
-            <select
+            <SelectField
               id="status"
               name="status"
               defaultValue={statusFilter}
-              className="bg-card border-border-strong h-9 rounded-[9px] border px-2 text-[13px]"
-            >
-              <option value="aktif">Aktif</option>
-              <option value="nonaktif">Nonaktif</option>
-              <option value="semua">Semua</option>
-            </select>
+              autoSubmit
+              options={[
+                { value: "aktif", label: "Aktif" },
+                { value: "nonaktif", label: "Nonaktif" },
+                { value: "semua", label: "Semua" },
+              ]}
+            />
           </div>
+          {/* the name box still needs Enter/submit; the pickers submit themselves */}
           <button
             type="submit"
             className="bg-surface-2 border-border-strong hover:bg-accent h-9 rounded-[9px] border px-3.5 text-[13px] font-medium transition-colors"
           >
-            Terapkan
+            Cari
           </button>
         </form>
 
@@ -237,71 +372,23 @@ export default async function KaryawanPage({
         />
       </PageHead>
 
-      <Panel>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left">
-            <thead>
-              <tr className="bg-surface-2 text-subtle border-b text-[11px] font-semibold tracking-[0.05em] uppercase">
-                <th className="px-4 py-2.5 font-semibold">Karyawan</th>
-                <th className="px-3 py-2.5 font-semibold">Divisi</th>
-                <th className="px-3 py-2.5 font-semibold">Jabatan</th>
-                <th className="px-3 py-2.5 font-semibold">Tipe</th>
-                <th className="px-3 py-2.5 font-semibold">Mulai kerja</th>
-                <th className="px-4 py-2.5 font-semibold">Hari ini</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-surface-2 border-b last:border-0">
-                  <td className="px-4 py-2.5">
-                    <Link
-                      href={`?${params({ open: String(r.id) })}`}
-                      scroll={false}
-                      className="flex items-center gap-2.5 hover:underline"
-                    >
-                      <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold">
-                        {initials(r.name)}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-medium">
-                          {r.name}
-                          {!r.active && (
-                            <span className="text-subtle ml-1.5 text-[11px] font-normal">
-                              (nonaktif)
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-subtle tnum block text-[11px]">
-                          {r.nik}
-                        </span>
-                      </span>
-                    </Link>
-                  </td>
-                  <td className="text-muted-foreground px-3 py-2.5 text-[12.5px]">
-                    {r.division}
-                  </td>
-                  <td className="px-3 py-2.5 text-[12.5px]">{r.position}</td>
-                  <td className="px-3 py-2.5">
-                    <Pill tone={r.contractType === "Tetap" ? "success" : "neutral"}>
-                      {r.contractType}
-                    </Pill>
-                  </td>
-                  <td className="tnum text-muted-foreground px-3 py-2.5 text-[12.5px]">
-                    {tanggalPendek(r.joinedAt)} {r.joinedAt.slice(0, 4)}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <AttBadge status={(r.status ?? "belum_absen") as AttStatus} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {rows.length === 0 && <Empty>Tidak ada karyawan yang cocok.</Empty>}
-        </div>
-      </Panel>
+      <DataTable
+        rows={rows}
+        columns={columns}
+        total={total}
+        page={page}
+        perPage={perPage}
+        path="/karyawan"
+        sp={sp}
+        sort={sorting.key}
+        dir={sorting.dir}
+        minWidth={860}
+        empty="Tidak ada karyawan yang cocok."
+        rowKey={(r) => r.id}
+      />
 
       {detail && (
-        <EmployeeDrawer
+        <EmployeeDetail
           detail={detail}
           backHref={backHref()}
           divisions={divisionNames}

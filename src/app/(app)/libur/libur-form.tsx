@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/date-field";
 import { Panel } from "@/components/bits";
 import {
   Dialog,
@@ -61,6 +62,8 @@ export function HolidayTools({ year }: { year: number }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  // bumping this remounts the date picker, which form.reset() cannot clear
+  const [formKey, setFormKey] = useState(0);
   const [picked, setPicked] = useState<Set<string>>(new Set());
 
   const done = (msg: string) => {
@@ -75,7 +78,10 @@ export function HolidayTools({ year }: { year: number }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       }),
-    onSuccess: (_d, v) => done(`${v.name} disimpan`),
+    onSuccess: (_d, v) => {
+      setFormKey((k) => k + 1);
+      done(`${v.name} disimpan`);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -142,29 +148,33 @@ export function HolidayTools({ year }: { year: number }) {
     <div className="flex w-full shrink-0 flex-col gap-4 lg:w-[320px]">
       <Panel title="Tambah hari libur">
         <form
+          key={formKey}
           className="flex flex-col gap-3 p-4"
           onSubmit={(e) => {
             e.preventDefault();
             const f = new FormData(e.currentTarget);
+            const date = String(f.get("date") ?? "");
+            if (!date) {
+              toast.error("Tanggal wajib dipilih");
+              return;
+            }
             add.mutate({
-              date: String(f.get("date")),
+              date,
               name: String(f.get("name")).trim(),
               collective: f.get("collective") === "on",
             });
-            e.currentTarget.reset();
           }}
         >
-          <label className="text-[12px] font-medium">
-            Tanggal
-            <input
+          <div className="text-[12px] font-medium">
+            <label htmlFor="holiday-date">Tanggal</label>
+            <DateField
+              id="holiday-date"
               name="date"
-              type="date"
-              required
               min={`${year}-01-01`}
               max={`${year}-12-31`}
-              className={FIELD}
+              className="mt-1 w-full"
             />
-          </label>
+          </div>
           <label className="text-[12px] font-medium">
             Nama hari libur
             <input name="name" required maxLength={120} className={FIELD} />

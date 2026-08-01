@@ -4,6 +4,7 @@ import Link from "next/link";
 import { db } from "@/db";
 import { attendance, employees } from "@/db/schema";
 import { PageHead, Panel } from "@/components/bits";
+import { DateField } from "@/components/date-field";
 import { namaBulan, todayWib } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 
@@ -62,13 +63,7 @@ export default async function LaporanPage({
             >
               Dari
             </label>
-            <input
-              id="from"
-              type="date"
-              name="from"
-              defaultValue={from}
-              className="bg-card border-border-strong tnum h-9 rounded-[9px] border px-2.5 text-[13px]"
-            />
+            <DateField id="from" name="from" defaultValue={from} max={to} autoSubmit />
           </div>
           <div>
             <label
@@ -77,20 +72,8 @@ export default async function LaporanPage({
             >
               Sampai
             </label>
-            <input
-              id="to"
-              type="date"
-              name="to"
-              defaultValue={to}
-              className="bg-card border-border-strong tnum h-9 rounded-[9px] border px-2.5 text-[13px]"
-            />
+            <DateField id="to" name="to" defaultValue={to} min={from} autoSubmit />
           </div>
-          <button
-            type="submit"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 h-9 rounded-[9px] px-3.5 text-[13px] font-medium transition-colors"
-          >
-            Terapkan
-          </button>
         </form>
       </PageHead>
 

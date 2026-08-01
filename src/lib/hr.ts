@@ -24,6 +24,19 @@ export function statusGroup(s: AttStatus) {
 const isWeekend = (d: Date) => d.getUTCDay() === 0 || d.getUTCDay() === 6;
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
+/** Date → YYYY-MM-DD using the *local* calendar. `toISOString()` would shift
+ *  a WIB (UTC+7) date back a day for anything before 07:00. */
+export function isoFromDate(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** YYYY-MM-DD → local midnight Date, the inverse of isoFromDate. */
+export function dateFromIso(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 /** A real calendar date in YYYY-MM-DD. The shape regex alone lets "2026-13-40"
  *  through, which then blows up inside Postgres instead of at the boundary. */
 export function isIsoDate(s: string): boolean {

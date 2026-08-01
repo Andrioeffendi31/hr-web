@@ -48,7 +48,7 @@ for p in kehadiran cuti lembur karyawan libur pengumuman berkas laporan; do
   check "/$p" 200 "$(code "$BASE/$p")"
 done
 check "/kehadiran?tab=recap" 200 "$(code "$BASE/kehadiran?tab=recap")"
-check "/karyawan?open=1 (drawer)" 200 "$(code "$BASE/karyawan?open=1")"
+check "/karyawan?open=1 (modal detail)" 200 "$(code "$BASE/karyawan?open=1")"
 
 echo "5. seeded data actually reaches the page"
 check "employee name on attendance board" "Andini Rahmawati" \
@@ -214,6 +214,45 @@ check "out-of-range adjustment rejected" 400 \
   "$(code -X PATCH -H 'Content-Type: application/json' \
       -d '{"employeeId":2,"year":2026,"days":999}' "$BASE/api/leave-balance")"
 bal '{"employeeId":2,"year":2026,"days":0}' > /dev/null
+
+echo "14. datatable: pagination & sorting via URL"
+check "page 2 renders" 200 "$(code "$BASE/karyawan?page=2")"
+check "page beyond the end still renders" 200 "$(code "$BASE/lembur?page=999")"
+check "range label present" 1 \
+  "$(body "$BASE/karyawan" | grep -cE '[0-9]+–[0-9]+ dari [0-9]+')"
+first_row() { grep -o 'text-\[13px\] font-medium">[A-Za-z ]*' | head -1 | sed 's/.*">//'; }
+check "default order is name A-Z" "Andini Rahmawati" \
+  "$(body "$BASE/karyawan" | first_row)"
+check "sorting changes the order" 1 \
+  "$([ "$(body "$BASE/karyawan?sort=divisi&dir=desc" | first_row)" != "Andini Rahmawati" ] && echo 1 || echo 0)"
+# a crafted ?sort must never reach SQL — it falls back to the default ordering
+check "crafted sort falls back, no 500" "Andini Rahmawati" \
+  "$(body "$BASE/karyawan?sort=name;drop%20table%20employees" | first_row)"
+check "crafted dir falls back" 200 "$(code "$BASE/karyawan?sort=nama&dir=;delete")"
+check "negative page falls back to 1" 200 "$(code "$BASE/berkas?page=-3")"
+check "berkas sorting" 200 "$(code "$BASE/berkas?sort=ukuran&dir=desc")"
+# the stat card counts every employee, not just the visible page
+check "status filter total matches panel" 1 \
+  "$(body "$BASE/kehadiran?status=belum&date=2026-07-30" > /tmp/keh.$$.html; \
+     PANEL=$(grep -o 'Belum absen masuk ([0-9]*)' /tmp/keh.$$.html | grep -o '[0-9]*' | head -1); \
+     TABLE=$(grep -oE '[0-9]+–[0-9]+ dari [0-9]+' /tmp/keh.$$.html | head -1 | sed 's/.*dari //'); \
+     rm -f /tmp/keh.$$.html; [ -n "$PANEL" ] && [ "$PANEL" = "$TABLE" ] && echo 1 || echo "panel=$PANEL table=$TABLE")"
+
+echo "15. feed API for infinite scroll"
+feed() { body "$BASE/api/feed/$1"; }
+check "pengumuman page 1 has items" 1 \
+  "$(feed "pengumuman?page=1" | grep -c '"items":\[{')"
+check "last page reports no next" "null" \
+  "$(feed "pengumuman?page=99" | sed 's/.*"nextPage":\([^,}]*\).*/\1/')"
+check "cuti feed filters by status" 1 \
+  "$([ "$(feed "cuti?status=ditolak" | grep -c '"status":"ditolak"')" -ge 0 ] && echo 1 || echo 0)"
+check "saldo feed returns balances" 1 "$(feed "saldo?year=2026" | grep -c '"remaining"')"
+check "belum-absen feed" 1 \
+  "$([ "$(feed "belum-absen?date=2026-07-30" | grep -c '"items"')" = 1 ] && echo 1 || echo 0)"
+check "unknown feed is 404" 404 "$(code "$BASE/api/feed/tidakada")"
+check "bad page is 400" 400 "$(code "$BASE/api/feed/pengumuman?page=0")"
+check "feed needs a session" 307 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/feed/pengumuman")"
 
 rm -f "$JAR" "$BADJAR"
 echo

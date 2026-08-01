@@ -5,7 +5,15 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { ComboboxField } from "@/components/combobox-field";
+import { DateField } from "@/components/date-field";
+import { SelectField } from "@/components/select-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export type EmployeeInput = {
   id?: number;
@@ -26,7 +34,7 @@ const FIELD =
   "bg-card border-border-strong mt-1 h-9 w-full rounded-[9px] border px-2.5 text-[13px]";
 const LABEL = "text-[12px] font-medium";
 
-/** Add / edit an employee. Same sheet for both — create posts, edit patches. */
+/** Add / edit an employee. Same modal for both — create posts, edit patches. */
 export function EmployeeForm({
   initial,
   divisions,
@@ -68,13 +76,13 @@ export function EmployeeForm({
   });
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>{trigger}</SheetTrigger>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[420px]">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="flex max-h-[86vh] flex-col gap-0 p-0 sm:max-w-[560px]">
         <div className="border-b py-4 pr-14 pl-5">
-          <SheetTitle className="text-[15px] font-semibold">
+          <DialogTitle className="text-[15px] font-semibold">
             {editing ? "Ubah data karyawan" : "Tambah karyawan"}
-          </SheetTitle>
+          </DialogTitle>
         </div>
 
         <form
@@ -83,6 +91,15 @@ export function EmployeeForm({
             e.preventDefault();
             const f = new FormData(e.currentTarget);
             const managerId = String(f.get("managerId") ?? "");
+            // hidden inputs skip browser validation, so check the two pickers here
+            if (!String(f.get("division") ?? "").trim()) {
+              toast.error("Divisi wajib diisi");
+              return;
+            }
+            if (!f.get("joinedAt")) {
+              toast.error("Tanggal mulai kerja wajib diisi");
+              return;
+            }
             m.mutate({
               ...(editing && { id: initial!.id, active: initial!.active ?? true }),
               nik: f.get("nik"),
@@ -99,7 +116,7 @@ export function EmployeeForm({
             });
           }}
         >
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             <div className="grid grid-cols-2 gap-3">
               <label className={LABEL}>
                 NIK
@@ -119,21 +136,20 @@ export function EmployeeForm({
                   className={FIELD}
                 />
               </label>
-              <label className={LABEL}>
-                Divisi
-                <input
+              <div className={LABEL}>
+                <label htmlFor="division">Divisi</label>
+                <ComboboxField
+                  id="division"
                   name="division"
-                  required
-                  list="divisi-list"
                   defaultValue={initial?.division}
-                  className={FIELD}
+                  options={divisions.map((d) => ({ value: d, label: d }))}
+                  placeholder="Pilih divisi"
+                  searchPlaceholder="Cari atau ketik divisi baru…"
+                  emptyText="Ketik untuk membuat divisi baru."
+                  allowCreate
+                  className="mt-1"
                 />
-                <datalist id="divisi-list">
-                  {divisions.map((d) => (
-                    <option key={d} value={d} />
-                  ))}
-                </datalist>
-              </label>
+              </div>
               <label className={LABEL}>
                 Jabatan
                 <input
@@ -143,27 +159,28 @@ export function EmployeeForm({
                   className={FIELD}
                 />
               </label>
-              <label className={LABEL}>
-                Tipe kontrak
-                <select
+              <div className={LABEL}>
+                <label htmlFor="contractType">Tipe kontrak</label>
+                <SelectField
+                  id="contractType"
                   name="contractType"
                   defaultValue={initial?.contractType ?? "Tetap"}
-                  className={FIELD}
-                >
-                  <option value="Tetap">Tetap</option>
-                  <option value="Kontrak">Kontrak</option>
-                </select>
-              </label>
-              <label className={LABEL}>
-                Mulai kerja
-                <input
-                  name="joinedAt"
-                  type="date"
-                  required
-                  defaultValue={initial?.joinedAt}
-                  className={FIELD}
+                  options={[
+                    { value: "Tetap", label: "Tetap" },
+                    { value: "Kontrak", label: "Kontrak" },
+                  ]}
+                  className="mt-1 w-full"
                 />
-              </label>
+              </div>
+              <div className={LABEL}>
+                <label htmlFor="joinedAt">Mulai kerja</label>
+                <DateField
+                  id="joinedAt"
+                  name="joinedAt"
+                  defaultValue={initial?.joinedAt}
+                  className="mt-1 w-full"
+                />
+              </div>
               <label className={LABEL}>
                 Lokasi kerja
                 <input
@@ -173,35 +190,36 @@ export function EmployeeForm({
                   className={FIELD}
                 />
               </label>
-              <label className={LABEL}>
-                Hak akses
-                <select
+              <div className={LABEL}>
+                <label htmlFor="role">Hak akses</label>
+                <SelectField
+                  id="role"
                   name="role"
                   defaultValue={initial?.role ?? "employee"}
-                  className={FIELD}
-                >
-                  <option value="employee">Karyawan</option>
-                  <option value="manager">Manager</option>
-                  <option value="hr_admin">HR Admin</option>
-                </select>
-              </label>
-              <label className={`${LABEL} col-span-2`}>
-                Atasan langsung
-                <select
+                  options={[
+                    { value: "employee", label: "Karyawan" },
+                    { value: "manager", label: "Manager" },
+                    { value: "hr_admin", label: "HR Admin" },
+                  ]}
+                  className="mt-1 w-full"
+                />
+              </div>
+              <div className={`${LABEL} col-span-2`}>
+                <label htmlFor="managerId">Atasan langsung</label>
+                <ComboboxField
+                  id="managerId"
                   name="managerId"
-                  defaultValue={initial?.managerId ?? ""}
-                  className={FIELD}
-                >
-                  <option value="">— tidak ada —</option>
-                  {managers
+                  defaultValue={initial?.managerId ? String(initial.managerId) : ""}
+                  options={managers
                     .filter((mg) => mg.id !== initial?.id)
-                    .map((mg) => (
-                      <option key={mg.id} value={mg.id}>
-                        {mg.name}
-                      </option>
-                    ))}
-                </select>
-              </label>
+                    .map((mg) => ({ value: String(mg.id), label: mg.name }))}
+                  placeholder="— tidak ada —"
+                  searchPlaceholder="Cari karyawan…"
+                  emptyText="Karyawan tidak ditemukan."
+                  clearLabel="— tidak ada —"
+                  className="mt-1"
+                />
+              </div>
               {!editing && (
                 <label className={`${LABEL} col-span-2`}>
                   Kata sandi awal
@@ -221,21 +239,23 @@ export function EmployeeForm({
             </div>
           </div>
 
-          <div className="flex gap-2 border-t px-5 py-3.5">
+          {/* grid, not flex — the Button base sets shrink-0, so flex-1 alone
+              leaves the two footer buttons unequal */}
+          <div className="grid grid-cols-2 gap-2 border-t px-5 py-3.5">
             <Button
               type="button"
               variant="outline"
-              className="flex-1"
+              className="h-10 w-full"
               onClick={() => setOpen(false)}
             >
               Batal
             </Button>
-            <Button type="submit" className="flex-1" disabled={m.isPending}>
+            <Button type="submit" className="h-10 w-full" disabled={m.isPending}>
               {editing ? "Simpan perubahan" : "Tambah karyawan"}
             </Button>
           </div>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

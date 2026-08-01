@@ -194,9 +194,8 @@
   html {
     @apply font-sans;
   }
-  /* numeric columns read better tabular + mono, as in the mockup */
+  /* numeric columns stay tabular so digits line up; the family follows the page */
   .tnum {
-    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
   ::selection {
