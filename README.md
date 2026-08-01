@@ -7,6 +7,27 @@ Token warna, tipografi, dan layout diambil langsung dari mockup
 `../Ruang HR Lite.dc.html`, dipetakan ke nama token shadcn agar komponen bawaan
 ikut bergaya tanpa restyling.
 
+## Production
+
+Live di **https://web-khaki-eight-38.vercel.app**, database di Neon project
+`ruang-hr` (`small-union-33863299`, region `aws-us-west-2`).
+
+- `DATABASE_URL` dan `AUTH_SECRET` sudah diset sebagai Vercel env var
+  (Production + Preview). `AUTH_URL` sengaja tidak diset — Auth.js otomatis
+  mempercayai host saat `process.env.VERCEL` ada (lihat `@auth/core/lib/utils/env.js`).
+- Database production **sudah di-seed** dengan data demo dari mockup untuk
+  keperluan preview. Password akun HR Admin default (`password123`) **sudah
+  diganti** — hint kredensial demo di halaman login otomatis disembunyikan saat
+  `VERCEL_ENV=production` (`src/app/login/page.tsx`).
+- **Sebelum dipakai sungguhan**: ganti password seluruh akun demo, atau lebih
+  aman lagi, `TRUNCATE` semua tabel dan isi data karyawan asli — data demo
+  hanya dimaksudkan untuk preview.
+- GitHub auto-deploy belum tersambung — `vercel git connect` gagal karena
+  Vercel App belum diotorisasi untuk repo ini. Sambungkan lewat
+  **Vercel dashboard → Project → Settings → Git → Connect Git Repository**
+  (satu klik, butuh otorisasi GitHub yang tidak bisa dilakukan lewat CLI).
+  Sampai saat itu, deploy ulang manual dengan `npx vercel --prod`.
+
 ## Menjalankan
 
 ```bash
@@ -44,7 +65,9 @@ npm run smoke   # end-to-end: login, 7 halaman, approve, ekspor CSV, guard akses
 |---|---|
 | `src/lib/hr.ts` | Semua aturan bisnis (kuota, hari kerja, biaya lembur, status). Satu sumber kebenaran — aplikasi mobile nanti memakai server yang sama, jadi tidak bisa drift. |
 | `src/db/schema.ts` | Skema 7 modul + `settings` (tarif, kuota, shift) dan `audit_log`. |
-| `src/auth.ts` | NextAuth + `requireAdmin()` yang dipanggil ulang di setiap mutasi. |
+| `src/auth.ts` | NextAuth: provider `credentials` (email+sandi) dan `passkey` (WebAuthn), plus `requireAdmin()` yang dipanggil ulang di setiap mutasi. |
+| `src/lib/webauthn.ts` | RP ID diturunkan dari host request (bukan konstanta — satu build melayani localhost dan Vercel), plus challenge sekali-pakai. |
+| `src/app/(app)/profil/*` | Daftarkan dan hapus passkey. |
 | `src/proxy.ts` | Route guard. Next 16 mengganti nama `middleware.ts` → `proxy.ts`. |
 | `src/app/(app)/*` | 7 halaman modul, server component, filter lewat URL. |
 | `src/app/api/*` | Mutasi (approve/tolak, pin, reminder) + ekspor CSV. |
@@ -64,11 +87,29 @@ estimasi biaya, tabel karyawan + drawer detail, pengumuman (pin), berkas
 (metadata), laporan + ekspor CSV. Approve/tolak menulis ke DB, mencatat
 `audit_log`, dan memicu notifikasi.
 
+## Passkey / WebAuthn
+
+Login utama memakai passkey (PRD §7); kata sandi tetap ada sebagai cadangan.
+
+- **Alur**: masuk dengan kata sandi → `/profil` → "Daftarkan perangkat ini" →
+  login berikutnya cukup passkey. Credential bersifat *discoverable*
+  (`residentKey: "required"`), jadi login tidak perlu mengetik email lebih dulu
+  dan server tidak membocorkan email mana yang terdaftar.
+- **Verifikasi assertion terjadi di dalam `authorize()`**, bukan di route
+  handler, supaya sesi hanya terbit setelah tanda tangan benar-benar valid —
+  tidak ada state "sudah terverifikasi" yang bisa dipalsukan pemanggil.
+- **`rpID`/`origin` selalu diambil dari header request**, tidak pernah dari
+  payload klien, dan tidak pernah di-hardcode: satu build melayani `localhost`
+  dan domain Vercel.
+- Challenge disimpan di DB, **sekali pakai** (dihapus saat dibaca) dan kedaluwarsa
+  3 menit. Counter tanda tangan wajib naik, sebagai deteksi authenticator kloningan.
+- `api/webauthn/login` **harus** dikecualikan dari `proxy.ts` — endpoint ini
+  dipanggil sebelum sesi ada. `api/webauthn/register` tetap dijaga.
+
 ## Yang ditunda (dan kenapa)
 
 | Ditunda | Alasan | Tambahkan saat |
 |---|---|---|
-| **WebAuthn / passkey** | Butuh RP ID dari domain nyata + tabel authenticator; tidak bisa diuji tanpa perangkat. Login credentials sudah jalan. | Aplikasi punya domain ter-deploy (PRD Fase 1). |
 | **Kirim email nyata** | `src/lib/email.ts` menulis ke stdout. Template dan titik panggilnya sudah benar. | `RESEND_API_KEY`/`SMTP_URL` tersedia — ganti satu fungsi, pemanggil tidak berubah. |
 | **Upload/unduh berkas** | Metadata sudah di DB; tombol unduh sengaja `disabled`. | Bucket S3/R2 tersedia (PRD Fase 4). |
 | **Ekspor PDF** | CSV (UTF-8 BOM) terbuka langsung di Excel dan memenuhi kebutuhan audit tanpa dependensi baru. | Ada permintaan format PDF spesifik. |

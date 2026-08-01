@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 import { AttBadge, Pill } from "@/components/bits";
+import { EmployeeForm } from "./employee-form";
 import { type AttStatus, initials, jam, tanggalPendek } from "@/lib/hr";
 
 export type Detail = {
@@ -17,6 +21,8 @@ export type Detail = {
   joinedAt: string;
   workLocation: string;
   active: boolean;
+  role: "hr_admin" | "manager" | "employee";
+  managerId: number | null;
   managerName: string | null;
   hadir: number;
   telat: number;
@@ -29,11 +35,37 @@ export type Detail = {
 export function EmployeeDrawer({
   detail: d,
   backHref,
+  divisions,
+  managers,
 }: {
   detail: Detail;
   backHref: string;
+  divisions: string[];
+  managers: { id: number; name: string }[];
 }) {
   const router = useRouter();
+
+  const toggle = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/employees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: d.id, active: !d.active }),
+      });
+      if (!res.ok) {
+        const { error } = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(error ?? "Gagal mengubah status karyawan");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success(
+        d.active ? `${d.name} dinonaktifkan` : `${d.name} diaktifkan kembali`,
+      );
+      router.refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const stats = [
     { label: "Hadir bulan ini", value: d.hadir, cls: "text-success" },
@@ -132,19 +164,57 @@ export function EmployeeDrawer({
           </div>
         </div>
 
-        <div className="flex gap-2 border-t px-5 py-3.5">
-          <Link
-            href={`/berkas?owner=${d.id}`}
-            className="bg-surface-2 border-border-strong hover:bg-accent flex h-10 flex-1 items-center justify-center rounded-[9px] border text-[13px] font-medium transition-colors"
-          >
-            Lihat berkas
-          </Link>
-          <Link
-            href={`/kehadiran?div=${encodeURIComponent(d.division)}`}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-10 flex-1 items-center justify-center rounded-[9px] text-[13px] font-medium transition-colors"
-          >
-            Kehadiran divisi
-          </Link>
+        <div className="flex flex-col gap-2 border-t px-5 py-3.5">
+          <div className="flex gap-2">
+            <EmployeeForm
+              divisions={divisions}
+              managers={managers}
+              initial={{
+                id: d.id,
+                nik: d.nik,
+                name: d.name,
+                email: d.email,
+                role: d.role,
+                division: d.division,
+                position: d.position,
+                contractType: d.contractType,
+                joinedAt: d.joinedAt,
+                workLocation: d.workLocation,
+                managerId: d.managerId,
+                active: d.active,
+              }}
+              trigger={
+                <Button variant="outline" className="h-10 flex-1">
+                  Ubah data
+                </Button>
+              }
+            />
+            <Button
+              variant="outline"
+              disabled={toggle.isPending}
+              onClick={() => {
+                const verb = d.active ? "menonaktifkan" : "mengaktifkan kembali";
+                if (window.confirm(`Yakin ${verb} ${d.name}?`)) toggle.mutate();
+              }}
+              className={d.active ? "text-danger hover:text-danger h-10 flex-1" : "h-10 flex-1"}
+            >
+              {d.active ? "Nonaktifkan" : "Aktifkan"}
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Link
+              href={`/berkas?owner=${d.id}`}
+              className="bg-surface-2 border-border-strong hover:bg-accent flex h-10 flex-1 items-center justify-center rounded-[9px] border text-[13px] font-medium transition-colors"
+            >
+              Lihat berkas
+            </Link>
+            <Link
+              href={`/kehadiran?div=${encodeURIComponent(d.division)}`}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-10 flex-1 items-center justify-center rounded-[9px] text-[13px] font-medium transition-colors"
+            >
+              Kehadiran divisi
+            </Link>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

@@ -1,10 +1,14 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { headers } from "next/headers";
+import { verifyAuthenticationResponse } from "@simplewebauthn/server";
+import type { AuthenticationResponseJSON } from "@simplewebauthn/types";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/db";
-import { employees } from "@/db/schema";
+import { authenticators, employees } from "@/db/schema";
+import { rpFrom, takeChallenge } from "@/lib/webauthn";
 
 declare module "next-auth" {
   interface Session {
@@ -20,6 +24,11 @@ declare module "next-auth" {
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+});
+
+const passkeySchema = z.object({
+  challengeId: z.string().min(1),
+  response: z.string().min(1),
 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -52,9 +61,88 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
-    // ponytail: WebAuthn/passkey (PRD §7) not wired yet — needs @simplewebauthn +
-    // an adapter table and a real RP ID to test against. Credentials covers login
-    // today; add the Passkey provider here when the app has a deployed domain.
+    /**
+     * Passkey / WebAuthn (PRD §7).
+     *
+     * The assertion is verified here rather than in a route handler so the
+     * session is only ever minted after a cryptographically valid signature —
+     * there is no intermediate "verified" state a caller could forge.
+     */
+    Credentials({
+      id: "passkey",
+      name: "Passkey",
+      credentials: { challengeId: {}, response: {} },
+      async authorize(raw) {
+        const parsed = passkeySchema.safeParse(raw);
+        if (!parsed.success) return null;
+
+        let assertion: AuthenticationResponseJSON;
+        try {
+          assertion = JSON.parse(parsed.data.response);
+        } catch {
+          return null;
+        }
+
+        const stored = await takeChallenge(parsed.data.challengeId);
+        if (!stored) return null;
+
+        const credentialId = assertion.id;
+        const [row] = await db
+          .select({
+            authId: authenticators.id,
+            counter: authenticators.counter,
+            publicKey: authenticators.publicKey,
+            credentialId: authenticators.credentialId,
+            employee: employees,
+          })
+          .from(authenticators)
+          .innerJoin(employees, eq(employees.id, authenticators.employeeId))
+          .where(eq(authenticators.credentialId, credentialId))
+          .limit(1);
+        if (!row || !row.employee.active) return null;
+
+        // rpID/origin must come from the request, never from the client payload
+        const { rpID, origin } = rpFrom(await headers());
+
+        let verification;
+        try {
+          verification = await verifyAuthenticationResponse({
+            response: assertion,
+            expectedChallenge: stored.challenge,
+            expectedOrigin: origin,
+            expectedRPID: rpID,
+            requireUserVerification: false,
+            authenticator: {
+              credentialID: Buffer.from(row.credentialId, "base64url"),
+              credentialPublicKey: Buffer.from(row.publicKey, "base64url"),
+              counter: row.counter,
+            },
+          });
+        } catch {
+          return null;
+        }
+        if (!verification.verified) return null;
+
+        // a counter that fails to advance signals a cloned authenticator
+        await db
+          .update(authenticators)
+          .set({
+            counter: verification.authenticationInfo.newCounter,
+            lastUsedAt: new Date(),
+          })
+          .where(eq(authenticators.id, row.authId));
+
+        const u = row.employee;
+        return {
+          id: String(u.id),
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          division: u.division,
+          position: u.position,
+        };
+      },
+    }),
   ],
   callbacks: {
     jwt({ token, user }) {

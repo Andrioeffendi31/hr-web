@@ -119,8 +119,6 @@ export const overtimeRequests = pgTable("overtime_requests", {
   endTime: time("end_time").notNull(),
   minutes: integer("minutes").notNull(),
   kind: overtimeKindEnum("kind").notNull(),
-  /** rupiah, computed server-side from settings.overtimeRatePerHour */
-  estimatedCost: integer("estimated_cost").notNull(),
   reason: text("reason").notNull(),
   status: requestStatusEnum("status").notNull().default("menunggu"),
   decisionNote: text("decision_note"),
@@ -179,7 +177,25 @@ export const documents = pgTable("documents", {
 export const holidays = pgTable("holidays", {
   date: date("date").primaryKey(),
   name: text("name").notNull(),
+  /** cuti bersama draws down the annual leave balance; a plain national
+   *  holiday only removes the day from the working-day count. */
+  collective: boolean("collective").notNull().default(false),
 });
+
+/** Carry-over / manual correction to the annual leave balance, one row per
+ *  employee per year. Days may be negative. Who changed it is in auditLog. */
+export const leaveAdjustments = pgTable(
+  "leave_adjustments",
+  {
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    year: integer("year").notNull(),
+    days: integer("days").notNull(),
+    note: text("note"),
+  },
+  (t) => [uniqueIndex("leave_adj_emp_year").on(t.employeeId, t.year)],
+);
 
 export const auditLog = pgTable("audit_log", {
   id: serial("id").primaryKey(),
@@ -191,21 +207,46 @@ export const auditLog = pgTable("audit_log", {
   at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** single-row config table; avoids hardcoding rates/quotas in app code (PRD §6.3) */
+/** Registered passkeys (PRD §7). Binary values are stored base64url so the rows
+ *  stay portable and the credential id can be indexed and looked up directly. */
+export const authenticators = pgTable("authenticators", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id")
+    .notNull()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  credentialId: text("credential_id").notNull().unique(),
+  publicKey: text("public_key").notNull(),
+  /** signature counter; must never move backwards (replay detection) */
+  counter: integer("counter").notNull().default(0),
+  deviceType: text("device_type").notNull().default("singleDevice"),
+  backedUp: boolean("backed_up").notNull().default(false),
+  transports: text("transports"),
+  /** user-facing label, e.g. "MacBook Pro (Touch ID)" */
+  label: text("label").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+});
+
+/** Short-lived WebAuthn challenges. Kept server-side and single-use so a captured
+ *  assertion cannot be replayed. */
+export const webauthnChallenges = pgTable("webauthn_challenges", {
+  id: text("id").primaryKey(),
+  challenge: text("challenge").notNull(),
+  /** set for registration (who is enrolling); null for discoverable-credential login */
+  employeeId: integer("employee_id").references(() => employees.id, {
+    onDelete: "cascade",
+  }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
+/** single-row config table; avoids hardcoding quotas/shifts in app code.
+ *  No pay rates here — this app records presence, not payroll (PRD §3). */
 export const settings = pgTable("settings", {
   id: integer("id").primaryKey().default(1),
   companyName: text("company_name").notNull().default("PT Nusantara Digital"),
-  overtimeRatePerHour: integer("overtime_rate_per_hour").notNull().default(95000),
-  overtimeHolidayMultiplier: numeric("ot_holiday_multiplier", {
-    precision: 3,
-    scale: 2,
-  })
-    .notNull()
-    .default("1.50"),
   weeklyOvertimeCapHours: integer("weekly_ot_cap_hours").notNull().default(14),
   baseLeaveQuota: integer("base_leave_quota").notNull().default(12),
   shiftStart: time("shift_start").notNull().default("08:00:00"),
   shiftEnd: time("shift_end").notNull().default("17:00:00"),
   lateToleranceMinutes: integer("late_tolerance_minutes").notNull().default(15),
-  monthlyOvertimeBudget: integer("monthly_ot_budget").notNull().default(190000000),
 });

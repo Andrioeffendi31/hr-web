@@ -2,24 +2,17 @@ import { and, asc, desc, eq, gte, ilike, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import Link from "next/link";
 import { db } from "@/db";
-import {
-  attendance,
-  employees,
-  leaveRequests,
-  overtimeRequests,
-  settings,
-} from "@/db/schema";
+import { attendance, employees, overtimeRequests } from "@/db/schema";
 import { AttBadge, Empty, PageHead, Panel, Pill } from "@/components/bits";
 import { EmployeeDrawer } from "./drawer";
-import {
-  type AttStatus,
-  initials,
-  leaveQuota,
-  tanggalPendek,
-  todayWib,
-} from "@/lib/hr";
+import { EmployeeForm } from "./employee-form";
+import { Button } from "@/components/ui/button";
+import { type AttStatus, initials, tanggalPendek, todayWib } from "@/lib/hr";
+import { leaveBalances } from "@/lib/leave";
 
-type Search = { q?: string; div?: string; open?: string };
+type Search = { q?: string; div?: string; status?: string; open?: string };
+
+const STATUS = ["aktif", "nonaktif", "semua"] as const;
 
 export default async function KaryawanPage({
   searchParams,
@@ -29,17 +22,24 @@ export default async function KaryawanPage({
   const sp = await searchParams;
   const q = sp.q?.trim() ?? "";
   const divFilter = sp.div ?? "all";
+  const statusFilter = STATUS.find((s) => s === sp.status) ?? "aktif";
   const openId = sp.open ? Number(sp.open) : null;
   const today = todayWib();
   const monthStart = `${today.slice(0, 7)}-01`;
 
-  const [cfg] = await db.select().from(settings).limit(1);
   const manager = alias(employees, "manager");
 
-  const divisions = await db
-    .selectDistinct({ division: employees.division })
-    .from(employees)
-    .orderBy(asc(employees.division));
+  const [divisions, allEmployees] = await Promise.all([
+    db
+      .selectDistinct({ division: employees.division })
+      .from(employees)
+      .orderBy(asc(employees.division)),
+    db
+      .select({ id: employees.id, name: employees.name })
+      .from(employees)
+      .where(eq(employees.active, true))
+      .orderBy(asc(employees.name)),
+  ]);
 
   const rows = await db
     .select({
@@ -62,6 +62,9 @@ export default async function KaryawanPage({
       and(
         divFilter === "all" ? undefined : eq(employees.division, divFilter),
         q ? ilike(employees.name, `%${q}%`) : undefined,
+        statusFilter === "semua"
+          ? undefined
+          : eq(employees.active, statusFilter === "aktif"),
       ),
     )
     .orderBy(asc(employees.name));
@@ -81,6 +84,8 @@ export default async function KaryawanPage({
         joinedAt: employees.joinedAt,
         workLocation: employees.workLocation,
         active: employees.active,
+        role: employees.role,
+        managerId: employees.managerId,
         managerName: manager.name,
       })
       .from(employees)
@@ -89,7 +94,7 @@ export default async function KaryawanPage({
       .limit(1);
 
     if (emp) {
-      const [[stats], log, [otAgg], [leaveAgg], [todayRow]] = await Promise.all([
+      const [[stats], log, [otAgg], [balance], [todayRow]] = await Promise.all([
         db
           .select({
             hadir: sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(Number),
@@ -125,19 +130,7 @@ export default async function KaryawanPage({
               gte(overtimeRequests.date, monthStart),
             ),
           ),
-        db
-          .select({
-            used: sql<number>`coalesce(sum(${leaveRequests.days}), 0)`.mapWith(Number),
-          })
-          .from(leaveRequests)
-          .where(
-            and(
-              eq(leaveRequests.employeeId, openId),
-              eq(leaveRequests.type, "Cuti Tahunan"),
-              eq(leaveRequests.status, "disetujui"),
-              gte(leaveRequests.startDate, `${today.slice(0, 4)}-01-01`),
-            ),
-          ),
+        leaveBalances(Number(today.slice(0, 4)), openId),
         db
           .select({ status: attendance.status })
           .from(attendance)
@@ -145,12 +138,11 @@ export default async function KaryawanPage({
           .limit(1),
       ]);
 
-      const quota = leaveQuota(emp.joinedAt, today, cfg.baseLeaveQuota);
       detail = {
         ...emp,
         hadir: stats.hadir,
         telat: stats.telat,
-        sisaCuti: quota - leaveAgg.used,
+        sisaCuti: balance?.remaining ?? 0,
         jamLembur: Math.round(otAgg.minutes / 60),
         todayStatus: (todayRow?.status ?? "belum_absen") as AttStatus,
         log: log.map((l) => ({ ...l, status: l.status as AttStatus })),
@@ -158,12 +150,19 @@ export default async function KaryawanPage({
     }
   }
 
-  const backHref = () => {
+  const params = (extra?: Record<string, string>) => {
     const p = new URLSearchParams();
     if (q) p.set("q", q);
     if (divFilter !== "all") p.set("div", divFilter);
+    if (statusFilter !== "aktif") p.set("status", statusFilter);
+    for (const [k, v] of Object.entries(extra ?? {})) p.set(k, v);
+    return p;
+  };
+  const backHref = () => {
+    const p = params();
     return `/karyawan${p.size ? `?${p}` : ""}`;
   };
+  const divisionNames = divisions.map((d) => d.division);
 
   return (
     <>
@@ -205,13 +204,37 @@ export default async function KaryawanPage({
               ))}
             </select>
           </div>
+          <div>
+            <label
+              htmlFor="status"
+              className="text-muted-foreground mb-1 block text-[11px] font-medium"
+            >
+              Status
+            </label>
+            <select
+              id="status"
+              name="status"
+              defaultValue={statusFilter}
+              className="bg-card border-border-strong h-9 rounded-[9px] border px-2 text-[13px]"
+            >
+              <option value="aktif">Aktif</option>
+              <option value="nonaktif">Nonaktif</option>
+              <option value="semua">Semua</option>
+            </select>
+          </div>
           <button
             type="submit"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 h-9 rounded-[9px] px-3.5 text-[13px] font-medium transition-colors"
+            className="bg-surface-2 border-border-strong hover:bg-accent h-9 rounded-[9px] border px-3.5 text-[13px] font-medium transition-colors"
           >
             Terapkan
           </button>
         </form>
+
+        <EmployeeForm
+          divisions={divisionNames}
+          managers={allEmployees}
+          trigger={<Button className="h-9">Tambah karyawan</Button>}
+        />
       </PageHead>
 
       <Panel>
@@ -232,7 +255,7 @@ export default async function KaryawanPage({
                 <tr key={r.id} className="hover:bg-surface-2 border-b last:border-0">
                   <td className="px-4 py-2.5">
                     <Link
-                      href={`?${new URLSearchParams({ ...(q && { q }), ...(divFilter !== "all" && { div: divFilter }), open: String(r.id) })}`}
+                      href={`?${params({ open: String(r.id) })}`}
                       scroll={false}
                       className="flex items-center gap-2.5 hover:underline"
                     >
@@ -242,6 +265,11 @@ export default async function KaryawanPage({
                       <span className="min-w-0">
                         <span className="block truncate text-[13px] font-medium">
                           {r.name}
+                          {!r.active && (
+                            <span className="text-subtle ml-1.5 text-[11px] font-normal">
+                              (nonaktif)
+                            </span>
+                          )}
                         </span>
                         <span className="text-subtle tnum block text-[11px]">
                           {r.nik}
@@ -272,7 +300,14 @@ export default async function KaryawanPage({
         </div>
       </Panel>
 
-      {detail && <EmployeeDrawer detail={detail} backHref={backHref()} />}
+      {detail && (
+        <EmployeeDrawer
+          detail={detail}
+          backHref={backHref()}
+          divisions={divisionNames}
+          managers={allEmployees}
+        />
+      )}
     </>
   );
 }

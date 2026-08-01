@@ -15,7 +15,7 @@ import {
   overtimeRequests,
   settings,
 } from "./schema";
-import { attendanceStatus, overtimeCost, overtimeMinutes, workingDays } from "../lib/hr";
+import { attendanceStatus, overtimeMinutes, workingDays } from "../lib/hr";
 
 const TODAY = "2026-07-30";
 
@@ -62,14 +62,14 @@ function rng(seed: number) {
 
 async function main() {
   await db.execute(
-    sql`TRUNCATE TABLE audit_log, announcement_reads, documents, announcements, overtime_requests, leave_requests, attendance, employees, holidays, settings RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE audit_log, announcement_reads, documents, announcements, overtime_requests, leave_requests, leave_adjustments, attendance, employees, holidays, settings RESTART IDENTITY CASCADE`,
   );
 
   await db.insert(settings).values({ id: 1 });
 
   await db.insert(holidays).values([
     { date: "2026-08-17", name: "Hari Kemerdekaan RI" },
-    { date: "2026-08-18", name: "Libur bersama Kemerdekaan" },
+    { date: "2026-08-18", name: "Cuti Bersama Kemerdekaan", collective: true },
   ]);
 
   const passwordHash = await bcrypt.hash("password123", 10);
@@ -212,7 +212,6 @@ async function main() {
         endTime: o.end,
         minutes,
         kind: o.kind,
-        estimatedCost: overtimeCost(minutes, 95000, o.kind, 1.5),
         reason: o.reason,
         status: o.status,
         decisionNote: o.note ?? null,

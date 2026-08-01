@@ -22,5 +22,10 @@ export const proxy = auth((req) => {
 export default proxy;
 
 export const config = {
-  matcher: ["/((?!login|api/auth|_next/static|_next/image|favicon.ico).*)"],
+  // api/webauthn/login must stay public: it issues the login challenge, so it
+  // is reached before any session exists. Registration stays guarded here and
+  // additionally checks the session itself.
+  matcher: [
+    "/((?!login|api/auth|api/webauthn/login|_next/static|_next/image|favicon.ico).*)",
+  ],
 };

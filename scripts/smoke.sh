@@ -44,7 +44,7 @@ curl -s -b "$BADJAR" -c "$BADJAR" -o /dev/null \
 check "no session for bad password" "" "$(curl -s -b "$BADJAR" "$BASE/api/auth/session" | grep -o 'hr_admin' | head -1)"
 
 echo "4. every module page renders"
-for p in kehadiran cuti lembur karyawan pengumuman berkas laporan; do
+for p in kehadiran cuti lembur karyawan libur pengumuman berkas laporan; do
   check "/$p" 200 "$(code "$BASE/$p")"
 done
 check "/kehadiran?tab=recap" 200 "$(code "$BASE/kehadiran?tab=recap")"
@@ -61,7 +61,9 @@ CSV="$(body "$BASE/api/export/karyawan")"
 # leading BOM is deliberate (Excel UTF-8 detection), so strip it before comparing
 check "csv header row" "NIK" "$(printf '%s' "$CSV" | head -1 | sed $'1s/^\xEF\xBB\xBF//' | cut -d, -f1)"
 check "csv carries a BOM for Excel" "efbbbf" "$(printf '%s' "$CSV" | head -c 3 | xxd -p)"
-check "csv row count (16 karyawan + header)" 17 "$(printf '%s' "$CSV" | grep -c .)"
+# ≥ rather than = so a leftover test employee from section 11 doesn't fail it
+check "csv has a row per employee" 1 \
+  "$([ "$(printf '%s' "$CSV" | grep -c .)" -ge 17 ] && echo 1 || echo 0)"
 check "kehadiran export" 200 "$(code "$BASE/api/export/kehadiran?date=2026-07-30")"
 check "unknown report is 404" 404 "$(code "$BASE/api/export/tidakada")"
 
@@ -83,8 +85,8 @@ check "search by name" "Bagas Prasetyo" \
   "$(body "$BASE/api/search?q=bagas" | first_name)"
 check "search by NIK" 1 \
   "$(body "$BASE/api/search?q=NDG-0044" | grep -c 'Bagas Prasetyo')"
-check "search by division returns many" 4 \
-  "$(body "$BASE/api/search?q=Engineering" | grep -o '"id":' | grep -c .)"
+check "search by division returns many" 1 \
+  "$([ "$(body "$BASE/api/search?q=Engineering" | grep -o '"id":' | grep -c .)" -ge 4 ] && echo 1 || echo 0)"
 check "case-insensitive" 1 "$(body "$BASE/api/search?q=CITRA" | grep -c 'Citra Maharani')"
 check "single char returns nothing" "[]" "$(body "$BASE/api/search?q=a" | sed 's/{"hits":\(.*\)}/\1/')"
 check "no match returns empty" "[]" \
@@ -93,15 +95,125 @@ check "wildcard is escaped, not injected" "[]" \
   "$(body "$BASE/api/search?q=%25%25" | sed 's/{"hits":\(.*\)}/\1/')"
 check "prefix match ranks first" "Maya Sari" \
   "$(body "$BASE/api/search?q=Ma" | first_name)"
-check "hit carries today status" 1 "$(body "$BASE/api/search?q=bagas" | grep -c '"status":"telat"')"
+# the value depends on today's attendance row; only the field is contractual
+check "hit carries today status" 1 "$(body "$BASE/api/search?q=bagas" | grep -c '"status":')"
 check "search needs a session" 307 \
   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/search?q=bagas")"
 
-echo "9. reminder email endpoint"
+echo "9. WebAuthn / passkey"
+# the login challenge is pre-authentication, so it must NOT be behind the proxy
+check "login options is public" 200 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/webauthn/login")"
+check "login options returns json challenge" 1 \
+  "$(curl -s "$BASE/api/webauthn/login" | grep -c '"challengeId"')"
+check "login options carries rpId" 1 \
+  "$(curl -s "$BASE/api/webauthn/login" | grep -c '"rpId"')"
+# registration must stay behind a session
+check "register options needs session" 307 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/webauthn/register")"
+check "register options with session" 200 "$(code "$BASE/api/webauthn/register")"
+check "register options offers a challenge" 1 \
+  "$(body "$BASE/api/webauthn/register" | grep -c '"challengeId"')"
+check "residentKey required (discoverable login)" 1 \
+  "$(body "$BASE/api/webauthn/register" | grep -c '"residentKey":"required"')"
+# a forged assertion must not mint a session
+check "unknown challenge rejected" 400 \
+  "$(code -X POST -H 'Content-Type: application/json' \
+      -d '{"challengeId":"nope","response":{}}' "$BASE/api/webauthn/register")"
+check "revoking someone else's passkey 404s" 404 \
+  "$(code -X DELETE -H 'Content-Type: application/json' -d '{"id":999999}' \
+      "$BASE/api/webauthn/register")"
+check "profil page renders" 200 "$(code "$BASE/profil")"
+
+echo "10. reminder email endpoint"
 check "remind sends to 3 absentees" 3 \
   "$(body -X POST -H 'Content-Type: application/json' \
       -d '{"ids":[10,13,16],"date":"2026-07-30"}' \
       "$BASE/api/remind" | sed 's/.*"sent":\([0-9]*\).*/\1/')"
+
+echo "11. CRUD karyawan"
+NEWNIK="NDG-TEST-$$"
+NEWEMAIL="smoke.$$@nusantaradigital.co.id"
+emp() { # method json
+  body -X "$1" -H 'Content-Type: application/json' -d "$2" "$BASE/api/employees"
+}
+NEWEMP='{"nik":"'"$NEWNIK"'","name":"Smoke Tester","email":"'"$NEWEMAIL"'","role":"employee","division":"Engineering","position":"QA","contractType":"Kontrak","joinedAt":"2026-02-01","workLocation":"Kantor Pusat","managerId":null,"password":"password123"}'
+NEWID="$(emp POST "$NEWEMP" | sed 's/.*"id":\([0-9]*\).*/\1/')"
+check "employee created" 1 "$([ -n "$NEWID" ] && echo 1 || echo 0)"
+check "duplicate nik/email is 409" 409 \
+  "$(code -X POST -H 'Content-Type: application/json' -d "$NEWEMP" "$BASE/api/employees")"
+check "short password rejected" 400 \
+  "$(code -X POST -H 'Content-Type: application/json' \
+      -d "${NEWEMP/password123/short}" "$BASE/api/employees")"
+check "new employee listed" "Smoke Tester" \
+  "$(body "$BASE/karyawan?q=Smoke" | grep -o 'Smoke Tester' | head -1)"
+emp PATCH '{"id":'"$NEWID"',"nik":"'"$NEWNIK"'","name":"Smoke Tested","email":"'"$NEWEMAIL"'","role":"employee","division":"Engineering","position":"QA Lead","contractType":"Kontrak","joinedAt":"2026-02-01","workLocation":"Kantor Pusat","managerId":null,"active":true}' > /dev/null
+check "edit persists" "Smoke Tested" \
+  "$(body "$BASE/karyawan?q=Smoke" | grep -o 'Smoke Tested' | head -1)"
+check "deactivate" "false" \
+  "$(emp PATCH '{"id":'"$NEWID"',"active":false}' | grep -o 'false' | head -1)"
+check "deactivated hidden from aktif filter" 0 \
+  "$(body "$BASE/karyawan?q=Smoke" | grep -c 'Smoke Tested')"
+check "deactivated visible under status=nonaktif" 1 \
+  "$(body "$BASE/karyawan?q=Smoke&status=nonaktif" | grep -c 'Smoke Tested')"
+check "cannot deactivate self" 400 \
+  "$(code -X PATCH -H 'Content-Type: application/json' -d '{"id":1,"active":false}' \
+      "$BASE/api/employees")"
+check "unknown employee is 404" 404 \
+  "$(code -X PATCH -H 'Content-Type: application/json' -d '{"id":999999,"active":false}' \
+      "$BASE/api/employees")"
+
+echo "12. hari libur & cuti bersama"
+check "template is CSV with BOM" "efbbbf" \
+  "$(body "$BASE/api/holidays/template" | head -c 3 | xxd -p)"
+check "add holiday" 200 \
+  "$(code -X POST -H 'Content-Type: application/json' \
+      -d '{"date":"2026-12-25","name":"Hari Raya Natal","collective":false}' \
+      "$BASE/api/holidays")"
+check "bad date rejected" 400 \
+  "$(code -X POST -H 'Content-Type: application/json' \
+      -d '{"date":"25-12-2026","name":"Natal","collective":false}' "$BASE/api/holidays")"
+check "holiday on page" "Hari Raya Natal" \
+  "$(body "$BASE/libur?year=2026" | grep -o 'Hari Raya Natal' | head -1)"
+CSVIMPORT=$'tanggal,nama,cuti_bersama\r\n2026-12-26,Cuti Bersama Natal,ya\r\n2026-13-40,Tanggal Ngawur,tidak\r\n'
+IMPORT_OUT="$(printf '%s' "$CSVIMPORT" > /tmp/hol.$$.csv; \
+  curl -s -b "$JAR" -c "$JAR" -F "file=@/tmp/hol.$$.csv;type=text/csv" \
+    "$BASE/api/holidays/import")"
+check "import accepts good row" 1 "$(printf '%s' "$IMPORT_OUT" | sed 's/.*"imported":\([0-9]*\).*/\1/')"
+check "import reports bad row" 1 "$(printf '%s' "$IMPORT_OUT" | sed 's/.*"skipped":\([0-9]*\).*/\1/')"
+curl -s -b "$JAR" -c "$JAR" -F "file=@/tmp/hol.$$.csv;type=text/csv" \
+  "$BASE/api/holidays/import" > /dev/null
+check "re-import is idempotent (no duplicate)" 1 \
+  "$(body "$BASE/libur?year=2026" | grep -c 'Cuti Bersama Natal')"
+check "cuti bersama deducted from balance" 1 \
+  "$(body "$BASE/cuti" | grep -c 'cuti bersama')"
+check "delete holiday" 200 \
+  "$(code -X DELETE -H 'Content-Type: application/json' -d '{"date":"2026-12-25"}' \
+      "$BASE/api/holidays")"
+# external calendar feed: 200 with items, or a clean 502 when offline — never 500
+SUGGEST="$(code "$BASE/api/holidays/suggest?year=2026")"
+check "suggest degrades gracefully" 1 \
+  "$([ "$SUGGEST" = 200 ] || [ "$SUGGEST" = 502 ] && echo 1 || echo 0)"
+check "suggest rejects a bad year" 400 "$(code "$BASE/api/holidays/suggest?year=abcd")"
+check "delete unknown holiday is 404" 404 \
+  "$(code -X DELETE -H 'Content-Type: application/json' -d '{"date":"1999-01-01"}' \
+      "$BASE/api/holidays")"
+code -X DELETE -H 'Content-Type: application/json' -d '{"date":"2026-12-26"}' \
+  "$BASE/api/holidays" > /dev/null
+rm -f "/tmp/hol.$$.csv"
+
+echo "13. koreksi saldo cuti"
+bal() { body -X PATCH -H 'Content-Type: application/json' -d "$1" "$BASE/api/leave-balance"; }
+check "adjustment saved" "true" "$(bal '{"employeeId":2,"year":2026,"days":3,"note":"carry-over 2025"}' | grep -o 'true' | head -1)"
+check "adjustment shown on cuti page" "koreksi 3" \
+  "$(body "$BASE/cuti" | grep -o 'koreksi 3' | head -1)"
+check "adjustment is replaced, not summed" "koreksi 2" \
+  "$(bal '{"employeeId":2,"year":2026,"days":2}' > /dev/null; \
+     body "$BASE/cuti" | grep -o 'koreksi 2' | head -1)"
+check "out-of-range adjustment rejected" 400 \
+  "$(code -X PATCH -H 'Content-Type: application/json' \
+      -d '{"employeeId":2,"year":2026,"days":999}' "$BASE/api/leave-balance")"
+bal '{"employeeId":2,"year":2026,"days":0}' > /dev/null
 
 rm -f "$JAR" "$BADJAR"
 echo

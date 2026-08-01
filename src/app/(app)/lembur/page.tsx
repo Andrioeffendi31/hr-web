@@ -3,15 +3,7 @@ import { db } from "@/db";
 import { employees, overtimeRequests, settings } from "@/db/schema";
 import { Empty, PageHead, Panel, Pill, ReqBadge, Stat } from "@/components/bits";
 import { DecideButtons } from "@/components/decide-buttons";
-import {
-  durasi,
-  initials,
-  jam,
-  rupiah,
-  rupiahShort,
-  tanggalPendek,
-  todayWib,
-} from "@/lib/hr";
+import { durasi, initials, jam, tanggalPendek, todayWib } from "@/lib/hr";
 
 export default async function LemburPage() {
   const today = todayWib();
@@ -28,7 +20,6 @@ export default async function LemburPage() {
         endTime: overtimeRequests.endTime,
         minutes: overtimeRequests.minutes,
         kind: overtimeRequests.kind,
-        estimatedCost: overtimeRequests.estimatedCost,
         reason: overtimeRequests.reason,
         status: overtimeRequests.status,
         decisionNote: overtimeRequests.decisionNote,
@@ -48,7 +39,6 @@ export default async function LemburPage() {
     db
       .select({
         minutes: sql<number>`coalesce(sum(${overtimeRequests.minutes}), 0)`.mapWith(Number),
-        cost: sql<number>`coalesce(sum(${overtimeRequests.estimatedCost}), 0)`.mapWith(Number),
         people: sql<number>`count(distinct ${overtimeRequests.employeeId})`.mapWith(Number),
       })
       .from(overtimeRequests)
@@ -61,18 +51,15 @@ export default async function LemburPage() {
   ]);
 
   const hours = Math.round(month[0].minutes / 60);
-  const budgetPct = cfg.monthlyOvertimeBudget
-    ? Math.round((month[0].cost / cfg.monthlyOvertimeBudget) * 100)
-    : 0;
 
   return (
     <>
       <PageHead
         title="Lembur"
-        desc={`Tarif ${rupiah(cfg.overtimeRatePerHour)}/jam · hari libur ×${cfg.overtimeHolidayMultiplier} · batas ${cfg.weeklyOvertimeCapHours} jam/minggu`}
+        desc={`Pencatatan jam lembur · batas ${cfg.weeklyOvertimeCapHours} jam/minggu`}
       />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2">
         <Stat
           label="Menunggu persetujuan"
           value={pending[0].n}
@@ -84,17 +71,11 @@ export default async function LemburPage() {
           value={hours}
           sub={`jam · ${month[0].people} karyawan`}
         />
-        <Stat
-          label="Estimasi biaya"
-          value={rupiahShort(month[0].cost)}
-          sub={`${budgetPct}% dari anggaran`}
-          tone={budgetPct > 80 ? "danger" : "neutral"}
-        />
       </div>
 
       <Panel title="Semua pengajuan lembur">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left">
+          <table className="w-full min-w-[760px] text-left">
             <thead>
               <tr className="bg-surface-2 text-subtle border-b text-[11px] font-semibold tracking-[0.05em] uppercase">
                 <th className="px-4 py-2.5 font-semibold">Karyawan</th>
@@ -102,7 +83,6 @@ export default async function LemburPage() {
                 <th className="px-3 py-2.5 font-semibold">Jam</th>
                 <th className="px-3 py-2.5 font-semibold">Durasi</th>
                 <th className="px-3 py-2.5 font-semibold">Tipe</th>
-                <th className="px-3 py-2.5 font-semibold">Estimasi biaya</th>
                 <th className="px-4 py-2.5 font-semibold">Aksi</th>
               </tr>
             </thead>
@@ -145,9 +125,6 @@ export default async function LemburPage() {
                     <Pill tone={r.kind === "Hari libur" ? "info" : "neutral"}>
                       {r.kind}
                     </Pill>
-                  </td>
-                  <td className="tnum px-3 py-3 text-[12.5px] font-medium">
-                    {rupiah(r.estimatedCost)}
                   </td>
                   <td className="px-4 py-3">
                     {r.status === "menunggu" ? (

@@ -10,16 +10,7 @@ import {
   overtimeRequests,
 } from "@/db/schema";
 import { ATT_LABEL, durasi, jam, todayWib } from "@/lib/hr";
-
-/** Excel-safe CSV: BOM so Excel reads UTF-8, CRLF line endings, quotes doubled. */
-function toCsv(headers: string[], rows: (string | number | null)[][]) {
-  const cell = (v: string | number | null) => {
-    const s = v === null || v === undefined ? "" : String(v);
-    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  const lines = [headers.map(cell).join(","), ...rows.map((r) => r.map(cell).join(","))];
-  return "﻿" + lines.join("\r\n");
-}
+import { toCsv } from "@/lib/csv";
 
 const REPORTS = new Set([
   "kehadiran",
@@ -166,7 +157,6 @@ export async function GET(
         endTime: overtimeRequests.endTime,
         minutes: overtimeRequests.minutes,
         kind: overtimeRequests.kind,
-        cost: overtimeRequests.estimatedCost,
         status: overtimeRequests.status,
       })
       .from(overtimeRequests)
@@ -178,11 +168,11 @@ export async function GET(
 
     headers = [
       "NIK", "Nama", "Divisi", "Tanggal", "Mulai", "Selesai",
-      "Durasi", "Tipe", "Estimasi biaya (Rp)", "Status",
+      "Durasi", "Tipe", "Status",
     ];
     rows = data.map((r) => [
       r.nik, r.name, r.division, r.date, jam(r.startTime), jam(r.endTime),
-      durasi(r.minutes), r.kind, r.cost, r.status,
+      durasi(r.minutes), r.kind, r.status,
     ]);
   }
 

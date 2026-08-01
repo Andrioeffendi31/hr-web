@@ -1,11 +1,27 @@
 import { redirect } from "next/navigation";
-import { AuthError } from "next-auth";
-import { auth, signIn } from "@/auth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { CalendarCheck, Fingerprint, ShieldCheck } from "lucide-react";
+import { auth } from "@/auth";
+import { LoginForm } from "./login-form";
 
 export const metadata = { title: "Masuk — Ruang HR" };
+
+const HIGHLIGHTS = [
+  {
+    icon: CalendarCheck,
+    title: "Kehadiran, cuti, dan lembur dalam satu papan",
+    body: "Setujui pengajuan dan pantau absensi harian tanpa berpindah aplikasi.",
+  },
+  {
+    icon: Fingerprint,
+    title: "Masuk tanpa kata sandi",
+    body: "Daftarkan passkey sekali, lalu cukup Touch ID, Face ID, atau Windows Hello.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Siap audit",
+    body: "Setiap persetujuan tercatat lengkap dengan pelaku dan waktunya.",
+  },
+];
 
 export default async function LoginPage({
   searchParams,
@@ -16,99 +32,101 @@ export default async function LoginPage({
   const session = await auth();
   if (session?.user?.role === "hr_admin") redirect(next ?? "/kehadiran");
 
-  async function login(formData: FormData) {
-    "use server";
-    try {
-      await signIn("credentials", {
-        email: String(formData.get("email") ?? ""),
-        password: String(formData.get("password") ?? ""),
-        redirectTo: "/kehadiran",
-      });
-    } catch (e) {
-      if (e instanceof AuthError) redirect("/login?error=invalid");
-      throw e;
-    }
-  }
+  // only allow same-origin paths back, so ?next= can't be used for redirects off-site
+  const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/kehadiran";
 
-  const message =
+  const initialError =
     error === "invalid"
       ? "Email atau kata sandi salah."
       : error === "admin_only"
         ? "Akun ini bukan HR Admin. Karyawan menggunakan aplikasi Ruang HR Mobile."
-        : null;
+        : undefined;
 
-  return (
-    <div className="bg-background flex min-h-dvh items-center justify-center px-4 py-10">
-      <div className="w-full max-w-[380px]">
-        <div className="mb-6 flex items-center gap-2.5">
-          <div className="bg-primary flex size-9 shrink-0 items-center justify-center rounded-[10px] shadow-sm">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M5 20V5.5A1.5 1.5 0 0 1 6.5 4H13a5 5 0 0 1 1.4 9.8L19 20h-3.4l-4-6H8v6H5Z"
-                fill="#fff"
-              />
-            </svg>
-          </div>
-          <div>
-            <div className="font-heading text-base font-bold tracking-tight">
-              Ruang<span className="text-subtle font-semibold"> HR</span>
-            </div>
-            <div className="text-subtle font-mono text-[10.5px]">
-              PT Nusantara Digital
-            </div>
-          </div>
+  const brand = (
+    <div className="flex items-center gap-2.5">
+      <div className="bg-primary flex size-9 shrink-0 items-center justify-center rounded-[10px] shadow-sm">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path
+            d="M5 20V5.5A1.5 1.5 0 0 1 6.5 4H13a5 5 0 0 1 1.4 9.8L19 20h-3.4l-4-6H8v6H5Z"
+            fill="#fff"
+          />
+        </svg>
+      </div>
+      <div>
+        <div className="font-heading text-base font-bold tracking-tight">
+          Ruang<span className="text-subtle font-semibold"> HR</span>
         </div>
-
-        <div className="bg-card rounded-[14px] border p-6 shadow-sm">
-          <h1 className="text-lg font-semibold">Masuk ke konsol HR</h1>
-          <p className="text-muted-foreground mt-1 text-[13px]">
-            Gunakan akun HR Admin perusahaan Anda.
-          </p>
-
-          {message && (
-            <p
-              role="alert"
-              className="bg-danger-subtle text-danger mt-4 rounded-lg px-3 py-2.5 text-[12.5px]"
-            >
-              {message}
-            </p>
-          )}
-
-          <form action={login} className="mt-5 flex flex-col gap-4">
-            <div className="grid gap-1.5">
-              <Label htmlFor="email">Email kantor</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="username"
-                required
-                placeholder="nama@nusantaradigital.co.id"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="password">Kata sandi</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                minLength={8}
-              />
-            </div>
-            <Button type="submit" className="mt-1 h-10 w-full">
-              Masuk
-            </Button>
-          </form>
-
-          <p className="text-subtle mt-4 text-[11.5px] leading-relaxed">
-            Login passkey (WebAuthn) menyusul pada fase berikutnya. Demo:{" "}
-            <span className="font-mono">andini.rahmawati@nusantaradigital.co.id</span> /{" "}
-            <span className="font-mono">password123</span>
-          </p>
+        <div className="text-subtle font-mono text-[10.5px]">
+          PT Nusantara Digital
         </div>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="bg-background min-h-dvh lg:grid lg:grid-cols-[1.05fr_1fr]">
+      {/* Brand panel — hidden on small screens where it would just push the form down */}
+      <aside className="bg-sidebar relative hidden flex-col justify-between border-r p-10 lg:flex">
+        {brand}
+
+        <div className="max-w-[420px]">
+          <h1 className="text-[26px] leading-tight font-semibold tracking-tight">
+            Konsol HR untuk operasional harian.
+          </h1>
+          <p className="text-muted-foreground mt-3 text-[13.5px] leading-relaxed">
+            Kehadiran, cuti, lembur, data karyawan, pengumuman, berkas, dan
+            laporan — semuanya berjalan di atas satu sumber data.
+          </p>
+
+          <ul className="mt-8 flex flex-col gap-5">
+            {HIGHLIGHTS.map((h) => (
+              <li key={h.title} className="flex gap-3.5">
+                <span className="bg-primary-subtle text-primary flex size-9 shrink-0 items-center justify-center rounded-[10px]">
+                  <h.icon className="size-[18px]" aria-hidden />
+                </span>
+                <span>
+                  <span className="block text-[13.5px] font-medium">{h.title}</span>
+                  <span className="text-muted-foreground mt-0.5 block text-[12.5px] leading-relaxed">
+                    {h.body}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="text-subtle text-[11.5px]">
+          Karyawan menggunakan aplikasi Ruang HR Mobile untuk absensi dan
+          pengajuan.
+        </p>
+      </aside>
+
+      <main className="flex items-center justify-center px-5 py-12">
+        <div className="w-full max-w-[380px]">
+          <div className="mb-8 lg:hidden">{brand}</div>
+
+          <h2 className="font-heading text-xl font-semibold tracking-tight">
+            Masuk ke konsol HR
+          </h2>
+          <p className="text-muted-foreground mt-1.5 text-[13px]">
+            Gunakan passkey perangkat Anda, atau email dan kata sandi kantor.
+          </p>
+
+          <div className="mt-7">
+            <LoginForm next={target} initialError={initialError} />
+          </div>
+
+          {process.env.VERCEL_ENV !== "production" && (
+            <p className="text-subtle mt-6 border-t pt-4 text-[11.5px] leading-relaxed">
+              Demo (non-produksi):{" "}
+              <span className="font-mono">
+                andini.rahmawati@nusantaradigital.co.id
+              </span>{" "}
+              / <span className="font-mono">password123</span>
+            </p>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

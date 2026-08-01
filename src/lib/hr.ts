@@ -24,6 +24,14 @@ export function statusGroup(s: AttStatus) {
 const isWeekend = (d: Date) => d.getUTCDay() === 0 || d.getUTCDay() === 6;
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
+/** A real calendar date in YYYY-MM-DD. The shape regex alone lets "2026-13-40"
+ *  through, which then blows up inside Postgres instead of at the boundary. */
+export function isIsoDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && iso(d) === s;
+}
+
 /** Working days in an inclusive range, excluding weekends and national holidays. */
 export function workingDays(
   start: string,
@@ -55,6 +63,26 @@ export function leaveQuota(joinedAt: string, today: string, base = 12): number {
 /** Only Cuti Tahunan draws down the balance (PRD §6.2). */
 export const deductsBalance = (type: string) => type === "Cuti Tahunan";
 
+/** Cuti bersama days charged to one employee: weekends were never working days,
+ *  and days before he joined are not his to pay for. */
+export function collectiveLeaveDays(joinedAt: string, dates: string[]): number {
+  return dates.filter(
+    (d) => d >= joinedAt && !isWeekend(new Date(`${d}T00:00:00Z`)),
+  ).length;
+}
+
+/** Remaining annual leave. `adjustment` is HR's carry-over/correction (may be
+ *  negative); `usedCollective` are the cuti bersama days, which are deducted
+ *  without an individual request. The DB side of this lives in lib/leave.ts. */
+export function remainingLeave(
+  quota: number,
+  adjustment: number,
+  usedRequests: number,
+  usedCollective: number,
+): number {
+  return quota + adjustment - usedRequests - usedCollective;
+}
+
 export function overtimeMinutes(startTime: string, endTime: string): number {
   const m = (t: string) => {
     const [h, min] = t.split(":").map(Number);
@@ -62,16 +90,6 @@ export function overtimeMinutes(startTime: string, endTime: string): number {
   };
   const diff = m(endTime) - m(startTime);
   return diff >= 0 ? diff : diff + 24 * 60; // crosses midnight
-}
-
-export function overtimeCost(
-  minutes: number,
-  ratePerHour: number,
-  kind: "Hari kerja" | "Hari libur",
-  holidayMultiplier = 1.5,
-): number {
-  const base = (minutes / 60) * ratePerHour;
-  return Math.round(base * (kind === "Hari libur" ? holidayMultiplier : 1));
 }
 
 /** Late once clock-in passes shift start + tolerance. */
@@ -97,16 +115,6 @@ export const todayWib = () =>
     timeZone: "Asia/Jakarta",
     dateStyle: "short",
   }).format(new Date());
-
-export const rupiah = (n: number) =>
-  "Rp " + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
-
-export const rupiahShort = (n: number) =>
-  n >= 1_000_000_000
-    ? `Rp ${(n / 1_000_000_000).toFixed(1).replace(".", ",")}m`
-    : n >= 1_000_000
-      ? `Rp ${(n / 1_000_000).toFixed(1).replace(".", ",")}jt`
-      : rupiah(n);
 
 export const durasi = (minutes: number) =>
   `${Math.floor(minutes / 60)}j ${minutes % 60}m`;

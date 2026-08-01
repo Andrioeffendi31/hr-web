@@ -1,17 +1,13 @@
-import { and, count, desc, eq, gte, sql } from "drizzle-orm";
+import { count, desc, eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import Link from "next/link";
 import { db } from "@/db";
 import { employees, leaveRequests, settings } from "@/db/schema";
 import { Empty, PageHead, Panel, Pill, ReqBadge } from "@/components/bits";
 import { DecideButtons } from "@/components/decide-buttons";
-import {
-  deductsBalance,
-  initials,
-  leaveQuota,
-  rentangTanggal,
-  todayWib,
-} from "@/lib/hr";
+import { AdjustBalance } from "./adjust-balance";
+import { deductsBalance, initials, rentangTanggal, todayWib } from "@/lib/hr";
+import { leaveBalances } from "@/lib/leave";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -37,7 +33,7 @@ export default async function CutiPage({
     | "disetujui"
     | "ditolak";
   const today = todayWib();
-  const yearStart = `${today.slice(0, 4)}-01-01`;
+  const year = Number(today.slice(0, 4));
 
   const [cfg] = await db.select().from(settings).limit(1);
   const delegate = alias(employees, "delegate");
@@ -71,27 +67,7 @@ export default async function CutiPage({
       .from(leaveRequests)
       .groupBy(leaveRequests.status),
 
-    // annual leave taken this year, per employee — only Cuti Tahunan draws down
-    db
-      .select({
-        id: employees.id,
-        name: employees.name,
-        joinedAt: employees.joinedAt,
-        used: sql<number>`coalesce(sum(${leaveRequests.days}), 0)`.mapWith(Number),
-      })
-      .from(employees)
-      .leftJoin(
-        leaveRequests,
-        and(
-          eq(leaveRequests.employeeId, employees.id),
-          eq(leaveRequests.type, "Cuti Tahunan"),
-          eq(leaveRequests.status, "disetujui"),
-          gte(leaveRequests.startDate, yearStart),
-        ),
-      )
-      .where(eq(employees.active, true))
-      .groupBy(employees.id, employees.name, employees.joinedAt)
-      .orderBy(employees.name),
+    leaveBalances(year),
   ]);
 
   const countOf = (s: string) => tabCounts.find((c) => c.status === s)?.n ?? 0;
@@ -130,9 +106,7 @@ export default async function CutiPage({
           ) : (
             <div className="flex flex-col gap-3">
               {rows.map((r) => {
-                const quota = leaveQuota(r.joinedAt, today, cfg.baseLeaveQuota);
-                const bal = balances.find((b) => b.id === r.employeeId);
-                const remaining = quota - (bal?.used ?? 0);
+                const remaining = balances.find((b) => b.id === r.employeeId)?.remaining;
                 return (
                   <article
                     key={r.id}
@@ -180,7 +154,9 @@ export default async function CutiPage({
                       <div>
                         <dt className="text-subtle text-[11px]">Sisa saldo</dt>
                         <dd className="tnum text-[12.5px] font-medium">
-                          {deductsBalance(r.type) ? `${remaining} hari` : "tidak dipotong"}
+                          {deductsBalance(r.type)
+                            ? `${remaining ?? "—"} hari`
+                            : "tidak dipotong"}
                         </dd>
                       </div>
                       <div>
@@ -213,11 +189,14 @@ export default async function CutiPage({
           )}
         </div>
 
-        <Panel title="Saldo cuti tahunan" className="w-full shrink-0 lg:w-[290px]">
+        <Panel
+          title={`Saldo cuti tahunan ${year}`}
+          className="w-full shrink-0 lg:w-[320px]"
+        >
           <ul className="divide-y">
             {balances.map((b) => {
-              const quota = leaveQuota(b.joinedAt, today, cfg.baseLeaveQuota);
-              const pct = Math.min(100, Math.round((b.used / quota) * 100));
+              const quota = b.quota + b.adjustment;
+              const pct = Math.min(100, Math.round((b.used / Math.max(quota, 1)) * 100));
               return (
                 <li key={b.id} className="px-4 py-2.5">
                   <div className="flex items-baseline justify-between gap-2">
@@ -225,6 +204,12 @@ export default async function CutiPage({
                     <span className="tnum text-subtle text-[11.5px]">
                       {b.used}/{quota}
                     </span>
+                    <AdjustBalance
+                      employeeId={b.id}
+                      name={b.name}
+                      year={year}
+                      days={b.adjustment}
+                    />
                   </div>
                   <div
                     className="bg-muted mt-1.5 h-1.5 overflow-hidden rounded-full"
@@ -239,6 +224,14 @@ export default async function CutiPage({
                       style={{ width: `${pct}%` }}
                     />
                   </div>
+                  <p className="text-subtle mt-1 text-[10.5px]">
+                    kuota {b.quota}
+                    {b.adjustment !== 0 &&
+                      ` ${b.adjustment > 0 ? "+" : "−"} koreksi ${Math.abs(b.adjustment)}`}{" "}
+                    · pengajuan {b.usedRequests}
+                    {b.usedCollective > 0 && ` · cuti bersama ${b.usedCollective}`} · sisa{" "}
+                    {b.remaining}
+                  </p>
                 </li>
               );
             })}

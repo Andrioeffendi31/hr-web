@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   BarChart3,
   CalendarDays,
+  CalendarOff,
   Clock,
   FolderClosed,
   LogOut,
@@ -42,6 +43,7 @@ const GROUPS = [
     label: "Data & Informasi",
     items: [
       { href: "/karyawan", label: "Karyawan", icon: Users },
+      { href: "/libur", label: "Hari Libur", icon: CalendarOff },
       { href: "/pengumuman", label: "Pengumuman", icon: Megaphone },
       { href: "/berkas", label: "Berkas", icon: FolderClosed },
       { href: "/laporan", label: "Laporan", icon: BarChart3 },
@@ -52,11 +54,13 @@ const GROUPS = [
 const TITLES: Record<string, [string, string]> = {
   "/kehadiran": ["Kehadiran", "papan absensi harian & rekap bulanan"],
   "/cuti": ["Cuti & Izin", "antrian persetujuan dan saldo cuti"],
-  "/lembur": ["Lembur", "pengajuan, durasi, dan estimasi biaya"],
+  "/lembur": ["Lembur", "pengajuan dan durasi jam lembur"],
   "/karyawan": ["Karyawan", "data kepegawaian & riwayat kehadiran"],
+  "/libur": ["Hari Libur", "libur nasional & cuti bersama"],
   "/pengumuman": ["Pengumuman", "informasi internal untuk karyawan"],
   "/berkas": ["Berkas", "dokumen pribadi & perusahaan"],
   "/laporan": ["Laporan", "rekap siap audit, unduh sebagai CSV"],
+  "/profil": ["Profil & Keamanan", "passkey dan data kepegawaian Anda"],
 };
 
 function NavList({
@@ -165,10 +169,12 @@ export function Shell({
       <div className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
         {initials(user.name)}
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium">{user.name}</div>
+      <Link href="/profil" className="min-w-0 flex-1 rounded-md">
+        <div className="truncate text-[13px] font-medium hover:underline">
+          {user.name}
+        </div>
         <div className="text-subtle text-[11px]">{user.position}</div>
-      </div>
+      </Link>
       <Link
         href="/api/auth/signout"
         aria-label="Keluar dari akun"

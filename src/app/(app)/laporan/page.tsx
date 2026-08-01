@@ -11,7 +11,7 @@ const REPORTS = [
   { key: "kehadiran", label: "Rekap kehadiran", desc: "Masuk, keluar, dan status harian per karyawan" },
   { key: "keterlambatan", label: "Rekap keterlambatan", desc: "Jumlah dan menit keterlambatan per karyawan" },
   { key: "cuti", label: "Rekap cuti & izin", desc: "Pengajuan, durasi, dan saldo terpakai" },
-  { key: "lembur", label: "Rekap lembur", desc: "Jam lembur dan estimasi biaya per karyawan" },
+  { key: "lembur", label: "Rekap lembur", desc: "Jam lembur dan tipe hari per karyawan" },
   { key: "divisi", label: "Absensi per divisi", desc: "Tingkat kehadiran agregat tiap divisi" },
   { key: "karyawan", label: "Daftar karyawan aktif", desc: "Data kepegawaian siap audit" },
 ] as const;
