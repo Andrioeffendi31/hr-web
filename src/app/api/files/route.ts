@@ -10,19 +10,27 @@ import {
   allowed,
   deleteObject,
   extOf,
+  headObject,
   keyFor,
   putObject,
   r2Configured,
 } from "@/lib/r2";
 import { isIsoDate } from "@/lib/hr";
 
-const meta = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("doc"),
-    folder: z.enum(["personal", "kontrak", "sertif", "legal"]),
-    /** absent = company-wide document, visible to everyone */
-    ownerId: z.coerce.number().int().positive().optional(),
-  }),
+/** Step 2 of a document upload: the bytes are already in R2 (see
+ *  /api/files/presign), this writes the metadata row. */
+const confirm = z.object({
+  kind: z.literal("doc"),
+  key: z.string().min(1).max(300),
+  name: z.string().trim().min(1).max(200),
+  folder: z.enum(["personal", "kontrak", "sertif", "legal"]),
+  /** absent = company-wide document, visible to everyone */
+  ownerId: z.coerce.number().int().positive().optional(),
+});
+
+/** Images are small enough to proxy through the handler, so they arrive as
+ *  multipart in a single request. */
+const image = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("photo"),
     employeeId: z.coerce.number().int().positive(),
@@ -34,36 +42,90 @@ const meta = z.discriminatedUnion("kind", [
   }),
 ]);
 
-/**
- * One upload endpoint for all three storage users (document, profile photo,
- * clock-in selfie) — the only thing that differs per kind is which row the key
- * gets written to, so three near-identical routes would be worse.
- *
- * The bytes are proxied through here rather than uploaded straight to R2, which
- * is what makes the bucket private and the download path authorizable.
- */
+const forbidden = (e: unknown) =>
+  Response.json({ error: (e as Error).message }, { status: 403 });
+const unconfigured = () =>
+  Response.json({ error: "Object storage belum dikonfigurasi" }, { status: 503 });
+
 export async function POST(req: Request) {
   let admin;
   try {
     admin = await requireAdmin();
   } catch (e) {
-    return Response.json({ error: (e as Error).message }, { status: 403 });
+    return forbidden(e);
+  }
+  if (!r2Configured()) return unconfigured();
+
+  return req.headers.get("content-type")?.includes("application/json")
+    ? confirmDocument(req, Number(admin.id))
+    : uploadImage(req, Number(admin.id));
+}
+
+async function confirmDocument(req: Request, actorId: number) {
+  const parsed = confirm.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return Response.json({ error: "Permintaan tidak valid" }, { status: 400 });
+  }
+  const { key, name, folder, ownerId } = parsed.data;
+
+  // the key must be one we handed out for this folder, or a caller could claim
+  // any object in the bucket — including somebody else's document
+  if (!key.startsWith(`docs/${folder}/`) || key.split("/").length !== 3) {
+    return Response.json({ error: "Kunci berkas tidak valid" }, { status: 400 });
+  }
+  if (!allowed(extOf(name), "doc")) {
+    return Response.json({ error: "Tipe file tidak didukung" }, { status: 400 });
   }
 
-  if (!r2Configured()) {
+  // a presigned URL cannot cap what gets written to it, so the real size is
+  // whatever R2 reports — never what the browser claimed
+  const sizeBytes = await headObject(key);
+  if (sizeBytes === null) {
+    return Response.json({ error: "Berkas belum sampai di penyimpanan" }, { status: 400 });
+  }
+  if (sizeBytes > MAX_DOC) {
+    await deleteObject(key);
     return Response.json(
-      { error: "Object storage belum dikonfigurasi" },
-      { status: 503 },
+      { error: `File terlalu besar (maks ${MAX_DOC / (1024 * 1024)} MB)` },
+      { status: 413 },
     );
   }
+  if (sizeBytes === 0) {
+    await deleteObject(key);
+    return Response.json({ error: "File kosong" }, { status: 400 });
+  }
 
+  const [row] = await db
+    .insert(documents)
+    .values({
+      name,
+      ext: (extOf(name) || "bin").toUpperCase(),
+      folder,
+      sizeBytes,
+      ownerId: ownerId ?? null,
+      url: key,
+    })
+    .returning({ id: documents.id });
+
+  await db.insert(auditLog).values({
+    actorId,
+    action: "document.upload",
+    entity: "documents",
+    entityId: row.id,
+    detail: `${name} · ${folder}`,
+  });
+  revalidatePath("/berkas");
+  return Response.json({ ok: true, id: row.id, key, sizeBytes });
+}
+
+async function uploadImage(req: Request, actorId: number) {
   const form = await req.formData();
   const file = form.get("file");
   if (!(file instanceof File)) {
     return Response.json({ error: "File tidak ditemukan" }, { status: 400 });
   }
 
-  const parsed = meta.safeParse(Object.fromEntries(form));
+  const parsed = image.safeParse(Object.fromEntries(form));
   if (!parsed.success) {
     return Response.json(
       { error: parsed.error.issues[0]?.message ?? "Permintaan tidak valid" },
@@ -72,23 +134,15 @@ export async function POST(req: Request) {
   }
   const m = parsed.data;
 
-  const ext = extOf(file.name);
-  if (!allowed(ext, m.kind)) {
+  if (!allowed(extOf(file.name), "photo")) {
     return Response.json(
-      {
-        error:
-          m.kind === "doc"
-            ? "Tipe file tidak didukung (PDF, CSV, XLSX, DOCX, JPG, PNG)"
-            : "Tipe file tidak didukung (JPG, PNG, WEBP)",
-      },
+      { error: "Tipe file tidak didukung (JPG, PNG, WEBP)" },
       { status: 400 },
     );
   }
-
-  const max = m.kind === "doc" ? MAX_DOC : MAX_IMAGE;
-  if (file.size > max) {
+  if (file.size > MAX_IMAGE) {
     return Response.json(
-      { error: `File terlalu besar (maks ${max / (1024 * 1024)} MB)` },
+      { error: `File terlalu besar (maks ${MAX_IMAGE / (1024 * 1024)} MB)` },
       { status: 413 },
     );
   }
@@ -97,32 +151,6 @@ export async function POST(req: Request) {
   }
 
   const bytes = await file.arrayBuffer();
-
-  if (m.kind === "doc") {
-    const key = keyFor("doc", m.folder, file.name);
-    await putObject(key, bytes, file.type);
-    const [row] = await db
-      .insert(documents)
-      .values({
-        name: file.name.slice(0, 200),
-        ext: (ext || "bin").toUpperCase(),
-        folder: m.folder,
-        sizeBytes: file.size,
-        ownerId: m.ownerId ?? null,
-        url: key,
-      })
-      .returning({ id: documents.id });
-
-    await db.insert(auditLog).values({
-      actorId: Number(admin.id),
-      action: "document.upload",
-      entity: "documents",
-      entityId: row.id,
-      detail: `${file.name} · ${m.folder}`,
-    });
-    revalidatePath("/berkas");
-    return Response.json({ ok: true, id: row.id, key });
-  }
 
   if (m.kind === "photo") {
     const key = keyFor("photo", String(m.employeeId));
@@ -138,7 +166,7 @@ export async function POST(req: Request) {
     await putObject(key, bytes, file.type);
 
     await db.insert(auditLog).values({
-      actorId: Number(admin.id),
+      actorId,
       action: "employee.photo",
       entity: "employees",
       entityId: m.employeeId,
@@ -164,7 +192,7 @@ export async function POST(req: Request) {
   await putObject(key, bytes, file.type);
 
   await db.insert(auditLog).values({
-    actorId: Number(admin.id),
+    actorId,
     action: "attendance.selfie",
     entity: "attendance",
     entityId: row.id,
@@ -183,7 +211,7 @@ export async function DELETE(req: Request) {
   try {
     admin = await requireAdmin();
   } catch (e) {
-    return Response.json({ error: (e as Error).message }, { status: 403 });
+    return forbidden(e);
   }
 
   const parsed = del.safeParse(await req.json().catch(() => ({})));

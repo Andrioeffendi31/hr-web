@@ -25,6 +25,33 @@ async function send(url: string, init: RequestInit) {
   return data;
 }
 
+const json = (url: string, body: unknown) =>
+  send(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+/** XHR, not fetch: a 100 MB upload needs a progress bar, and fetch cannot
+ *  report how much of the request body has gone out. */
+function putWithProgress(url: string, file: File, onProgress: (pct: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.upload.onprogress = (e) =>
+      e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
+    xhr.onload = () =>
+      xhr.status < 300
+        ? resolve()
+        : reject(new Error(`Penyimpanan menolak berkas (${xhr.status})`));
+    xhr.onerror = () =>
+      reject(new Error("Koneksi ke penyimpanan gagal — cek aturan CORS bucket"));
+    xhr.onabort = () => reject(new Error("Unggahan dibatalkan"));
+    xhr.send(file);
+  });
+}
+
 const FOLDER_OPTIONS: Option[] = [
   { value: "personal", label: "Berkas Pribadi" },
   { value: "kontrak", label: "Kontrak Kerja" },
@@ -43,16 +70,40 @@ export function UploadDocument({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [pct, setPct] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  /** Three steps: ask for a signed URL, push the bytes straight to R2, then let
+   *  the server record the row after it has verified the object. */
   const upload = useMutation({
-    mutationFn: (fd: FormData) => send("/api/files", { method: "POST", body: fd }),
+    mutationFn: async (v: { file: File; folder: string; ownerId?: number }) => {
+      setPct(0);
+      const { key, url } = (await json("/api/files/presign", {
+        folder: v.folder,
+        filename: v.file.name,
+        size: v.file.size,
+      })) as { key: string; url: string };
+
+      await putWithProgress(url, v.file, setPct);
+
+      return json("/api/files", {
+        kind: "doc",
+        key,
+        name: v.file.name,
+        folder: v.folder,
+        ...(v.ownerId && { ownerId: v.ownerId }),
+      });
+    },
     onSuccess: () => {
       setOpen(false);
+      setPct(0);
       toast.success("Berkas diunggah");
       router.refresh();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      setPct(0);
+      toast.error(e.message);
+    },
   });
 
   return (
@@ -68,19 +119,23 @@ export function UploadDocument({
           onSubmit={(e) => {
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
-            if (!(fd.get("file") as File | null)?.size) {
+            const file = fd.get("file") as File | null;
+            if (!file?.size) {
               toast.error("Pilih file dulu");
               return;
             }
-            if (!fd.get("ownerId")) fd.delete("ownerId");
-            fd.set("kind", "doc");
-            upload.mutate(fd);
+            const ownerId = Number(fd.get("ownerId"));
+            upload.mutate({
+              file,
+              folder: String(fd.get("folder")),
+              ...(ownerId && { ownerId }),
+            });
           }}
         >
           <DialogHeader>
             <DialogTitle className="text-[15px]">Unggah berkas</DialogTitle>
             <DialogDescription className="text-[12.5px]">
-              PDF, CSV, XLSX, DOCX, JPG, atau PNG · maksimal 4 MB.
+              PDF, CSV, XLSX, DOCX, JPG, atau PNG · maksimal 100 MB.
             </DialogDescription>
           </DialogHeader>
 
@@ -122,6 +177,25 @@ export function UploadDocument({
               />
             </div>
           </div>
+
+          {upload.isPending && (
+            <div className="mb-3">
+              <div
+                role="progressbar"
+                aria-label="Progres unggahan"
+                aria-valuenow={pct}
+                className="bg-muted h-1.5 overflow-hidden rounded-full"
+              >
+                <div
+                  className="bg-primary h-full transition-[width] duration-200"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <p className="text-subtle tnum mt-1 text-[11px]">
+                {pct < 100 ? `Mengunggah ${pct}%` : "Menyimpan data berkas…"}
+              </p>
+            </div>
+          )}
 
           <DialogFooter>
             <Button type="submit" size="sm" disabled={upload.isPending}>

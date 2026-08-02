@@ -19,6 +19,10 @@ import { attendanceStatus, overtimeMinutes, workingDays } from "../lib/hr";
 
 const TODAY = "2026-07-30";
 
+/** One password for every demo account, printed at the end of the seed. Dev and
+ *  preview only — production accounts are changed by hand (README). */
+const SEED_PASSWORD = "securePass123";
+
 type Row = [
   name: string,
   nik: string,
@@ -72,7 +76,7 @@ async function main() {
     { date: "2026-08-18", name: "Cuti Bersama Kemerdekaan", collective: true },
   ]);
 
-  const passwordHash = await bcrypt.hash("password123", 10);
+  const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
   const inserted = await db
     .insert(employees)
     .values(
@@ -269,7 +273,9 @@ async function main() {
   console.log(
     `Seed OK — ${inserted.length} karyawan, ${history.length + EMP.length} absensi, ${leaves.length} cuti, ${ots.length} lembur, ${docs.length} berkas`,
   );
-  console.log("Login: andini.rahmawati@nusantaradigital.co.id / password123 (HR Admin)");
+  console.log(
+    `Login: andini.rahmawati@nusantaradigital.co.id / ${SEED_PASSWORD} (HR Admin)`,
+  );
   process.exit(0);
 }
 

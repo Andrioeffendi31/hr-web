@@ -122,7 +122,7 @@ export default async function LoginPage({
               <span className="font-mono">
                 andini.rahmawati@nusantaradigital.co.id
               </span>{" "}
-              / <span className="font-mono">password123</span>
+              / <span className="font-mono">securePass123</span>
             </p>
           )}
         </div>

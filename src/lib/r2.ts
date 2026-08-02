@@ -14,12 +14,22 @@ import { AwsClient } from "aws4fetch";
  */
 
 const MB = 1024 * 1024;
-/** ponytail: bytes travel through the route handler, so the real ceiling is the
- *  serverless request-body limit (4.5 MB on Vercel). If bigger files are needed,
- *  switch to a presigned PUT straight to R2 (adds a CORS rule on the bucket and
- *  a confirm step to write the metadata row). */
-export const MAX_DOC = 4 * MB;
+/**
+ * Documents go browser → R2 with a presigned PUT, so the serverless request-body
+ * limit (4.5 MB on Vercel) does not apply to them and 100 MB fits. The size is
+ * enforced after the fact by HEAD-ing the object on confirm: a presigned URL
+ * cannot cap what gets written to it.
+ *
+ * Photos and selfies stay proxied through the route handler — they are small, and
+ * that path needs no CORS rule and no confirm round-trip.
+ */
+export const MAX_DOC = 100 * MB;
 export const MAX_IMAGE = 1.5 * MB;
+/** A presigned URL is a bearer token for one key, so it lives briefly: long
+ *  enough to push 100 MB on a slow line, short enough that a leaked link is
+ *  stale by the time it is shared. */
+const PUT_TTL = 20 * 60;
+const GET_TTL = 60;
 
 export type Kind = "doc" | "photo" | "selfie";
 
@@ -105,7 +115,45 @@ const objectUrl = (key: string) =>
     `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   }/${process.env.R2_BUCKET}/${key.split("/").map(encodeURIComponent).join("/")}`;
 
-/** Body is buffered (not streamed) because SigV4 has to hash it. Fine at 4 MB. */
+/** URL the browser can PUT straight to, no credentials involved. Content type is
+ *  deliberately left unsigned so the browser may send its own. */
+export async function presignPut(key: string) {
+  const url = new URL(objectUrl(key));
+  url.searchParams.set("X-Amz-Expires", String(PUT_TTL));
+  const signed = await client().sign(url.toString(), {
+    method: "PUT",
+    aws: { signQuery: true },
+  });
+  return signed.url;
+}
+
+/** Download URL that makes R2 serve the object as an attachment under its
+ *  original name, so a 100 MB file never passes through the function. */
+export async function presignGet(key: string, filename?: string) {
+  const url = new URL(objectUrl(key));
+  url.searchParams.set("X-Amz-Expires", String(GET_TTL));
+  if (filename) {
+    url.searchParams.set(
+      "response-content-disposition",
+      `attachment; filename="${filename.replace(/["\\\r\n]/g, "_")}"`,
+    );
+  }
+  const signed = await client().sign(url.toString(), {
+    method: "GET",
+    aws: { signQuery: true },
+  });
+  return signed.url;
+}
+
+/** Real size of what was actually uploaded — null when the object is missing.
+ *  The only trustworthy size: the client's claim is just a claim. */
+export async function headObject(key: string): Promise<number | null> {
+  const res = await client().fetch(objectUrl(key), { method: "HEAD" });
+  if (!res.ok) return null;
+  return Number(res.headers.get("content-length") ?? 0);
+}
+
+/** Body is buffered (not streamed) because SigV4 has to hash it. Images only. */
 export async function putObject(key: string, body: ArrayBuffer, contentType: string) {
   const res = await client().fetch(objectUrl(key), {
     method: "PUT",

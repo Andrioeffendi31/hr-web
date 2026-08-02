@@ -5,7 +5,7 @@ set -uo pipefail
 
 BASE="${BASE:-http://localhost:3000}"
 EMAIL="${EMAIL:-andini.rahmawati@nusantaradigital.co.id}"
-PASS="${PASS:-password123}"
+PASS="${PASS:-securePass123}"
 JAR="$(mktemp)"
 fail=0
 

@@ -16,7 +16,7 @@ Live di **https://web-khaki-eight-38.vercel.app**, database di Neon project
   (Production + Preview). `AUTH_URL` sengaja tidak diset — Auth.js otomatis
   mempercayai host saat `process.env.VERCEL` ada (lihat `@auth/core/lib/utils/env.js`).
 - Database production **sudah di-seed** dengan data demo dari mockup untuk
-  keperluan preview. Password akun HR Admin default (`password123`) **sudah
+  keperluan preview. Password akun HR Admin default (`securePass123`) **sudah
   diganti** — hint kredensial demo di halaman login otomatis disembunyikan saat
   `VERCEL_ENV=production` (`src/app/login/page.tsx`).
 - **Sebelum dipakai sungguhan**: ganti password seluruh akun demo, atau lebih
@@ -39,7 +39,7 @@ npm run db:seed              # data demo dari mockup (16 karyawan, ~700 baris ab
 npm run dev
 ```
 
-Login: `andini.rahmawati@nusantaradigital.co.id` / `password123`
+Login: `andini.rahmawati@nusantaradigital.co.id` / `securePass123`
 
 Untuk Neon, cukup ganti `DATABASE_URL` — driver `node-postgres` yang sama dipakai
 untuk lokal dan Neon, tidak ada perubahan kode.

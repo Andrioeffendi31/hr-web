@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { requireUser } from "@/auth";
 import { db } from "@/db";
 import { documents } from "@/db/schema";
-import { getObject, r2Configured } from "@/lib/r2";
+import { getObject, presignGet, r2Configured } from "@/lib/r2";
 
 /**
  * The only way anything leaves the bucket. Authorization is derived from the key
@@ -57,6 +57,21 @@ export async function GET(_req: Request, ctx: { params: Promise<{ key: string[] 
     return new Response("Object storage belum dikonfigurasi", { status: 503 });
   }
 
+  // Documents can be 100 MB, which has no business flowing through a serverless
+  // function: authorize here, then hand out a short-lived signed URL and let R2
+  // serve the bytes. Images stay proxied — they are small and same-origin keeps
+  // them cacheable by the browser without a fresh signature every time.
+  if (filename) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        location: await presignGet(key, filename),
+        // the signed URL is a bearer token for its lifetime, so nothing caches it
+        "cache-control": "private, no-store",
+      },
+    });
+  }
+
   const res = await getObject(key);
   if (!res.ok || !res.body) {
     return new Response("Tidak ditemukan", { status: res.status === 404 ? 404 : 502 });
@@ -64,17 +79,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ key: string[] 
 
   const headers = new Headers({
     "content-type": res.headers.get("content-type") ?? "application/octet-stream",
-    // never let a shared cache hold someone else's document
-    "cache-control": filename ? "private, no-store" : "private, max-age=300",
+    "cache-control": "private, max-age=300",
   });
   const length = res.headers.get("content-length");
   if (length) headers.set("content-length", length);
-  if (filename) {
-    headers.set(
-      "content-disposition",
-      `attachment; filename="${filename.replace(/["\\\r\n]/g, "_")}"`,
-    );
-  }
 
   return new Response(res.body, { headers });
 }
