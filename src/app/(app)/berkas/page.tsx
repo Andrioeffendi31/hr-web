@@ -8,6 +8,7 @@ import { PageHead, Pill, type Tone } from "@/components/bits";
 import { DataTable, type Column } from "@/components/data-table";
 import { parsePaging, parseSort } from "@/lib/paging";
 import { cn } from "@/lib/utils";
+import { DeleteDocument, UploadDocument } from "./berkas-upload";
 
 const FOLDERS = [
   { v: "personal", label: "Berkas Pribadi", tone: "primary" as Tone },
@@ -66,7 +67,7 @@ export default async function BerkasPage({
         ? desc(orderColumn)
         : asc(orderColumn);
 
-  const [counts, files, [total], [fileCount]] = await Promise.all([
+  const [counts, files, [total], [fileCount], staff] = await Promise.all([
     db
       .select({
         folder: documents.folder,
@@ -84,6 +85,8 @@ export default async function BerkasPage({
         sizeBytes: documents.sizeBytes,
         uploadedAt: documents.uploadedAt,
         ownerName: owner.name,
+        // R2 object key; "" on seeded rows that have no object behind them
+        key: documents.url,
       })
       .from(documents)
       .leftJoin(owner, eq(owner.id, documents.ownerId))
@@ -99,6 +102,12 @@ export default async function BerkasPage({
       .from(documents),
 
     db.select({ n: count() }).from(documents).where(where),
+
+    db
+      .select({ id: employees.id, name: employees.name })
+      .from(employees)
+      .where(eq(employees.active, true))
+      .orderBy(asc(employees.name)),
   ]);
 
   const title = ownerFilter
@@ -148,15 +157,29 @@ export default async function BerkasPage({
       key: "aksi",
       header: "Aksi",
       cell: (f) => (
-        <button
-          type="button"
-          disabled
-          title="Object storage belum terhubung"
-          aria-label={`Unduh ${f.name}`}
-          className="text-subtle flex size-8 items-center justify-center rounded-lg border disabled:opacity-40"
-        >
-          <Download className="size-4" aria-hidden />
-        </button>
+        <span className="flex items-center gap-1.5">
+          {f.key ? (
+            <a
+              href={`/api/files/${f.key}`}
+              download={f.name}
+              aria-label={`Unduh ${f.name}`}
+              className="text-subtle hover:text-primary hover:bg-accent flex size-8 items-center justify-center rounded-lg border transition-colors"
+            >
+              <Download className="size-4" aria-hidden />
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="Berkas contoh, belum ada file yang diunggah"
+              aria-label={`Unduh ${f.name}`}
+              className="text-subtle flex size-8 items-center justify-center rounded-lg border disabled:opacity-40"
+            >
+              <Download className="size-4" aria-hidden />
+            </button>
+          )}
+          <DeleteDocument id={f.id} name={f.name} />
+        </span>
       ),
     },
   ];
@@ -211,14 +234,20 @@ export default async function BerkasPage({
       <DataTable
         title={title}
         action={
-          ownerFilter && (
-            <Link
-              href="/berkas"
-              className="text-primary text-[12.5px] font-medium hover:underline"
-            >
-              Lihat semua folder
-            </Link>
-          )
+          <>
+            {ownerFilter && (
+              <Link
+                href="/berkas"
+                className="text-primary text-[12.5px] font-medium hover:underline"
+              >
+                Lihat semua folder
+              </Link>
+            )}
+            <UploadDocument
+              folder={folder}
+              employees={staff.map((s) => ({ value: String(s.id), label: s.name }))}
+            />
+          </>
         }
         rows={files}
         columns={columns}

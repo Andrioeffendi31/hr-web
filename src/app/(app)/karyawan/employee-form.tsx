@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/bits";
 import { ComboboxField } from "@/components/combobox-field";
 import { DateField } from "@/components/date-field";
 import { SelectField } from "@/components/select-field";
@@ -28,6 +29,8 @@ export type EmployeeInput = {
   workLocation: string;
   managerId: number | null;
   active?: boolean;
+  /** R2 object key, null when no photo was uploaded yet */
+  photoUrl?: string | null;
 };
 
 const FIELD =
@@ -75,6 +78,27 @@ export function EmployeeForm({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Photo goes to object storage, not through /api/employees — the key is derived
+  // from the employee id, so it can only be uploaded once the row exists.
+  const photo = useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData();
+      fd.append("kind", "photo");
+      fd.append("employeeId", String(initial!.id));
+      fd.append("file", file);
+      return fetch("/api/files", { method: "POST", body: fd }).then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) throw new Error(data.error ?? "Gagal mengunggah foto");
+        return data;
+      });
+    },
+    onSuccess: () => {
+      toast.success("Foto profil diperbarui");
+      router.refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -117,6 +141,33 @@ export function EmployeeForm({
           }}
         >
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            {editing && (
+              <div className="mb-4 flex items-center gap-3 border-b pb-4">
+                <Avatar
+                  name={initial!.name}
+                  photoKey={initial!.photoUrl}
+                  className="size-12 text-[15px]"
+                />
+                <label className={`${LABEL} min-w-0 flex-1`}>
+                  Foto profil
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp"
+                    disabled={photo.isPending}
+                    onChange={(e) => {
+                      const file = e.currentTarget.files?.[0];
+                      if (file) photo.mutate(file);
+                      e.currentTarget.value = "";
+                    }}
+                    className="text-muted-foreground mt-1 block w-full text-[12px] file:mr-2 file:rounded-[7px] file:border file:px-2 file:py-1 file:text-[12px]"
+                  />
+                  <span className="text-subtle mt-1 block text-[11px] font-normal">
+                    JPG, PNG, atau WEBP · maksimal 1,5 MB. Tersimpan langsung, terpisah
+                    dari tombol Simpan.
+                  </span>
+                </label>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <label className={LABEL}>
                 NIK

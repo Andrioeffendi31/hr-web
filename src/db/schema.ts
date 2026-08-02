@@ -66,6 +66,8 @@ export const employees = pgTable("employees", {
   /** direct supervisor — approver in a later phase, reference only in v1 (PRD §4) */
   managerId: integer("manager_id"),
   active: boolean("active").notNull().default(true),
+  /** R2 object key of the profile photo (see src/lib/r2.ts), null = no photo */
+  photoUrl: text("photo_url"),
 });
 
 export const attendance = pgTable(

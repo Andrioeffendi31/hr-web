@@ -6,9 +6,9 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AttBadge, Pill } from "@/components/bits";
+import { AttBadge, Avatar, Pill } from "@/components/bits";
 import { EmployeeForm } from "./employee-form";
-import { type AttStatus, initials, jam, tanggalPendek } from "@/lib/hr";
+import { type AttStatus, jam, tanggalPendek } from "@/lib/hr";
 
 export type Detail = {
   id: number;
@@ -23,6 +23,7 @@ export type Detail = {
   active: boolean;
   role: "hr_admin" | "manager" | "employee";
   managerId: number | null;
+  photoUrl: string | null;
   managerName: string | null;
   hadir: number;
   telat: number;
@@ -100,9 +101,11 @@ export function EmployeeDetail({
       <DialogContent className="flex max-h-[88vh] flex-col gap-0 p-0 sm:max-w-[840px]">
         {/* pr-14 keeps the status badge clear of the dialog's close button */}
         <div className="flex items-center gap-3 border-b py-4 pr-14 pl-5">
-          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold">
-            {initials(d.name)}
-          </span>
+          <Avatar
+            name={d.name}
+            photoKey={d.photoUrl}
+            className="bg-primary text-primary-foreground size-10 text-[13px]"
+          />
           <div className="min-w-0 flex-1">
             <DialogTitle className="truncate text-[15px] font-semibold">
               {d.name}
@@ -197,6 +200,7 @@ export function EmployeeDetail({
               joinedAt: d.joinedAt,
               workLocation: d.workLocation,
               managerId: d.managerId,
+              photoUrl: d.photoUrl,
               active: d.active,
             }}
             trigger={

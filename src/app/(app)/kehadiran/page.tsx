@@ -3,14 +3,14 @@ import { MapPin } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
 import { attendance, employees, settings } from "@/db/schema";
-import { AttBadge, Empty, PageHead, Panel, Stat } from "@/components/bits";
+import { AttBadge, Avatar, Empty, PageHead, Panel, Stat } from "@/components/bits";
 import { DataTable, type Column } from "@/components/data-table";
 import { DateField } from "@/components/date-field";
 import { AbsenteePanel } from "./absentee-panel";
+import { SelfieCell } from "./selfie-cell";
 import { SelectField } from "@/components/select-field";
 import {
   type AttStatus,
-  initials,
   jam,
   tanggalPanjang,
   todayWib,
@@ -89,10 +89,13 @@ export default async function KehadiranPage({
     name: employees.name,
     nik: employees.nik,
     division: employees.division,
+    photoUrl: employees.photoUrl,
+    attendanceId: attendance.id,
     status: attendance.status,
     clockIn: attendance.clockIn,
     clockOut: attendance.clockOut,
     location: attendance.location,
+    selfieUrl: attendance.selfieUrl,
   };
   const [[counts], visibleRaw, [boardTotal], absenteeRows, [absenteeTotal], onLeaveRaw] =
     await Promise.all([
@@ -229,9 +232,7 @@ export default async function KehadiranPage({
           href={`/karyawan?open=${r.id}`}
           className="flex items-center gap-2.5 hover:underline"
         >
-          <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold">
-            {initials(r.name)}
-          </span>
+          <Avatar name={r.name} photoKey={r.photoUrl} />
           <span className="min-w-0">
             <span className="block truncate text-[13px] font-medium">{r.name}</span>
             <span className="text-subtle tnum block text-[11px]">{r.nik}</span>
@@ -272,6 +273,19 @@ export default async function KehadiranPage({
         ) : (
           "—"
         ),
+    },
+    {
+      key: "selfie",
+      header: "Selfie",
+      cell: (r) => (
+        <SelfieCell
+          employeeId={r.id}
+          name={r.name}
+          date={date}
+          selfieKey={r.selfieUrl}
+          hasAttendance={r.attendanceId !== null}
+        />
+      ),
     },
     {
       key: "status",

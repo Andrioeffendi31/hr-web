@@ -164,6 +164,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 });
 
+/** Throws unless someone is signed in. Used where the check is per-row rather
+ *  than per-role — e.g. a file download an employee may only see if it is
+ *  their own document (PRD §6.6). */
+export async function requireUser() {
+  const session = await auth();
+  if (!session?.user) throw new Error("Belum masuk");
+  return session.user;
+}
+
 /** Throws unless the caller is HR Admin. Every admin mutation calls this —
  *  authorization lives on the server, never in the UI (PRD §7). */
 export async function requireAdmin() {

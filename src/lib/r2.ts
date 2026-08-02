@@ -1,0 +1,139 @@
+import { AwsClient } from "aws4fetch";
+
+/**
+ * Cloudflare R2 (S3-compatible) object storage — PRD §5 "File storage".
+ *
+ * The bucket stays private: nothing is ever served straight from R2. Every read
+ * goes through GET /api/files/[...key], which authorizes by key prefix before
+ * streaming the object back. That means no public bucket, no custom domain, no
+ * CORS rule, and no images.remotePatterns in next.config.ts.
+ *
+ * What the DB stores in documents.url / attendance.selfie_url / employees.photo_url
+ * is the R2 **object key**, not a URL. The columns keep their old names to avoid
+ * renaming columns that already hold seeded data.
+ */
+
+const MB = 1024 * 1024;
+/** ponytail: bytes travel through the route handler, so the real ceiling is the
+ *  serverless request-body limit (4.5 MB on Vercel). If bigger files are needed,
+ *  switch to a presigned PUT straight to R2 (adds a CORS rule on the bucket and
+ *  a confirm step to write the metadata row). */
+export const MAX_DOC = 4 * MB;
+export const MAX_IMAGE = 1.5 * MB;
+
+export type Kind = "doc" | "photo" | "selfie";
+
+const DOC_EXT = ["pdf", "csv", "xlsx", "docx", "jpg", "jpeg", "png"];
+const IMAGE_EXT = ["jpg", "jpeg", "png", "webp"];
+
+/** Lowercase extension without the dot, "" when there is none. */
+export function extOf(filename: string): string {
+  const base = filename.slice(filename.lastIndexOf("/") + 1);
+  const dot = base.lastIndexOf(".");
+  return dot > 0 ? base.slice(dot + 1).toLowerCase() : "";
+}
+
+export function allowed(ext: string, kind: Kind): boolean {
+  return (kind === "doc" ? DOC_EXT : IMAGE_EXT).includes(ext);
+}
+
+/**
+ * Strip everything an object key has no business containing. Path separators and
+ * dots collapse to "-", so "../../etc/passwd" can never climb out of its prefix.
+ */
+export function safeName(filename: string): string {
+  const cleaned = filename
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/\.{2,}/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return cleaned || "berkas";
+}
+
+/**
+ * Document keys carry a uuid because two people upload "kontrak.pdf"; photo and
+ * selfie keys are deterministic so re-uploading overwrites instead of orphaning.
+ */
+export function keyFor(
+  kind: Kind,
+  scope: string,
+  filename = "",
+  uuid = crypto.randomUUID(),
+): string {
+  switch (kind) {
+    case "doc":
+      return `docs/${scope}/${uuid}-${safeName(filename)}`;
+    case "photo":
+      return `photo/${scope}`;
+    case "selfie":
+      return `selfie/${scope}`;
+  }
+}
+
+/** False when the env vars are missing, so the app still boots and builds
+ *  without R2 configured — the routes answer 503 instead of crashing. */
+export function r2Configured(): boolean {
+  return Boolean(
+    process.env.R2_ACCOUNT_ID &&
+      process.env.R2_ACCESS_KEY_ID &&
+      process.env.R2_SECRET_ACCESS_KEY &&
+      process.env.R2_BUCKET,
+  );
+}
+
+// Constructed per call on purpose: AwsClient only holds the credentials, so
+// caching it buys nothing and would go stale whenever the env changes.
+function client(): AwsClient {
+  if (!r2Configured()) throw new Error("Object storage belum dikonfigurasi");
+  return new AwsClient({
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    service: "s3",
+    // R2 only accepts "auto"; the local S3 stand-ins reject it and want a real one
+    region: process.env.R2_ENDPOINT ? "us-east-1" : "auto",
+  });
+}
+
+/** R2_ENDPOINT overrides the host so a local S3 stand-in (LocalStack, MinIO) can
+ *  be used in dev; in production only the four R2_* keys are set. */
+const objectUrl = (key: string) =>
+  `${
+    process.env.R2_ENDPOINT?.replace(/\/$/, "") ??
+    `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  }/${process.env.R2_BUCKET}/${key.split("/").map(encodeURIComponent).join("/")}`;
+
+/** Body is buffered (not streamed) because SigV4 has to hash it. Fine at 4 MB. */
+export async function putObject(key: string, body: ArrayBuffer, contentType: string) {
+  const res = await client().fetch(objectUrl(key), {
+    method: "PUT",
+    body,
+    headers: {
+      "content-type": contentType || "application/octet-stream",
+      // R2 rejects a chunked PUT (411 MissingContentLength), and fetch omits the
+      // header on the first request of a cold process — so state it ourselves
+      "content-length": String(body.byteLength),
+    },
+  });
+  if (!res.ok) {
+    // S3 errors are XML in the body; without it a misconfigured bucket or key
+    // is just an opaque status code in the server log
+    throw new Error(
+      `R2 PUT ${key} gagal (${res.status}): ${(await res.text()).slice(0, 300)}`,
+    );
+  }
+}
+
+export function getObject(key: string) {
+  return client().fetch(objectUrl(key));
+}
+
+export async function deleteObject(key: string) {
+  const res = await client().fetch(objectUrl(key), { method: "DELETE" });
+  // 404 means it is already gone, which is the state we wanted anyway
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`R2 DELETE ${key} gagal (${res.status})`);
+  }
+}

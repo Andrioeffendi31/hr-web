@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ATT_LABEL, type AttStatus } from "@/lib/hr";
+import { ATT_LABEL, type AttStatus, initials } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 
 /** Semantic tone → token pair. Mirrors the mockup's badge() helper. */
@@ -67,6 +67,41 @@ const REQ_LABEL = {
 export const ReqBadge = ({ status }: { status: keyof typeof REQ_TONE }) => (
   <Pill tone={REQ_TONE[status]}>{REQ_LABEL[status]}</Pill>
 );
+
+/**
+ * Profile photo, initials as the fallback. Plain <img> on purpose: the photo is
+ * streamed from /api/files, which is authorized per request — routing that
+ * through the next/image optimizer would buy nothing and need a loader config.
+ */
+export function Avatar({
+  name,
+  photoKey,
+  className,
+}: {
+  name: string;
+  photoKey?: string | null;
+  className?: string;
+}) {
+  const shape = cn(
+    "flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10.5px] font-semibold",
+    className,
+  );
+  if (photoKey) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={`/api/files/${photoKey}`}
+        alt={`Foto ${name}`}
+        className={cn(shape, "bg-muted object-cover")}
+      />
+    );
+  }
+  return (
+    <span className={cn("bg-muted text-muted-foreground", shape)} aria-hidden>
+      {initials(name)}
+    </span>
+  );
+}
 
 export function PageHead({
   title,

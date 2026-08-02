@@ -3,14 +3,14 @@ import { alias } from "drizzle-orm/pg-core";
 import Link from "next/link";
 import { db } from "@/db";
 import { attendance, employees, overtimeRequests } from "@/db/schema";
-import { AttBadge, PageHead, Pill } from "@/components/bits";
+import { AttBadge, Avatar, PageHead, Pill } from "@/components/bits";
 import { DataTable, type Column } from "@/components/data-table";
 import { EmployeeDetail } from "./detail-modal";
 import { EmployeeForm } from "./employee-form";
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { SelectField } from "@/components/select-field";
-import { type AttStatus, initials, tanggalPendek, todayWib } from "@/lib/hr";
+import { type AttStatus, tanggalPendek, todayWib } from "@/lib/hr";
 import { leaveBalances } from "@/lib/leave";
 import { parsePaging, parseSort } from "@/lib/paging";
 
@@ -89,6 +89,7 @@ export default async function KaryawanPage({
         workLocation: employees.workLocation,
         managerId: employees.managerId,
         active: employees.active,
+        photoUrl: employees.photoUrl,
         status: attendance.status,
       })
       .from(employees)
@@ -121,6 +122,7 @@ export default async function KaryawanPage({
         active: employees.active,
         role: employees.role,
         managerId: employees.managerId,
+        photoUrl: employees.photoUrl,
         managerName: manager.name,
       })
       .from(employees)
@@ -210,9 +212,7 @@ export default async function KaryawanPage({
           scroll={false}
           className="flex items-center gap-2.5 hover:underline"
         >
-          <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold">
-            {initials(r.name)}
-          </span>
+          <Avatar name={r.name} photoKey={r.photoUrl} />
           <span className="min-w-0">
             <span className="block truncate text-[13px] font-medium">
               {r.name}
@@ -283,6 +283,7 @@ export default async function KaryawanPage({
             workLocation: r.workLocation,
             managerId: r.managerId,
             active: r.active,
+            photoUrl: r.photoUrl,
           }}
           trigger={
             <Button
