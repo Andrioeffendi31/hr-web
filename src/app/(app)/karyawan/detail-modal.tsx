@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AttBadge, Avatar, Pill } from "@/components/bits";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmployeeForm } from "./employee-form";
 import { type AttStatus, jam, tanggalPendek } from "@/lib/hr";
 
@@ -209,19 +210,30 @@ export function EmployeeDetail({
               </Button>
             }
           />
-          <Button
-            variant="outline"
-            disabled={toggle.isPending}
-            onClick={() => {
-              const verb = d.active ? "menonaktifkan" : "mengaktifkan kembali";
-              if (window.confirm(`Yakin ${verb} ${d.name}?`)) toggle.mutate();
-            }}
-            className={
-              d.active ? "text-danger hover:text-danger h-10 w-full" : "h-10 w-full"
+          <ConfirmDialog
+            trigger={
+              <Button
+                variant="outline"
+                disabled={toggle.isPending}
+                className={
+                  d.active ? "text-danger hover:text-danger h-10 w-full" : "h-10 w-full"
+                }
+              >
+                {d.active ? "Nonaktifkan" : "Aktifkan"}
+              </Button>
             }
-          >
-            {d.active ? "Nonaktifkan" : "Aktifkan"}
-          </Button>
+            title={
+              d.active ? `Nonaktifkan ${d.name}?` : `Aktifkan kembali ${d.name}?`
+            }
+            description={
+              d.active
+                ? "Akunnya tidak bisa dipakai masuk lagi dan namanya hilang dari daftar aktif. Riwayat kehadiran, cuti, dan lembur tetap tersimpan."
+                : "Karyawan bisa masuk lagi dan namanya kembali muncul di daftar aktif."
+            }
+            confirmLabel={d.active ? "Nonaktifkan" : "Aktifkan"}
+            destructive={d.active}
+            onConfirm={() => toggle.mutate()}
+          />
           <Link
             href={`/berkas?owner=${d.id}`}
             className="bg-surface-2 border-border-strong hover:bg-accent flex h-10 items-center justify-center rounded-[9px] border text-[13px] font-medium transition-colors"

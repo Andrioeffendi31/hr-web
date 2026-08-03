@@ -1,6 +1,6 @@
 import { asc, count, desc, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { Download, FolderClosed } from "lucide-react";
+import { Download, Eye, FolderClosed } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
 import { documents, employees } from "@/db/schema";
@@ -8,6 +8,8 @@ import { PageHead, Pill, type Tone } from "@/components/bits";
 import { DataTable, type Column } from "@/components/data-table";
 import { parsePaging, parseSort } from "@/lib/paging";
 import { cn } from "@/lib/utils";
+import { FilePreview } from "@/components/file-preview";
+import { previewKind, ukuranFile } from "@/lib/hr";
 import { DeleteDocument, UploadDocument } from "./berkas-upload";
 
 const FOLDERS = [
@@ -18,11 +20,6 @@ const FOLDERS = [
 ] as const;
 
 const EXT_TONE: Record<string, Tone> = { PDF: "danger", XLSX: "success", JPG: "info" };
-
-const mb = (bytes: number) =>
-  bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`
-    : `${Math.round(bytes / 1024)} KB`;
 
 type Search = {
   folder?: string;
@@ -139,7 +136,7 @@ export default async function BerkasPage({
       header: "Ukuran",
       sortable: true,
       className: "tnum text-muted-foreground text-[12.5px]",
-      cell: (f) => mb(f.sizeBytes),
+      cell: (f) => ukuranFile(f.sizeBytes),
     },
     {
       key: "tanggal",
@@ -158,6 +155,23 @@ export default async function BerkasPage({
       header: "Aksi",
       cell: (f) => (
         <span className="flex items-center gap-1.5">
+          {f.key && previewKind(f.ext) && (
+            <FilePreview
+              name={f.name}
+              src={`/api/files/${f.key}?inline=1`}
+              downloadHref={`/api/files/${f.key}`}
+              ext={f.ext}
+              trigger={
+                <button
+                  type="button"
+                  aria-label={`Pratinjau ${f.name}`}
+                  className="text-subtle hover:text-primary hover:bg-accent flex size-8 items-center justify-center rounded-lg border transition-colors"
+                >
+                  <Eye className="size-4" aria-hidden />
+                </button>
+              }
+            />
+          )}
           {f.key ? (
             <a
               href={`/api/files/${f.key}`}
@@ -188,7 +202,7 @@ export default async function BerkasPage({
     <>
       <PageHead
         title="Berkas"
-        desc={`Total terpakai ${mb(total.bytes)} · dokumen pribadi hanya terlihat oleh pemilik dan HR`}
+        desc={`Total terpakai ${ukuranFile(total.bytes)} · dokumen pribadi hanya terlihat oleh pemilik dan HR`}
       />
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -223,7 +237,7 @@ export default async function BerkasPage({
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-medium">{f.label}</span>
                 <span className="text-subtle tnum block text-[11.5px]">
-                  {c?.n ?? 0} berkas · {mb(c?.bytes ?? 0)}
+                  {c?.n ?? 0} berkas · {ukuranFile(c?.bytes ?? 0)}
                 </span>
               </span>
             </Link>

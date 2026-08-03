@@ -7,6 +7,7 @@ import { Fingerprint, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Empty, Pill } from "@/components/bits";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 export type Passkey = {
   id: number;
@@ -109,17 +110,22 @@ export function PasskeyManager({ passkeys }: { passkeys: Passkey[] }) {
                   {fmt(k.lastUsedAt)}
                 </span>
               </span>
-              <button
-                onClick={() => {
-                  if (!confirm(`Hapus passkey "${k.label}"?`)) return;
-                  revoke.mutate(k.id);
-                }}
-                disabled={revoke.isPending}
-                aria-label={`Hapus passkey ${k.label}`}
-                className="text-subtle hover:text-danger hover:border-danger/40 flex size-9 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:opacity-50"
-              >
-                <Trash2 className="size-4" aria-hidden />
-              </button>
+              <ConfirmDialog
+                trigger={
+                  <button
+                    disabled={revoke.isPending}
+                    aria-label={`Hapus passkey ${k.label}`}
+                    className="text-subtle hover:text-danger hover:border-danger/40 flex size-9 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </button>
+                }
+                title={`Hapus passkey "${k.label}"?`}
+                description="Perangkat ini tidak bisa dipakai masuk lagi. Anda masih bisa masuk dengan email dan kata sandi, lalu mendaftarkan passkey baru."
+                confirmLabel="Hapus"
+                destructive
+                onConfirm={() => revoke.mutate(k.id)}
+              />
             </li>
           ))}
         </ul>

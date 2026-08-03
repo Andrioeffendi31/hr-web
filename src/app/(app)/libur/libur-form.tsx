@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { Download, Trash2 } from "lucide-react";
@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/date-field";
 import { Panel } from "@/components/bits";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { FileDrop } from "@/components/file-drop";
 import {
   Dialog,
   DialogContent,
@@ -44,14 +46,22 @@ export function DeleteHoliday({ date, name }: { date: string; name: string }) {
   });
 
   return (
-    <button
-      aria-label={`Hapus ${name}`}
-      disabled={m.isPending}
-      onClick={() => window.confirm(`Hapus ${name} (${date})?`) && m.mutate()}
-      className="text-subtle hover:text-danger hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-md transition-colors"
-    >
-      <Trash2 className="size-3.5" aria-hidden />
-    </button>
+    <ConfirmDialog
+      trigger={
+        <button
+          aria-label={`Hapus ${name}`}
+          disabled={m.isPending}
+          className="text-subtle hover:text-danger hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-md transition-colors"
+        >
+          <Trash2 className="size-3.5" aria-hidden />
+        </button>
+      }
+      title={`Hapus ${name}?`}
+      description={`Tanggal ${date} kembali dihitung sebagai hari kerja, termasuk pada perhitungan saldo cuti.`}
+      confirmLabel="Hapus"
+      destructive
+      onConfirm={() => m.mutate()}
+    />
   );
 }
 
@@ -60,7 +70,7 @@ type Suggestion = { date: string; name: string; collective: boolean; exists: boo
 /** Add one, import a CSV, or pull the national calendar for review. */
 export function HolidayTools({ year }: { year: number }) {
   const router = useRouter();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [csv, setCsv] = useState<File | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   // bumping this remounts the date picker, which form.reset() cannot clear
   const [formKey, setFormKey] = useState(0);
@@ -97,7 +107,7 @@ export function HolidayTools({ year }: { year: number }) {
     },
     onSuccess: (r) => {
       done(`${r.imported} hari libur diimpor, ${r.skipped} baris dilewati`);
-      if (fileRef.current) fileRef.current.value = "";
+      setCsv(null);
       for (const e of r.errors.slice(0, 5)) {
         toast.error(`Baris ${e.line}: ${e.message}`);
       }
@@ -198,20 +208,21 @@ export function HolidayTools({ year }: { year: number }) {
             <Download className="size-3.5" aria-hidden />
             Unduh template CSV (buka di Excel)
           </a>
-          <label className="text-[12px] font-medium">
+          <div className="text-[12px] font-medium">
             Import file CSV
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,text/csv"
+            <FileDrop
+              accept=".csv"
+              maxBytes={256 * 1024}
+              value={csv}
               disabled={importCsv.isPending}
-              onChange={(e) => {
-                const file = e.currentTarget.files?.[0];
-                if (file) importCsv.mutate(file);
+              hint="CSV · maksimal 256 KB"
+              className="mt-1"
+              onFile={(f) => {
+                setCsv(f);
+                if (f) importCsv.mutate(f);
               }}
-              className="text-muted-foreground mt-1 block w-full text-[12px] file:mr-2 file:rounded-[7px] file:border file:px-2 file:py-1 file:text-[12px]"
             />
-          </label>
+          </div>
           <Button
             variant="outline"
             size="sm"

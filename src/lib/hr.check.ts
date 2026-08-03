@@ -1,6 +1,7 @@
 /** Self-check for the quota/date/attendance logic. Run: npm run check */
 import assert from "node:assert/strict";
 import {
+  acceptsFile,
   attendanceStatus,
   collectiveLeaveDays,
   dateFromIso,
@@ -8,9 +9,11 @@ import {
   isoFromDate,
   leaveQuota,
   overtimeMinutes,
+  previewKind,
   remainingLeave,
   rentangTanggal,
   statusGroup,
+  ukuranFile,
   workingDays,
 } from "./hr";
 import { pageHref, parsePaging, parseSort, rangeLabel, totalPages } from "./paging";
@@ -107,5 +110,32 @@ assert.equal(rangeLabel(2, 20, 137), "21–40 dari 137");
 assert.equal(rangeLabel(7, 20, 137), "121–137 dari 137", "last page clamps");
 assert.equal(rangeLabel(1, 20, 0), "0 dari 0");
 assert.equal(rangeLabel(9, 20, 137), "0 dari 137", "page past the end");
+
+// drag & drop bypasses the browser's own accept filtering, so acceptsFile has
+// to redo it — a hole here means an .exe reaches the upload endpoint
+assert.equal(acceptsFile("Kontrak.PDF", ".pdf,.jpg"), true, "extension is case-insensitive");
+assert.equal(acceptsFile("virus.exe", ".pdf,.jpg"), false);
+assert.equal(acceptsFile("laporan.2026.xlsx", ".xlsx"), true, "dots in the stem are fine");
+assert.equal(acceptsFile("tanpa-ekstensi", ".pdf"), false, "no extension, no guess");
+assert.equal(acceptsFile("shell.php.pdf", ".pdf"), true, "only the last segment counts");
+assert.equal(acceptsFile("foto.png", "image/*"), true, "mime wildcard");
+assert.equal(acceptsFile("kontrak.pdf", "image/*"), false);
+assert.equal(acceptsFile("foto.png", "  .PNG , .jpg "), true, "padded, upper-case list");
+assert.equal(acceptsFile("data.csv", ".csv,text/csv"), true);
+
+// what the preview dialog may render in-page
+assert.equal(previewKind("pdf"), "pdf");
+assert.equal(previewKind("JPG"), "image");
+assert.equal(previewKind("webp"), "image");
+assert.equal(previewKind("svg"), null, "svg executes — never inline it");
+assert.equal(previewKind("html"), null, "html executes — never inline it");
+assert.equal(previewKind("xlsx"), null);
+assert.equal(previewKind(""), null);
+
+// size labels use the Indonesian decimal comma like the rest of the UI
+assert.equal(ukuranFile(1024 * 1024), "1,0 MB");
+assert.equal(ukuranFile(1_500_000), "1,4 MB");
+assert.equal(ukuranFile(320 * 1024), "320 KB");
+assert.equal(ukuranFile(0), "0 KB");
 
 console.log("hr.ts self-check OK");

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ReasonDialog } from "@/components/reason-dialog";
 
 type Action = "disetujui" | "ditolak" | "revisi";
 
@@ -67,37 +68,44 @@ export function DecideButtons({
       >
         Setujui
       </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={m.isPending}
-        onClick={() => {
-          const note = window.prompt(`Alasan penolakan untuk ${name}:`);
-          if (note === null) return;
-          if (!note.trim()) {
-            toast.error("Alasan penolakan wajib diisi");
-            return;
-          }
-          run("ditolak", note.trim());
-        }}
-        className="text-danger hover:text-danger h-8 text-[12.5px]"
-      >
-        Tolak
-      </Button>
+      <ReasonDialog
+        trigger={
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={m.isPending}
+            className="text-danger hover:text-danger h-8 text-[12.5px]"
+          >
+            Tolak
+          </Button>
+        }
+        title={`Tolak pengajuan ${name}?`}
+        description="Alasannya dikirim ke karyawan bersama keputusan ini."
+        label="Alasan penolakan"
+        placeholder="Contoh: bentrok dengan jadwal rilis pekan itu."
+        required
+        confirmLabel="Tolak pengajuan"
+        onSubmit={(note) => run("ditolak", note)}
+      />
       {allowRevision && (
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={m.isPending}
-          onClick={() => {
-            const note = window.prompt(`Apa yang perlu direvisi ${name}?`);
-            if (note === null) return;
-            run("revisi", note.trim() || undefined);
-          }}
-          className="text-muted-foreground h-8 text-[12.5px]"
-        >
-          Minta revisi
-        </Button>
+        <ReasonDialog
+          trigger={
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={m.isPending}
+              className="text-muted-foreground h-8 text-[12.5px]"
+            >
+              Minta revisi
+            </Button>
+          }
+          title={`Minta revisi pengajuan ${name}?`}
+          description="Pengajuan dikembalikan supaya bisa diperbaiki, bukan ditolak."
+          label="Yang perlu direvisi"
+          placeholder="Contoh: lampirkan surat dokter."
+          confirmLabel="Minta revisi"
+          onSubmit={(note) => run("revisi", note || undefined)}
+        />
       )}
     </div>
   );

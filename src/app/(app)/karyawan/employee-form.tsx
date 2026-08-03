@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/bits";
+import { FileDrop } from "@/components/file-drop";
 import { ComboboxField } from "@/components/combobox-field";
 import { DateField } from "@/components/date-field";
 import { SelectField } from "@/components/select-field";
@@ -148,24 +149,20 @@ export function EmployeeForm({
                   photoKey={initial!.photoUrl}
                   className="size-12 text-[15px]"
                 />
-                <label className={`${LABEL} min-w-0 flex-1`}>
+                <div className={`${LABEL} min-w-0 flex-1`}>
                   Foto profil
-                  <input
-                    type="file"
+                  <FileDrop
                     accept=".jpg,.jpeg,.png,.webp"
+                    maxBytes={1.5 * 1024 * 1024}
                     disabled={photo.isPending}
-                    onChange={(e) => {
-                      const file = e.currentTarget.files?.[0];
-                      if (file) photo.mutate(file);
-                      e.currentTarget.value = "";
-                    }}
-                    className="text-muted-foreground mt-1 block w-full text-[12px] file:mr-2 file:rounded-[7px] file:border file:px-2 file:py-1 file:text-[12px]"
+                    hint="JPG, PNG, atau WEBP · maksimal 1,5 MB"
+                    className="mt-1"
+                    onFile={(f) => f && photo.mutate(f)}
                   />
                   <span className="text-subtle mt-1 block text-[11px] font-normal">
-                    JPG, PNG, atau WEBP · maksimal 1,5 MB. Tersimpan langsung, terpisah
-                    dari tombol Simpan.
+                    Tersimpan langsung, terpisah dari tombol Simpan.
                   </span>
-                </label>
+                </div>
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">

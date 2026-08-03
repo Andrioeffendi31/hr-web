@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { Camera } from "lucide-react";
 import { toast } from "sonner";
+import { FileDrop } from "@/components/file-drop";
+import { FilePreview } from "@/components/file-preview";
+import { ekstensi } from "@/lib/hr";
 
 /**
  * Selfie for one attendance row: thumbnail when it exists, upload when it does
@@ -44,44 +47,51 @@ export function SelfieCell({
   });
 
   if (selfieKey) {
+    const src = `/api/files/${selfieKey}`;
     return (
-      <a
-        href={`/api/files/${selfieKey}`}
-        target="_blank"
-        rel="noreferrer"
-        aria-label={`Lihat selfie absen ${name}`}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`/api/files/${selfieKey}`}
-          alt={`Selfie absen ${name}`}
-          className="bg-muted size-8 rounded-md border object-cover"
-        />
-      </a>
+      <FilePreview
+        name={`Selfie absen ${name} · ${date}`}
+        src={src}
+        // selfie keys carry no extension (they are overwritten on re-upload), and
+        // only images ever land there
+        ext={ekstensi(selfieKey) || "jpg"}
+        trigger={
+          <button
+            type="button"
+            aria-label={`Lihat selfie absen ${name}`}
+            className="focus-visible:ring-ring rounded-md focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={src}
+              alt={`Selfie absen ${name}`}
+              className="bg-muted size-8 rounded-md border object-cover"
+            />
+          </button>
+        }
+      />
     );
   }
 
   // no attendance row means there is nothing to attach the photo to
   if (!hasAttendance) return <span className="text-subtle text-[12.5px]">—</span>;
 
+  // children mode: a 32 px cell cannot hold a dropzone, so FileDrop only lends
+  // the drag & drop behaviour to the button that is already here
   return (
-    <label
-      title={`Unggah selfie absen ${name}`}
-      className="text-subtle hover:text-primary hover:bg-accent flex size-8 cursor-pointer items-center justify-center rounded-md border transition-colors"
+    <FileDrop
+      accept=".jpg,.jpeg,.png,.webp"
+      maxBytes={1.5 * 1024 * 1024}
+      disabled={up.isPending}
+      onFile={(f) => f && up.mutate(f)}
     >
-      <Camera className="size-3.5" aria-hidden />
-      <span className="sr-only">Unggah selfie absen {name}</span>
-      <input
-        type="file"
-        accept=".jpg,.jpeg,.png,.webp"
-        disabled={up.isPending}
-        onChange={(e) => {
-          const file = e.currentTarget.files?.[0];
-          if (file) up.mutate(file);
-          e.currentTarget.value = "";
-        }}
-        className="hidden"
-      />
-    </label>
+      <span
+        title={`Unggah selfie absen ${name} — bisa juga ditarik ke sini`}
+        className="text-subtle hover:text-primary hover:bg-accent flex size-8 items-center justify-center rounded-md border transition-colors"
+      >
+        <Camera className="size-3.5" aria-hidden />
+        <span className="sr-only">Unggah selfie absen {name}</span>
+      </span>
+    </FileDrop>
   );
 }

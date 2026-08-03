@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ComboboxField } from "@/components/combobox-field";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { FileDrop } from "@/components/file-drop";
 import { SelectField, type Option } from "@/components/select-field";
 import {
   Dialog,
@@ -71,7 +73,7 @@ export function UploadDocument({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pct, setPct] = useState(0);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
 
   /** Three steps: ask for a signed URL, push the bytes straight to R2, then let
    *  the server record the row after it has verified the object. */
@@ -97,6 +99,7 @@ export function UploadDocument({
     onSuccess: () => {
       setOpen(false);
       setPct(0);
+      setFile(null);
       toast.success("Berkas diunggah");
       router.refresh();
     },
@@ -118,12 +121,11 @@ export function UploadDocument({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            const file = fd.get("file") as File | null;
-            if (!file?.size) {
+            if (!file) {
               toast.error("Pilih file dulu");
               return;
             }
+            const fd = new FormData(e.currentTarget);
             const ownerId = Number(fd.get("ownerId"));
             upload.mutate({
               file,
@@ -135,22 +137,19 @@ export function UploadDocument({
           <DialogHeader>
             <DialogTitle className="text-[15px]">Unggah berkas</DialogTitle>
             <DialogDescription className="text-[12.5px]">
-              PDF, CSV, XLSX, DOCX, JPG, atau PNG · maksimal 100 MB.
+              Berkas diunggah langsung ke penyimpanan, tidak lewat server.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-3 py-4">
-            <label className="text-[12px] font-medium">
-              File
-              <input
-                ref={fileRef}
-                name="file"
-                type="file"
-                required
-                accept=".pdf,.csv,.xlsx,.docx,.jpg,.jpeg,.png"
-                className="text-muted-foreground mt-1 block w-full text-[12px] file:mr-2 file:rounded-[7px] file:border file:px-2 file:py-1 file:text-[12px]"
-              />
-            </label>
+            <FileDrop
+              accept=".pdf,.csv,.xlsx,.docx,.jpg,.jpeg,.png"
+              maxBytes={100 * 1024 * 1024}
+              value={file}
+              onFile={setFile}
+              disabled={upload.isPending}
+              hint="PDF, CSV, XLSX, DOCX, JPG, atau PNG · maksimal 100 MB"
+            />
 
             <div className="text-[12px] font-medium">
               <label htmlFor="doc-folder">Folder</label>
@@ -225,14 +224,22 @@ export function DeleteDocument({ id, name }: { id: number; name: string }) {
   });
 
   return (
-    <button
-      type="button"
-      aria-label={`Hapus ${name}`}
-      disabled={m.isPending}
-      onClick={() => window.confirm(`Hapus ${name}?`) && m.mutate()}
-      className="text-subtle hover:text-danger hover:bg-accent flex size-8 items-center justify-center rounded-lg border transition-colors"
-    >
-      <Trash2 className="size-3.5" aria-hidden />
-    </button>
+    <ConfirmDialog
+      trigger={
+        <button
+          type="button"
+          aria-label={`Hapus ${name}`}
+          disabled={m.isPending}
+          className="text-subtle hover:text-danger hover:bg-accent flex size-8 items-center justify-center rounded-lg border transition-colors"
+        >
+          <Trash2 className="size-3.5" aria-hidden />
+        </button>
+      }
+      title={`Hapus ${name}?`}
+      description="Berkas dihapus permanen dari penyimpanan dan tidak bisa dipulihkan."
+      confirmLabel="Hapus"
+      destructive
+      onConfirm={() => m.mutate()}
+    />
   );
 }

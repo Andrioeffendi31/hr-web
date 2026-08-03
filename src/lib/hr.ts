@@ -166,3 +166,61 @@ export const initials = (name: string) =>
     .map((w) => w[0])
     .join("")
     .toUpperCase();
+
+/* ── File helpers ─────────────────────────────────────────────────────────────
+   These live here, not in lib/r2.ts, because client components need them and
+   r2.ts pulls in aws4fetch and process.env. */
+
+/** "1,4 MB" / "320 KB" — comma decimal separator, like the rest of the UI. */
+export const ukuranFile = (bytes: number) =>
+  bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`
+    : `${Math.round(bytes / 1024)} KB`;
+
+/** Lowercase extension without the dot, "" when there is none. Mirrors extOf()
+ *  in lib/r2.ts, which cannot be imported from the client. */
+export const ekstensi = (filename: string) => {
+  const base = filename.slice(filename.lastIndexOf("/") + 1);
+  const dot = base.lastIndexOf(".");
+  return dot > 0 ? base.slice(dot + 1).toLowerCase() : "";
+};
+
+const MIME_GROUP: Record<string, string> = {
+  jpg: "image",
+  jpeg: "image",
+  png: "image",
+  webp: "image",
+  gif: "image",
+  pdf: "application",
+  csv: "text",
+};
+
+/**
+ * Does this filename satisfy an `accept` attribute? Drag & drop bypasses the
+ * browser's own filtering, so the dropzone has to redo it. Understands both
+ * ".pdf,.jpg" lists and "image/*" wildcards; anything without an extension is
+ * rejected rather than guessed at.
+ */
+export function acceptsFile(filename: string, accept: string): boolean {
+  const ext = ekstensi(filename);
+  if (!ext) return false;
+  return accept
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean)
+    .some((token) => {
+      if (token === "*" || token === "*/*") return true;
+      if (token.startsWith(".")) return token.slice(1) === ext;
+      if (token.endsWith("/*")) return MIME_GROUP[ext] === token.slice(0, -2);
+      return token === `${MIME_GROUP[ext]}/${ext}`;
+    });
+}
+
+/** What the preview dialog can render in-page. SVG and HTML are deliberately
+ *  absent: they execute, and previewing them would run untrusted markup. */
+export function previewKind(ext: string): "image" | "pdf" | null {
+  const e = ext.toLowerCase();
+  if (e === "pdf") return "pdf";
+  if (["jpg", "jpeg", "png", "webp"].includes(e)) return "image";
+  return null;
+}

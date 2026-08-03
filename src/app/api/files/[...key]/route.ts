@@ -3,6 +3,7 @@ import { requireUser } from "@/auth";
 import { db } from "@/db";
 import { documents } from "@/db/schema";
 import { getObject, presignGet, r2Configured } from "@/lib/r2";
+import { ekstensi, previewKind } from "@/lib/hr";
 
 /**
  * The only way anything leaves the bucket. Authorization is derived from the key
@@ -15,7 +16,7 @@ import { getObject, presignGet, r2Configured } from "@/lib/r2";
  *
  * Anything else is a 404 — including a key that tries to climb out of its prefix.
  */
-export async function GET(_req: Request, ctx: { params: Promise<{ key: string[] }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ key: string[] }> }) {
   let user;
   try {
     user = await requireUser();
@@ -62,10 +63,16 @@ export async function GET(_req: Request, ctx: { params: Promise<{ key: string[] 
   // serve the bytes. Images stay proxied — they are small and same-origin keeps
   // them cacheable by the browser without a fresh signature every time.
   if (filename) {
+    // ?inline=1 is what the preview dialog asks for. Only for types the browser
+    // renders as data — an inline .svg or .html would execute on the object
+    // host, so those keep falling back to a download.
+    const wantsInline = new URL(req.url).searchParams.get("inline") === "1";
+    const inline = wantsInline && previewKind(ekstensi(filename)) !== null;
+
     return new Response(null, {
       status: 302,
       headers: {
-        location: await presignGet(key, filename),
+        location: await presignGet(key, filename, inline ? "inline" : "attachment"),
         // the signed URL is a bearer token for its lifetime, so nothing caches it
         "cache-control": "private, no-store",
       },

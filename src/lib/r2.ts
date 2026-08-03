@@ -127,15 +127,20 @@ export async function presignPut(key: string) {
   return signed.url;
 }
 
-/** Download URL that makes R2 serve the object as an attachment under its
- *  original name, so a 100 MB file never passes through the function. */
-export async function presignGet(key: string, filename?: string) {
+/** Download URL that makes R2 serve the object under its original name, so a
+ *  100 MB file never passes through the function. `inline` is for the preview
+ *  dialog; the caller decides, and only for types it can safely render. */
+export async function presignGet(
+  key: string,
+  filename?: string,
+  disposition: "attachment" | "inline" = "attachment",
+) {
   const url = new URL(objectUrl(key));
   url.searchParams.set("X-Amz-Expires", String(GET_TTL));
   if (filename) {
     url.searchParams.set(
       "response-content-disposition",
-      `attachment; filename="${filename.replace(/["\\\r\n]/g, "_")}"`,
+      `${disposition}; filename="${filename.replace(/["\\\r\n]/g, "_")}"`,
     );
   }
   const signed = await client().sign(url.toString(), {
