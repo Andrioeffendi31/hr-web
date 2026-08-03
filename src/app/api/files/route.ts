@@ -3,7 +3,13 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin } from "@/auth";
 import { db } from "@/db";
-import { attendance, auditLog, documents, employees } from "@/db/schema";
+import {
+  attendance,
+  attendanceEvents,
+  auditLog,
+  documents,
+  employees,
+} from "@/db/schema";
 import {
   MAX_DOC,
   MAX_IMAGE,
@@ -39,6 +45,11 @@ const image = z.discriminatedUnion("kind", [
     kind: z.literal("selfie"),
     employeeId: z.coerce.number().int().positive(),
     date: z.string().refine(isIsoDate, "tanggal harus YYYY-MM-DD"),
+  }),
+  /** photo evidence for one moment in the location log */
+  z.object({
+    kind: z.literal("event"),
+    eventId: z.coerce.number().int().positive(),
   }),
 ]);
 
@@ -172,6 +183,43 @@ async function uploadImage(req: Request, actorId: number) {
       entityId: m.employeeId,
     });
     revalidatePath("/karyawan");
+    return Response.json({ ok: true, key });
+  }
+
+  if (m.kind === "event") {
+    // the event carries no employee/date of its own — they come from the
+    // attendance row it belongs to, which is also what makes the key
+    // authorizable by the existing selfie/<employeeId>/… prefix rule
+    const [event] = await db
+      .select({
+        id: attendanceEvents.id,
+        kind: attendanceEvents.kind,
+        employeeId: attendance.employeeId,
+        date: attendance.date,
+      })
+      .from(attendanceEvents)
+      .innerJoin(attendance, eq(attendance.id, attendanceEvents.attendanceId))
+      .where(eq(attendanceEvents.id, m.eventId))
+      .limit(1);
+    if (!event) {
+      return Response.json({ error: "Event kehadiran tidak ditemukan" }, { status: 404 });
+    }
+
+    const key = keyFor("selfie", `${event.employeeId}/${event.date}/${event.id}`);
+    await putObject(key, bytes, file.type);
+    await db
+      .update(attendanceEvents)
+      .set({ photoUrl: key })
+      .where(eq(attendanceEvents.id, event.id));
+
+    await db.insert(auditLog).values({
+      actorId,
+      action: "attendance.event_photo",
+      entity: "attendance_events",
+      entityId: event.id,
+      detail: `${event.date} · ${event.kind}`,
+    });
+    revalidatePath("/kehadiran");
     return Response.json({ ok: true, key });
   }
 

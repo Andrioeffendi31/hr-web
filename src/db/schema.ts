@@ -9,6 +9,7 @@ import {
   text,
   time,
   timestamp,
+  index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -44,6 +45,12 @@ export const annCategoryEnum = pgEnum("ann_category", [
   "Administrasi",
   "Pelatihan",
 ]);
+export const eventKindEnum = pgEnum("attendance_event_kind", [
+  "masuk",
+  "keluar",
+  "catatan",
+]);
+
 export const folderEnum = pgEnum("doc_folder", [
   "personal",
   "kontrak",
@@ -88,6 +95,35 @@ export const attendance = pgTable(
     lng: numeric("lng", { precision: 9, scale: 6 }),
   },
   (t) => [uniqueIndex("attendance_emp_date").on(t.employeeId, t.date)],
+);
+
+/**
+ * What actually happened during the day. The attendance row above stays the
+ * summary every list, recap and CSV export reads; this is the log behind it,
+ * because attendance_emp_date caps that row at one per employee per day and a
+ * day has more than one moment worth recording.
+ *
+ * `photoUrl` is the evidence for one moment (the clock-in flow in PRD-Mobile
+ * will fill it); `attendance.selfieUrl` remains the photo for the day as a whole.
+ */
+export const attendanceEvents = pgTable(
+  "attendance_events",
+  {
+    id: serial("id").primaryKey(),
+    attendanceId: integer("attendance_id")
+      .notNull()
+      .references(() => attendance.id, { onDelete: "cascade" }),
+    kind: eventKindEnum("kind").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    location: text("location"),
+    /** numeric comes back from the driver as a string — parse once, in the query */
+    lat: numeric("lat", { precision: 9, scale: 6 }),
+    lng: numeric("lng", { precision: 9, scale: 6 }),
+    /** R2 object key, optional */
+    photoUrl: text("photo_url"),
+    note: text("note"),
+  },
+  (t) => [index("att_events_attendance").on(t.attendanceId, t.at)],
 );
 
 export const leaveRequests = pgTable("leave_requests", {
@@ -251,4 +287,13 @@ export const settings = pgTable("settings", {
   shiftStart: time("shift_start").notNull().default("08:00:00"),
   shiftEnd: time("shift_end").notNull().default("17:00:00"),
   lateToleranceMinutes: integer("late_tolerance_minutes").notNull().default(15),
+  /** Office point every clock-in is measured against (PRD §6: "wajib
+   *  geolocation match radius kantor"). Default is Jl. Sudirman, per the mockup. */
+  officeLat: numeric("office_lat", { precision: 9, scale: 6 })
+    .notNull()
+    .default("-6.224900"),
+  officeLng: numeric("office_lng", { precision: 9, scale: 6 })
+    .notNull()
+    .default("106.809200"),
+  geofenceRadiusM: integer("geofence_radius_m").notNull().default(150),
 });

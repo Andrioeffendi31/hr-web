@@ -2,11 +2,12 @@
  *  Run: npm run db:seed  (idempotent — truncates first) */
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { sql } from "drizzle-orm";
+import { isNotNull, sql } from "drizzle-orm";
 import { db } from "./index";
 import {
   announcements,
   attendance,
+  attendanceEvents,
   auditLog,
   documents,
   employees,
@@ -154,6 +155,65 @@ async function main() {
     await db.insert(attendance).values(history.slice(i, i + 500));
   }
 
+  // Location log. Every punch becomes an event so the day detail has something
+  // real to show; the summary row above keeps feeding the board and the export.
+  // Coordinates jitter around the office (inside the 150 m geofence) except for
+  // WFH days, which sit in Bekasi — otherwise the "di luar radius" branch would
+  // never appear in a demo.
+  const OFFICE = { lat: -6.2249, lng: 106.8092 };
+  const RUMAH = { lat: -6.2383, lng: 106.9756 };
+  const punched = await db
+    .select({
+      id: attendance.id,
+      date: attendance.date,
+      clockIn: attendance.clockIn,
+      clockOut: attendance.clockOut,
+      location: attendance.location,
+    })
+    .from(attendance)
+    .where(isNotNull(attendance.clockIn));
+
+  /** ±~50 m, deterministic: same seed, same demo, every time */
+  const jitter = () => (rand() - 0.5) * 0.0009;
+  /** WIB is UTC+7; a bare time string would be read as UTC and shift the day */
+  const wib = (date: string, t: string) =>
+    new Date(`${date}T${t.length === 5 ? `${t}:00` : t}+07:00`);
+
+  const events: (typeof attendanceEvents.$inferInsert)[] = [];
+  for (const row of punched) {
+    const jauh = row.location?.startsWith("Rumah");
+    const base = jauh ? RUMAH : OFFICE;
+    events.push({
+      attendanceId: row.id,
+      kind: "masuk",
+      at: wib(row.date, row.clockIn!),
+      location: row.location,
+      lat: String((base.lat + jitter()).toFixed(6)),
+      lng: String((base.lng + jitter()).toFixed(6)),
+    });
+    if (row.clockOut) {
+      events.push({
+        attendanceId: row.id,
+        kind: "keluar",
+        at: wib(row.date, row.clockOut),
+        location: row.location,
+        lat: String((base.lat + jitter()).toFixed(6)),
+        lng: String((base.lng + jitter()).toFixed(6)),
+      });
+    }
+  }
+  for (let i = 0; i < events.length; i += 500) {
+    await db.insert(attendanceEvents).values(events.slice(i, i + 500));
+  }
+
+  // the summary row's coordinates are the clock-in point — one statement rather
+  // than one UPDATE per row
+  await db.execute(sql`
+    update attendance a
+       set lat = e.lat, lng = e.lng
+      from attendance_events e
+     where e.attendance_id = a.id and e.kind = 'masuk'`);
+
   const holidaySet = new Set(["2026-08-17", "2026-08-18"]);
   const leaves: {
     name: string;
@@ -271,7 +331,7 @@ async function main() {
   });
 
   console.log(
-    `Seed OK — ${inserted.length} karyawan, ${history.length + EMP.length} absensi, ${leaves.length} cuti, ${ots.length} lembur, ${docs.length} berkas`,
+    `Seed OK — ${inserted.length} karyawan, ${history.length + EMP.length} absensi, ${events.length} event lokasi, ${leaves.length} cuti, ${ots.length} lembur, ${docs.length} berkas`,
   );
   console.log(
     `Login: andini.rahmawati@nusantaradigital.co.id / ${SEED_PASSWORD} (HR Admin)`,

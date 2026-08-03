@@ -5,8 +5,11 @@ import {
   attendanceStatus,
   collectiveLeaveDays,
   dateFromIso,
+  ekstensi,
+  formatJarak,
   isIsoDate,
   isoFromDate,
+  jarakMeter,
   leaveQuota,
   overtimeMinutes,
   previewKind,
@@ -137,5 +140,44 @@ assert.equal(ukuranFile(1024 * 1024), "1,0 MB");
 assert.equal(ukuranFile(1_500_000), "1,4 MB");
 assert.equal(ukuranFile(320 * 1024), "320 KB");
 assert.equal(ukuranFile(0), "0 KB");
+
+// distance: the geofence verdict in the attendance detail rides on this
+assert.equal(jarakMeter(-6.2249, 106.8092, -6.2249, 106.8092), 0, "same point");
+// Monas → Kota Tua is ~4.3 km; allow 150 m for the spherical model
+const monasKota = jarakMeter(-6.1754, 106.8272, -6.1352, 106.8133);
+assert.ok(
+  Math.abs(monasKota - 4750) < 250,
+  `Monas–Kota should be ~4,75 km, got ${monasKota} m`,
+);
+assert.equal(
+  jarakMeter(-6.1754, 106.8272, -6.1352, 106.8133),
+  jarakMeter(-6.1352, 106.8133, -6.1754, 106.8272),
+  "symmetric",
+);
+// a 30 m step must not round away — that is the difference between inside and
+// outside a 150 m geofence
+assert.ok(jarakMeter(-6.2249, 106.8092, -6.22463, 106.8092) > 25);
+assert.equal(formatJarak(24), "24 m");
+assert.equal(formatJarak(999), "999 m");
+assert.equal(formatJarak(1000), "1,0 km");
+assert.equal(formatJarak(4750), "4,8 km");
+
+// file helpers behind the dropzone and the preview dialog
+assert.equal(ekstensi("Kontrak Kerja.PDF"), "pdf");
+assert.equal(ekstensi("tanpa-ekstensi"), "");
+assert.equal(ekstensi("arsip.tar.gz"), "gz");
+assert.equal(acceptsFile("foto.JPG", ".jpg,.png"), true, "case-insensitive");
+assert.equal(acceptsFile("virus.exe", ".jpg,.png"), false);
+assert.equal(acceptsFile("tanpa-ekstensi", ".jpg"), false, "no extension, no guess");
+assert.equal(acceptsFile("laporan.2026.xlsx", ".xlsx"), true, "double dots");
+assert.equal(acceptsFile("foto.webp", "image/*"), true, "mime wildcard");
+assert.equal(acceptsFile("kontrak.pdf", "image/*"), false);
+assert.equal(previewKind("PDF"), "pdf");
+assert.equal(previewKind("jpeg"), "image");
+assert.equal(previewKind("svg"), null, "svg executes, never preview it");
+assert.equal(previewKind("html"), null);
+assert.equal(previewKind("xlsx"), null);
+assert.equal(ukuranFile(320 * 1024), "320 KB");
+assert.equal(ukuranFile(1.5 * 1024 * 1024), "1,5 MB");
 
 console.log("hr.ts self-check OK");

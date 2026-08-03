@@ -216,6 +216,35 @@ export function acceptsFile(filename: string, accept: string): boolean {
     });
 }
 
+/* ── Geo ──────────────────────────────────────────────────────────────────── */
+
+/**
+ * Distance in metres between two points. Haversine on a sphere: attendance
+ * distances are tens to thousands of metres, where the ellipsoid correction is
+ * far below the accuracy of a phone's GPS fix.
+ */
+export function jarakMeter(
+  aLat: number,
+  aLng: number,
+  bLat: number,
+  bLng: number,
+): number {
+  const R = 6_371_000;
+  const rad = Math.PI / 180;
+  const dLat = (bLat - aLat) * rad;
+  const dLng = (bLng - aLng) * rad;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(aLat * rad) * Math.cos(bLat * rad) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))));
+}
+
+/** "24 m" / "1,2 km" — comma decimal, like every other number in the UI. */
+export const formatJarak = (meter: number) =>
+  meter >= 1000
+    ? `${(meter / 1000).toFixed(1).replace(".", ",")} km`
+    : `${Math.round(meter)} m`;
+
 /** What the preview dialog can render in-page. SVG and HTML are deliberately
  *  absent: they execute, and previewing them would run untrusted markup. */
 export function previewKind(ext: string): "image" | "pdf" | null {

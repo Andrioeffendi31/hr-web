@@ -2,12 +2,13 @@ import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { MapPin } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
-import { attendance, employees, settings } from "@/db/schema";
+import { attendance, attendanceEvents, employees, settings } from "@/db/schema";
 import { AttBadge, Avatar, Empty, PageHead, Panel, Stat } from "@/components/bits";
 import { DataTable, type Column } from "@/components/data-table";
 import { DateField } from "@/components/date-field";
 import { AbsenteePanel } from "./absentee-panel";
 import { SelfieCell } from "./selfie-cell";
+import { AttendanceDetail, type DayDetail } from "./detail-modal";
 import { SelectField } from "@/components/select-field";
 import {
   type AttStatus,
@@ -23,6 +24,7 @@ type Search = {
   tab?: "today" | "recap";
   div?: string;
   status?: string;
+  open?: string;
   page?: string;
   perPage?: string;
   sort?: string;
@@ -182,6 +184,60 @@ export default async function KehadiranPage({
     status: (r.status ?? "belum_absen") as AttStatus,
   }));
 
+  // Day detail — queried only while the modal is open, like /karyawan does.
+  // An unknown ?open= leaves `detail` null and the list renders as usual.
+  const openId = sp.open ? Number(sp.open) : null;
+  let detail: DayDetail | null = null;
+  if (openId) {
+    const [row] = await db
+      .select({
+        attendanceId: attendance.id,
+        employeeId: employees.id,
+        name: employees.name,
+        nik: employees.nik,
+        division: employees.division,
+        photoUrl: employees.photoUrl,
+        date: attendance.date,
+        clockIn: attendance.clockIn,
+        clockOut: attendance.clockOut,
+        status: attendance.status,
+        location: attendance.location,
+        selfieUrl: attendance.selfieUrl,
+      })
+      .from(attendance)
+      .innerJoin(employees, eq(employees.id, attendance.employeeId))
+      .where(eq(attendance.id, openId))
+      .limit(1);
+
+    if (row) {
+      const events = await db
+        .select({
+          id: attendanceEvents.id,
+          kind: attendanceEvents.kind,
+          at: attendanceEvents.at,
+          location: attendanceEvents.location,
+          lat: attendanceEvents.lat,
+          lng: attendanceEvents.lng,
+          photoUrl: attendanceEvents.photoUrl,
+          note: attendanceEvents.note,
+        })
+        .from(attendanceEvents)
+        .where(eq(attendanceEvents.attendanceId, openId))
+        .orderBy(asc(attendanceEvents.at));
+
+      detail = {
+        ...row,
+        status: row.status as AttStatus,
+        events,
+        office: {
+          lat: Number(cfg.officeLat),
+          lng: Number(cfg.officeLng),
+          radius: cfg.geofenceRadiusM,
+        },
+      };
+    }
+  }
+
   // Monthly recap — aggregated in SQL so the page stays fast at scale (PRD §9)
   const recap =
     tab === "recap"
@@ -229,7 +285,12 @@ export default async function KehadiranPage({
       sortable: true,
       cell: (r) => (
         <Link
-          href={`/karyawan?open=${r.id}`}
+          href={
+            r.attendanceId
+              ? href(base, { open: String(r.attendanceId) })
+              : `/karyawan?open=${r.id}`
+          }
+          scroll={false}
           className="flex items-center gap-2.5 hover:underline"
         >
           <Avatar name={r.name} photoKey={r.photoUrl} />
@@ -537,6 +598,8 @@ export default async function KehadiranPage({
           </Panel>
         </div>
       </div>
+
+      {detail && <AttendanceDetail detail={detail} backHref={href(base, {})} />}
     </>
   );
 }
