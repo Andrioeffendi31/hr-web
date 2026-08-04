@@ -24,14 +24,16 @@ const MB = 1024 * 1024;
  * that path needs no CORS rule and no confirm round-trip.
  */
 export const MAX_DOC = 100 * MB;
-export const MAX_IMAGE = 1.5 * MB;
+/** 4 MB, not 1.5: a phone camera selfie at reduced quality still lands around
+ *  2 MB, and the mobile clock-in has no way to re-encode it further. */
+export const MAX_IMAGE = 4 * MB;
 /** A presigned URL is a bearer token for one key, so it lives briefly: long
  *  enough to push 100 MB on a slow line, short enough that a leaked link is
  *  stale by the time it is shared. */
 const PUT_TTL = 20 * 60;
 const GET_TTL = 60;
 
-export type Kind = "doc" | "photo" | "selfie";
+export type Kind = "doc" | "photo" | "selfie" | "logo";
 
 const DOC_EXT = ["pdf", "csv", "xlsx", "docx", "jpg", "jpeg", "png"];
 const IMAGE_EXT = ["jpg", "jpeg", "png", "webp"];
@@ -80,6 +82,8 @@ export function keyFor(
       return `photo/${scope}`;
     case "selfie":
       return `selfie/${scope}`;
+    case "logo":
+      return `logo/${scope}/${uuid}-${safeName(filename)}`;
   }
 }
 

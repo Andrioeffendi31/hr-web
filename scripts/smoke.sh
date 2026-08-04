@@ -21,11 +21,15 @@ check() { # name expected actual
 code() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$@"; }
 body() { curl -s -b "$JAR" -c "$JAR" "$@"; }
 
-echo "1. unauthenticated access is redirected"
+echo "1. unauthenticated access is refused"
 check "/kehadiran without session" 307 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/kehadiran")"
-# proxy.ts intercepts before the handler runs, so this redirects rather than
-# 403s. requireAdmin() is the second layer if the route is ever reached directly.
-check "export route without session" 307 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/export/karyawan")"
+# API routes are no longer behind proxy.ts — it can only express one role, which
+# broke the employee-facing endpoints. Each handler authorizes itself instead, so
+# this is requireAdmin() answering rather than a redirect.
+check "export route without session" 403 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/export/karyawan")"
+check "employee endpoint without session" 401 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/me")"
+# Apple and Google fetch these anonymously and refuse redirects
+check "well-known is public" 503 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/.well-known/assetlinks.json")"
 
 echo "2. login"
 CSRF="$(body "$BASE/api/auth/csrf" | sed 's/.*"csrfToken":"\([^"]*\)".*/\1/')"
@@ -97,7 +101,8 @@ check "prefix match ranks first" "Maya Sari" \
   "$(body "$BASE/api/search?q=Ma" | first_name)"
 # the value depends on today's attendance row; only the field is contractual
 check "hit carries today status" 1 "$(body "$BASE/api/search?q=bagas" | grep -c '"status":')"
-check "search needs a session" 307 \
+# 403 from requireAdmin() now that proxy.ts leaves /api to its handlers
+check "search needs a session" 403 \
   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/search?q=bagas")"
 
 echo "9. WebAuthn / passkey"
@@ -109,7 +114,8 @@ check "login options returns json challenge" 1 \
 check "login options carries rpId" 1 \
   "$(curl -s "$BASE/api/webauthn/login" | grep -c '"rpId"')"
 # registration must stay behind a session
-check "register options needs session" 307 \
+# 401 from the route's own session check, not a proxy redirect
+check "register options needs session" 401 \
   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/webauthn/register")"
 check "register options with session" 200 "$(code "$BASE/api/webauthn/register")"
 check "register options offers a challenge" 1 \
@@ -251,7 +257,8 @@ check "belum-absen feed" 1 \
   "$([ "$(feed "belum-absen?date=2026-07-30" | grep -c '"items"')" = 1 ] && echo 1 || echo 0)"
 check "unknown feed is 404" 404 "$(code "$BASE/api/feed/tidakada")"
 check "bad page is 400" 400 "$(code "$BASE/api/feed/pengumuman?page=0")"
-check "feed needs a session" 307 \
+# 403 from requireAdmin(), not a redirect — see the note in section 1
+check "feed needs a session" 403 \
   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/feed/pengumuman")"
 
 rm -f "$JAR" "$BADJAR"

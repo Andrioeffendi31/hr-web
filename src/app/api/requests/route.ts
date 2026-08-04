@@ -5,6 +5,7 @@ import { requireAdmin } from "@/auth";
 import { db } from "@/db";
 import { auditLog, leaveRequests, overtimeRequests } from "@/db/schema";
 import { queueEmail } from "@/lib/email";
+import { sendPush } from "@/lib/push";
 
 const body = z.object({
   kind: z.enum(["cuti", "lembur"]),
@@ -60,6 +61,22 @@ export async function POST(req: Request) {
     to: updated.employeeId,
     template: action === "revisi" ? "request_revision" : `request_${action}`,
     context: { kind, requestId: id, note },
+  });
+
+  // and to the phone, which is where the employee actually is (PRD-Mobile §6.6).
+  // Deliberately after the DB write and never awaited for success: a decision is
+  // recorded whether or not a notification lands.
+  const label = kind === "cuti" ? "cuti" : "lembur";
+  await sendPush({
+    to: updated.employeeId,
+    title:
+      action === "disetujui"
+        ? `Pengajuan ${label} disetujui`
+        : action === "ditolak"
+          ? `Pengajuan ${label} ditolak`
+          : `Pengajuan ${label} perlu direvisi`,
+    body: note?.trim() || `Buka Riwayat Pengajuan untuk detailnya.`,
+    route: "/pengajuan",
   });
 
   revalidatePath(kind === "cuti" ? "/cuti" : "/lembur");

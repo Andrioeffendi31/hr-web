@@ -13,6 +13,7 @@ import {
   Megaphone,
   Menu,
   Moon,
+  Settings,
   Sun,
   Timer,
   Users,
@@ -49,6 +50,10 @@ const GROUPS = [
       { href: "/laporan", label: "Laporan", icon: BarChart3 },
     ],
   },
+  {
+    label: "Administrasi",
+    items: [{ href: "/pengaturan", label: "Pengaturan", icon: Settings }],
+  },
 ] as const;
 
 const TITLES: Record<string, [string, string]> = {
@@ -61,6 +66,7 @@ const TITLES: Record<string, [string, string]> = {
   "/berkas": ["Berkas", "dokumen pribadi & perusahaan"],
   "/laporan": ["Laporan", "rekap siap audit, unduh sebagai CSV"],
   "/profil": ["Profil & Keamanan", "passkey dan data kepegawaian Anda"],
+  "/pengaturan": ["Pengaturan", "identitas, jadwal kerja & kebijakan perusahaan"],
 };
 
 function NavList({
@@ -130,12 +136,14 @@ export function Shell({
   badges,
   liveLabel,
   companyName,
+  companyLogoUrl,
   user,
 }: {
   children: React.ReactNode;
   badges: NavBadges;
   liveLabel: string;
   companyName: string;
+  companyLogoUrl?: string | null;
   user: { name: string; position: string };
 }) {
   const pathname = usePathname();
@@ -145,14 +153,23 @@ export function Shell({
 
   const brand = (
     <div className="flex items-center gap-2.5 px-2 pt-1 pb-4">
-      <div className="bg-primary shadow-sm flex size-[30px] shrink-0 items-center justify-center rounded-lg">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path
-            d="M5 20V5.5A1.5 1.5 0 0 1 6.5 4H13a5 5 0 0 1 1.4 9.8L19 20h-3.4l-4-6H8v6H5Z"
-            fill="#fff"
-          />
-        </svg>
-      </div>
+      {companyLogoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`/api/files/${companyLogoUrl}`}
+          alt={`Logo ${companyName}`}
+          className="bg-card size-[30px] shrink-0 rounded-lg border object-contain p-0.5 shadow-sm"
+        />
+      ) : (
+        <div className="bg-primary shadow-sm flex size-[30px] shrink-0 items-center justify-center rounded-lg">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M5 20V5.5A1.5 1.5 0 0 1 6.5 4H13a5 5 0 0 1 1.4 9.8L19 20h-3.4l-4-6H8v6H5Z"
+              fill="#fff"
+            />
+          </svg>
+        </div>
+      )}
       <div className="min-w-0 leading-tight">
         <div className="font-heading text-[14.5px] font-bold tracking-tight">
           Ruang<span className="text-subtle font-semibold"> HR</span>

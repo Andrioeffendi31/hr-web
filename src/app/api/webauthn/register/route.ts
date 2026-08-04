@@ -93,14 +93,15 @@ export async function POST(req: Request) {
     );
   }
 
-  const { rpID, origin } = rpFrom(req.headers);
+  const { rpID, origins } = rpFrom(req.headers);
 
   let verification;
   try {
     verification = await verifyRegistrationResponse({
       response: parsed.data.response as RegistrationResponseJSON,
       expectedChallenge: stored.challenge,
-      expectedOrigin: origin,
+      // an array: the same endpoint verifies browser and native ceremonies
+      expectedOrigin: origins,
       expectedRPID: rpID,
       requireUserVerification: false,
     });

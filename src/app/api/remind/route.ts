@@ -3,6 +3,7 @@ import { requireAdmin } from "@/auth";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema";
 import { queueEmail } from "@/lib/email";
+import { sendPush } from "@/lib/push";
 
 const body = z.object({
   ids: z.array(z.coerce.number().int().positive()).min(1).max(500),
@@ -26,6 +27,14 @@ export async function POST(req: Request) {
     to: parsed.data.ids,
     template: "attendance_reminder",
     context: { date: parsed.data.date },
+  });
+
+  // the reminder is time-sensitive — an email read at lunch is no reminder at all
+  await sendPush({
+    to: parsed.data.ids,
+    title: "Anda belum absen masuk",
+    body: "Buka Ruang HR untuk absen sekarang.",
+    route: "/",
   });
 
   await db.insert(auditLog).values({

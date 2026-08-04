@@ -20,11 +20,34 @@ export function rpFrom(headers: Headers) {
     (host.startsWith("localhost") || host.startsWith("127.0.0.1")
       ? "http"
       : "https");
+  const origin = `${proto}://${host}`;
   return {
     rpName: "Ruang HR",
     rpID: host.split(":")[0],
-    origin: `${proto}://${host}`,
+    origin,
+    /**
+     * Every origin a ceremony may legitimately come from. The browser sends the
+     * web origin; the Android app sends `android:apk-key-hash:…` instead, and iOS
+     * sends `https://<rpID>` which is already the web origin. Verification must
+     * accept the set, or the mobile passkey (PRD-Mobile §7) fails as a forgery.
+     */
+    origins: [origin, ...(androidOrigin() ? [androidOrigin()!] : [])],
   };
+}
+
+/**
+ * The Android app's WebAuthn origin, derived from the signing certificate — the
+ * same fingerprint that goes in assetlinks.json, so one env var configures both
+ * and they cannot disagree.
+ *
+ * Set ANDROID_CERT_SHA256 to the SHA-256 of the signing cert as printed by
+ * `eas credentials` or `keytool -list` (colon-separated hex). Absent, the Android
+ * app simply cannot use passkeys; nothing else is affected.
+ */
+export function androidOrigin(): string | null {
+  const hex = process.env.ANDROID_CERT_SHA256?.replace(/[^0-9a-fA-F]/g, "");
+  if (!hex || hex.length !== 64) return null;
+  return `android:apk-key-hash:${Buffer.from(hex, "hex").toString("base64url")}`;
 }
 
 /** Stores a challenge server-side and returns the handle the client echoes back. */

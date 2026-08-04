@@ -12,6 +12,7 @@ import { ekstensi, previewKind } from "@/lib/hr";
  *   docs/legal/…    any signed-in user (company-wide documents)
  *   docs/…          HR Admin, or the employee the document belongs to
  *   photo/<id>      any signed-in user (avatars appear in the employee list)
+ *   logo/company    any signed-in user (company branding in the app shell)
  *   selfie/<id>/…   HR Admin, or that employee
  *
  * Anything else is a 404 — including a key that tries to climb out of its prefix.
@@ -50,7 +51,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ key: string[] }
     if (!isAdmin && segments[1] !== me) {
       return new Response("Tidak boleh diakses", { status: 403 });
     }
-  } else if (segments[0] !== "photo") {
+  } else if (segments[0] !== "photo" && segments[0] !== "logo") {
     return new Response("Tidak ditemukan", { status: 404 });
   }
 
@@ -66,8 +67,20 @@ export async function GET(req: Request, ctx: { params: Promise<{ key: string[] }
     // ?inline=1 is what the preview dialog asks for. Only for types the browser
     // renders as data — an inline .svg or .html would execute on the object
     // host, so those keep falling back to a download.
-    const wantsInline = new URL(req.url).searchParams.get("inline") === "1";
+    const params = new URL(req.url).searchParams;
+    const wantsInline = params.get("inline") === "1";
     const inline = wantsInline && previewKind(ekstensi(filename)) !== null;
+
+    // ?json=1 hands back the signed URL instead of redirecting to it. The mobile
+    // app needs that: it holds the session as a header, so it cannot let the
+    // system browser follow a 302 that requires the cookie — but it can open the
+    // signed URL, which carries its own authorization.
+    if (params.get("json") === "1") {
+      return Response.json({
+        url: await presignGet(key, filename, inline ? "inline" : "attachment"),
+        name: filename,
+      });
+    }
 
     return new Response(null, {
       status: 302,

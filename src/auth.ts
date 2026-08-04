@@ -102,14 +102,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!row || !row.employee.active) return null;
 
         // rpID/origin must come from the request, never from the client payload
-        const { rpID, origin } = rpFrom(await headers());
+        const { rpID, origins } = rpFrom(await headers());
 
         let verification;
         try {
           verification = await verifyAuthenticationResponse({
             response: assertion,
             expectedChallenge: stored.challenge,
-            expectedOrigin: origin,
+            expectedOrigin: origins,
             expectedRPID: rpID,
             requireUserVerification: false,
             authenticator: {

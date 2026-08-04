@@ -39,6 +39,7 @@ export default async function AppLayout({
       }}
       liveLabel={`${sudahAbsen[0].n} dari ${aktif[0].n} karyawan sudah absen masuk hari ini.`}
       companyName={cfg?.companyName ?? "PT Nusantara Digital"}
+      companyLogoUrl={cfg?.companyLogoUrl}
       user={{
         name: session?.user?.name ?? "—",
         position: session?.user?.position ?? "",

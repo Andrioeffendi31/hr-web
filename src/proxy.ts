@@ -22,10 +22,14 @@ export const proxy = auth((req) => {
 export default proxy;
 
 export const config = {
-  // api/webauthn/login must stay public: it issues the login challenge, so it
-  // is reached before any session exists. Registration stays guarded here and
-  // additionally checks the session itself.
-  matcher: [
-    "/((?!login|api/auth|api/webauthn/login|_next/static|_next/image|favicon.ico).*)",
-  ],
+  // `api` is excluded wholesale: every handler already calls requireAdmin() or
+  // requireUser(), and the role check above can only express one role — which
+  // 307'd the employee-facing endpoints (mobile app, own-file download) to
+  // /login. Guarding pages here and authorizing APIs in the handlers is one
+  // rule each, instead of an exclusion list that grows per endpoint.
+  //
+  // `.well-known` must stay public and un-redirected: Apple and Google fetch the
+  // association files anonymously and refuse to follow a redirect, so guarding
+  // them would silently break passkey enrolment in the mobile app.
+  matcher: ["/((?!login|api|\\.well-known|_next/static|_next/image|favicon.ico).*)"],
 };

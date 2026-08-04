@@ -9,6 +9,7 @@ import {
   auditLog,
   documents,
   employees,
+  settings,
 } from "@/db/schema";
 import {
   MAX_DOC,
@@ -50,6 +51,9 @@ const image = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("event"),
     eventId: z.coerce.number().int().positive(),
+  }),
+  z.object({
+    kind: z.literal("logo"),
   }),
 ]);
 
@@ -144,6 +148,7 @@ async function uploadImage(req: Request, actorId: number) {
     );
   }
   const m = parsed.data;
+  const maxImageBytes = m.kind === "logo" ? 2 * 1024 * 1024 : MAX_IMAGE;
 
   if (!allowed(extOf(file.name), "photo")) {
     return Response.json(
@@ -151,9 +156,9 @@ async function uploadImage(req: Request, actorId: number) {
       { status: 400 },
     );
   }
-  if (file.size > MAX_IMAGE) {
+  if (file.size > maxImageBytes) {
     return Response.json(
-      { error: `File terlalu besar (maks ${MAX_IMAGE / (1024 * 1024)} MB)` },
+      { error: `File terlalu besar (maks ${maxImageBytes / (1024 * 1024)} MB)` },
       { status: 413 },
     );
   }
@@ -162,6 +167,38 @@ async function uploadImage(req: Request, actorId: number) {
   }
 
   const bytes = await file.arrayBuffer();
+
+  if (m.kind === "logo") {
+    const [current] = await db
+      .select({ key: settings.companyLogoUrl })
+      .from(settings)
+      .limit(1);
+    const key = keyFor("logo", "company", file.name);
+    await putObject(key, bytes, file.type);
+    await db
+      .insert(settings)
+      .values({ id: 1, companyLogoUrl: key })
+      .onConflictDoUpdate({
+        target: settings.id,
+        set: { companyLogoUrl: key },
+      });
+    if (current?.key && current.key !== key) {
+      // The database already points at the new image. A failed cleanup must not
+      // make a successful replacement look failed to the user.
+      await deleteObject(current.key).catch(() => undefined);
+    }
+
+    await db.insert(auditLog).values({
+      actorId,
+      action: "settings.logo",
+      entity: "settings",
+      entityId: 1,
+      detail: file.name,
+    });
+    revalidatePath("/", "layout");
+    revalidatePath("/pengaturan");
+    return Response.json({ ok: true, key });
+  }
 
   if (m.kind === "photo") {
     const key = keyFor("photo", String(m.employeeId));
@@ -203,6 +240,14 @@ async function uploadImage(req: Request, actorId: number) {
       .limit(1);
     if (!event) {
       return Response.json({ error: "Event kehadiran tidak ditemukan" }, { status: 404 });
+    }
+    // an automatic ping has no photographer — the UI hides the uploader for it,
+    // and this closes the direct path so the two cannot drift apart
+    if (event.kind === "lokasi") {
+      return Response.json(
+        { error: "Ping lokasi otomatis tidak menerima foto" },
+        { status: 400 },
+      );
     }
 
     const key = keyFor("selfie", `${event.employeeId}/${event.date}/${event.id}`);

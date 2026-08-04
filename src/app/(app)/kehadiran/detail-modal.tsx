@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 
 export type AttEvent = {
   id: number;
-  kind: "masuk" | "keluar" | "catatan";
+  kind: "masuk" | "keluar" | "catatan" | "lokasi";
   at: Date;
   location: string | null;
   /** numeric arrives as a string from the driver */
@@ -55,18 +55,22 @@ const KIND_LABEL = {
   masuk: "Absen masuk",
   keluar: "Absen keluar",
   catatan: "Catatan",
+  lokasi: "Ping lokasi",
 } as const;
 
 const KIND_DOT = {
   masuk: "bg-success",
   keluar: "bg-info",
   catatan: "bg-muted-foreground",
+  // dimmer than the two manual punches: automatic pings are context, not events
+  lokasi: "bg-primary/50",
 } as const;
 
 const KIND_RING = {
   masuk: "bg-success-subtle",
   keluar: "bg-info-subtle",
   catatan: "bg-muted",
+  lokasi: "bg-primary-subtle",
 } as const;
 
 /** WIB, matching every other time in the app. */
@@ -98,6 +102,10 @@ export function AttendanceDetail({
       ? jarakMeter(d.office.lat, d.office.lng, Number(masuk.lat), Number(masuk.lng))
       : null;
   const cocok = jarak !== null && jarak <= d.office.radius;
+
+  // automatic pings, newest last (events already arrive ordered by `at`)
+  const pings = d.events.filter((e) => e.kind === "lokasi");
+  const sedangBekerja = Boolean(d.clockIn && !d.clockOut);
 
   return (
     <Dialog open onOpenChange={(open) => !open && router.push(backHref)}>
@@ -173,6 +181,16 @@ export function AttendanceDetail({
                     {!cocok && ` (radius ${d.office.radius} m)`}
                   </>
                 )}
+              </div>
+              {/* the monitoring state is visible without scrolling to the rail */}
+              <div className="text-subtle mt-1 text-[11px]">
+                {pings.length === 0
+                  ? sedangBekerja
+                    ? "Terpantau tiap 3 jam · belum ada ping otomatis"
+                    : "Tidak ada ping otomatis hari ini"
+                  : `Terpantau tiap 3 jam · ${pings.length} ping · terakhir ${waktu(
+                      pings[pings.length - 1].at,
+                    )}`}
               </div>
             </div>
             {masuk?.lat && masuk.lng && (
@@ -310,7 +328,9 @@ function TimelineEntry({
           {e.note && <div className="mt-1 text-[12px]">{e.note}</div>}
         </div>
 
-        {src ? (
+        {/* an automatic ping has no photographer, so no uploader is offered —
+            api/files rejects kind:"lokasi" too, so the two cannot drift apart */
+        e.kind === "lokasi" ? null : src ? (
           <FilePreview
             name={label}
             src={src}

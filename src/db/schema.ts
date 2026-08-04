@@ -49,6 +49,8 @@ export const eventKindEnum = pgEnum("attendance_event_kind", [
   "masuk",
   "keluar",
   "catatan",
+  /** automatic periodic ping while clocked in, written by the mobile app, not a human */
+  "lokasi",
 ]);
 
 export const folderEnum = pgEnum("doc_folder", [
@@ -245,6 +247,30 @@ export const auditLog = pgTable("audit_log", {
   at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Expo push tokens (PRD-Mobile §6.6). One row per device, not per employee: a
+ * person may carry a phone and a tablet, and both should get told when their
+ * leave is approved.
+ *
+ * The token is the primary key. Expo reissues the same token to the same install,
+ * so an upsert on it keeps re-registration idempotent — and if a device is handed
+ * to another employee, the upsert moves the row instead of leaving the old owner
+ * subscribed to somebody else's notifications.
+ */
+export const pushTokens = pgTable(
+  "push_tokens",
+  {
+    token: text("token").primaryKey(),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    platform: text("platform").notNull().default("unknown"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => [index("push_tokens_employee").on(t.employeeId)],
+);
+
 /** Registered passkeys (PRD §7). Binary values are stored base64url so the rows
  *  stay portable and the credential id can be indexed and looked up directly. */
 export const authenticators = pgTable("authenticators", {
@@ -282,6 +308,8 @@ export const webauthnChallenges = pgTable("webauthn_challenges", {
 export const settings = pgTable("settings", {
   id: integer("id").primaryKey().default(1),
   companyName: text("company_name").notNull().default("PT Nusantara Digital"),
+  /** R2 object key for the company mark shown in the admin shell. */
+  companyLogoUrl: text("company_logo_url"),
   weeklyOvertimeCapHours: integer("weekly_ot_cap_hours").notNull().default(14),
   baseLeaveQuota: integer("base_leave_quota").notNull().default(12),
   shiftStart: time("shift_start").notNull().default("08:00:00"),

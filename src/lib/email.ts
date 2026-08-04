@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { employees } from "@/db/schema";
 
 type Template =
+  | "request_submitted"
   | "request_disetujui"
   | "request_ditolak"
   | "request_revision"
@@ -10,6 +11,7 @@ type Template =
   | "announcement_new";
 
 const SUBJECTS: Record<Template, string> = {
+  request_submitted: "Pengajuan baru menunggu persetujuan",
   request_disetujui: "Pengajuan Anda disetujui",
   request_ditolak: "Pengajuan Anda ditolak",
   request_revision: "Pengajuan Anda perlu direvisi",
