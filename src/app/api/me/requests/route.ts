@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
+import { alias } from "drizzle-orm/pg-core";
 import { employees, leaveRequests, overtimeRequests } from "@/db/schema";
 import {
   durasi,
@@ -40,10 +41,20 @@ async function hrAdmins() {
 
 export const GET = withMe(async (me) => {
   const year = Number(todayWib().slice(0, 4));
+  // aliased join: the delegate is an employee row too, and `employees` is already
+  // in this query for the delegate *list*
+  const delegate = alias(employees, "delegate");
   const [cuti, lembur, balances, delegates] = await Promise.all([
     db
-      .select()
+      .select({
+        row: leaveRequests,
+        /** resolved here rather than matched against the delegate list on the
+         *  phone: that list only holds active colleagues, so somebody who has
+         *  since left would silently show as "—" */
+        delegateName: delegate.name,
+      })
       .from(leaveRequests)
+      .leftJoin(delegate, eq(delegate.id, leaveRequests.delegateId))
       .where(eq(leaveRequests.employeeId, me.id))
       .orderBy(desc(leaveRequests.createdAt))
       .limit(50),
@@ -63,7 +74,7 @@ export const GET = withMe(async (me) => {
   return Response.json({
     balance: balances[0] ?? null,
     delegates: delegates.filter((d) => d.id !== me.id),
-    cuti: cuti.map((r) => ({
+    cuti: cuti.map(({ row: r, delegateName }) => ({
       id: r.id,
       kind: "cuti" as const,
       title: r.type,
@@ -79,6 +90,7 @@ export const GET = withMe(async (me) => {
       endDate: r.endDate,
       reason: r.reason,
       delegateId: r.delegateId,
+      delegateName,
       attachment: r.attachmentKey
         ? { key: r.attachmentKey, name: r.attachmentName, size: r.attachmentSize }
         : null,
@@ -93,6 +105,12 @@ export const GET = withMe(async (me) => {
       createdAt: r.createdAt,
       date: r.date,
       minutes: r.minutes,
+      /** the raw times too: the phone opens a filed request in the same form that
+       *  created it, and a form that defaulted its time fields would show hours
+       *  nobody submitted */
+      startTime: r.startTime.slice(0, 5),
+      endTime: r.endTime.slice(0, 5),
+      reason: r.reason,
     })),
   });
 });
@@ -266,9 +284,14 @@ export const POST = withMe(async (me, req) => {
 
 
 /**
- * Edit and resubmit a leave request HR sent back.
+ * Edit a leave request that is still open — `menunggu` or `revisi`.
  *
- * Only `revisi`, and only your own — the where clause is the authorization, so a
+ * Correcting a request HR has not looked at yet is the same operation as answering
+ * a revision, so it is the same endpoint: a pending row stays `menunggu`, and a
+ * returned one goes back to `menunggu` with the HR note cleared, which is what puts
+ * it in front of an approver again.
+ *
+ * Only your own — the where clause is the authorization, so a
  * guessed id belonging to somebody else simply matches nothing. Every rule the
  * create path enforces runs again: the working days are recounted against the
  * holiday table, the annual balance is rechecked, and the dates are re-validated,
@@ -303,11 +326,11 @@ export const PUT = withMe(async (me, req) => {
       and(
         eq(leaveRequests.id, input.id),
         eq(leaveRequests.employeeId, me.id),
-        eq(leaveRequests.status, "revisi"),
+        inArray(leaveRequests.status, ["menunggu", "revisi"]),
       ),
     )
     .limit(1);
-  if (!current) throw new Bad("Pengajuan tidak ditemukan atau tidak dalam revisi", 404);
+  if (!current) throw new Bad("Pengajuan tidak ditemukan atau sudah diputuskan", 404);
 
   if (input.endDate < input.startDate) {
     throw new Bad("Tanggal selesai lebih awal dari tanggal mulai");

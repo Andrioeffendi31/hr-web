@@ -32,9 +32,16 @@ export async function config() {
  * which an Axios/fetch client on a phone cannot do anything useful with.
  */
 export function withMe<T>(
-  handler: (me: Awaited<ReturnType<typeof loadMe>>, req: Request) => Promise<T>,
+  handler: (
+    me: Awaited<ReturnType<typeof loadMe>>,
+    req: Request,
+    /** Next's route context, forwarded so a dynamic segment can be read from
+     *  params instead of being sliced back out of the URL. Handlers that do not
+     *  need it simply declare two parameters. */
+    ctx: { params: Promise<Record<string, string>> },
+  ) => Promise<T>,
 ) {
-  return async (req: Request) => {
+  return async (req: Request, ctx: { params: Promise<Record<string, string>> }) => {
     let me;
     try {
       const user = await requireUser();
@@ -46,7 +53,7 @@ export function withMe<T>(
       return Response.json({ error: "Akun tidak aktif" }, { status: 403 });
     }
     try {
-      return (await handler(me, req)) as Response;
+      return (await handler(me, req, ctx)) as Response;
     } catch (e) {
       const msg = (e as Error).message;
       // a thrown Bad is the handler's way of rejecting input; anything else is
