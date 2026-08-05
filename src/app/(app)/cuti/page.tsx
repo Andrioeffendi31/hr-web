@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { v: "menunggu", label: "Menunggu" },
+  /** waiting on the employee, not on HR — visible so a revision cannot be
+   *  forgotten by both sides at once */
+  { v: "revisi", label: "Perlu revisi" },
   { v: "disetujui", label: "Disetujui" },
   { v: "ditolak", label: "Ditolak" },
 ] as const;
@@ -25,6 +28,7 @@ export default async function CutiPage({
   const sp = await searchParams;
   const tab = (TABS.find((t) => t.v === sp.tab)?.v ?? "menunggu") as
     | "menunggu"
+    | "revisi"
     | "disetujui"
     | "ditolak";
   const today = todayWib();
@@ -104,6 +108,9 @@ async function fetchLeavePage(status: string, year: number): Promise<LeaveRow[]>
       status: leaveRequests.status,
       decisionNote: leaveRequests.decisionNote,
       createdAt: leaveRequests.createdAt,
+      attachmentKey: leaveRequests.attachmentKey,
+      attachmentName: leaveRequests.attachmentName,
+      attachmentSize: leaveRequests.attachmentSize,
       name: employees.name,
       division: employees.division,
       employeeId: employees.id,

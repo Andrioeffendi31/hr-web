@@ -52,6 +52,10 @@ export const AttBadge = ({ status }: { status: AttStatus }) => (
 
 const REQ_TONE = {
   menunggu: "warning",
+  // primary, not warning: "menunggu" is HR's queue and "revisi" is the employee's,
+  // and two amber pills side by side in the same list say nothing about whose turn
+  // it is
+  revisi: "primary",
   disetujui: "success",
   ditolak: "danger",
   dibatalkan: "neutral",
@@ -59,6 +63,7 @@ const REQ_TONE = {
 
 const REQ_LABEL = {
   menunggu: "Menunggu",
+  revisi: "Perlu revisi",
   disetujui: "Disetujui",
   ditolak: "Ditolak",
   dibatalkan: "Dibatalkan",

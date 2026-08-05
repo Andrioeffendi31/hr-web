@@ -26,6 +26,13 @@ export const attendanceStatusEnum = pgEnum("attendance_status", [
 ]);
 export const requestStatusEnum = pgEnum("request_status", [
   "menunggu",
+  /**
+   * Sent back by HR for the employee to fix and resubmit. Its own state, not
+   * `menunggu` with a note: the two look identical in every list otherwise, and
+   * neither side can tell whose turn it is — HR waits for an employee who does
+   * not know they were asked for anything.
+   */
+  "revisi",
   "disetujui",
   "ditolak",
   "dibatalkan",
@@ -140,6 +147,16 @@ export const leaveRequests = pgTable("leave_requests", {
   days: integer("days").notNull(),
   reason: text("reason").notNull(),
   delegateId: integer("delegate_id"),
+  /**
+   * One supporting file — a doctor's note, a wedding invitation, a visa letter.
+   * Three columns rather than a join table: a leave request has one attachment in
+   * every process this company runs, and the name and size have to survive here
+   * because nothing else records them (add a `leave_attachments` table the day a
+   * request needs several).
+   */
+  attachmentKey: text("attachment_key"),
+  attachmentName: text("attachment_name"),
+  attachmentSize: integer("attachment_size"),
   status: requestStatusEnum("status").notNull().default("menunggu"),
   decisionNote: text("decision_note"),
   decidedById: integer("decided_by_id"),

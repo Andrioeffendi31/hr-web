@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { Paperclip } from "lucide-react";
 import { Empty, Panel, Pill, ReqBadge } from "@/components/bits";
 import { DecideButtons } from "@/components/decide-buttons";
 import { FeedFooter } from "@/components/feed-footer";
 import { useInfiniteFeed } from "@/components/use-infinite-feed";
-import { deductsBalance, initials, rentangTanggal } from "@/lib/hr";
+import { deductsBalance, initials, rentangTanggal, ukuranFile } from "@/lib/hr";
 
 export type LeaveRow = {
   id: number;
@@ -14,7 +15,7 @@ export type LeaveRow = {
   endDate: string;
   days: number;
   reason: string;
-  status: "menunggu" | "disetujui" | "ditolak" | "dibatalkan";
+  status: "menunggu" | "revisi" | "disetujui" | "ditolak" | "dibatalkan";
   decisionNote: string | null;
   createdAt: string;
   name: string;
@@ -22,6 +23,9 @@ export type LeaveRow = {
   employeeId: number;
   delegateName: string | null;
   remaining: number | null;
+  attachmentKey: string | null;
+  attachmentName: string | null;
+  attachmentSize: number | null;
 };
 
 const TYPE_TONE = {
@@ -117,13 +121,26 @@ export function LeaveQueue({
               {r.reason}
             </p>
 
+            {r.attachmentName && r.attachmentKey && (
+              <a
+                href={`/api/files/${r.attachmentKey}`}
+                className="border-border hover:border-primary hover:text-primary mt-2 flex w-fit items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px] font-medium"
+              >
+                <Paperclip className="size-3.5" />
+                {r.attachmentName}
+                <span className="text-subtle font-normal">{ukuranFile(r.attachmentSize ?? 0)}</span>
+              </a>
+            )}
+
             {r.decisionNote && (
               <p className="text-danger bg-danger-subtle mt-2 rounded-lg px-3 py-2 text-[12.5px]">
                 Catatan HR: {r.decisionNote}
               </p>
             )}
 
-            {r.status === "menunggu" && (
+            {/* a revision is waiting on the employee, but HR may still decide the
+                original as it stands — the note is a request, not a lock */}
+            {(r.status === "menunggu" || r.status === "revisi") && (
               <div className="mt-3">
                 <DecideButtons kind="cuti" id={r.id} name={r.name} allowRevision />
               </div>

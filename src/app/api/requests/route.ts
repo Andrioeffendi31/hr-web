@@ -30,8 +30,14 @@ export async function POST(req: Request) {
   }
   const { kind, id, action, note } = parsed.data;
 
-  // "Minta revisi" sends it back to the employee rather than closing it out.
-  const status = action === "revisi" ? "menunggu" : action;
+  /**
+   * "Minta revisi" hands the request back to the employee. It used to write
+   * `menunggu`, which left it sitting in HR's own queue looking exactly like
+   * something HR still had to decide — and gave the employee nothing to act on.
+   * `revisi` is now a state of its own: out of HR's queue, editable by the person
+   * who filed it, and resubmitted as `menunggu` when they are done.
+   */
+  const status = action;
   const table = kind === "cuti" ? leaveRequests : overtimeRequests;
 
   const [updated] = await db

@@ -27,13 +27,19 @@ export const MAX_DOC = 100 * MB;
 /** 4 MB, not 1.5: a phone camera selfie at reduced quality still lands around
  *  2 MB, and the mobile clock-in has no way to re-encode it further. */
 export const MAX_IMAGE = 4 * MB;
+/**
+ * 10 MB for a leave attachment: a phone photo of a doctor's note or a scanned PDF
+ * fits several times over, and it is small enough that the multipart request the
+ * pengajuan form sends still completes on a phone connection.
+ */
+export const MAX_ATTACHMENT = 10 * MB;
 /** A presigned URL is a bearer token for one key, so it lives briefly: long
  *  enough to push 100 MB on a slow line, short enough that a leaked link is
  *  stale by the time it is shared. */
 const PUT_TTL = 20 * 60;
 const GET_TTL = 60;
 
-export type Kind = "doc" | "photo" | "selfie" | "logo";
+export type Kind = "doc" | "photo" | "selfie" | "logo" | "lampiran";
 
 const DOC_EXT = ["pdf", "csv", "xlsx", "docx", "jpg", "jpeg", "png"];
 const IMAGE_EXT = ["jpg", "jpeg", "png", "webp"];
@@ -46,7 +52,9 @@ export function extOf(filename: string): string {
 }
 
 export function allowed(ext: string, kind: Kind): boolean {
-  return (kind === "doc" ? DOC_EXT : IMAGE_EXT).includes(ext);
+  // a leave attachment is a document (a scanned note, a photo of one), so it
+  // takes the document list rather than the image-only one
+  return (kind === "doc" || kind === "lampiran" ? DOC_EXT : IMAGE_EXT).includes(ext);
 }
 
 /**
@@ -82,6 +90,11 @@ export function keyFor(
       return `photo/${scope}`;
     case "selfie":
       return `selfie/${scope}`;
+    /** its own prefix, so the files route can authorize it from the request row
+     *  rather than from the documents table (a leave attachment is not a document
+     *  in "Berkas saya") */
+    case "lampiran":
+      return `lampiran/${scope}/${uuid}-${safeName(filename)}`;
     case "logo":
       return `logo/${scope}/${uuid}-${safeName(filename)}`;
   }

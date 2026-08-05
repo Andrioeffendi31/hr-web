@@ -22,7 +22,7 @@ import { FEED_PAGE } from "@/lib/paging";
  */
 const query = z.object({
   page: z.coerce.number().int().min(1).max(10_000).default(1),
-  status: z.enum(["menunggu", "disetujui", "ditolak", "dibatalkan"]).optional(),
+  status: z.enum(["menunggu", "revisi", "disetujui", "ditolak", "dibatalkan"]).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   div: z.string().max(80).optional(),
   year: z.coerce.number().int().min(2000).max(2100).optional(),
@@ -63,6 +63,9 @@ const FEEDS = {
         status: leaveRequests.status,
         decisionNote: leaveRequests.decisionNote,
         createdAt: leaveRequests.createdAt,
+        attachmentKey: leaveRequests.attachmentKey,
+        attachmentName: leaveRequests.attachmentName,
+        attachmentSize: leaveRequests.attachmentSize,
         name: employees.name,
         division: employees.division,
         joinedAt: employees.joinedAt,

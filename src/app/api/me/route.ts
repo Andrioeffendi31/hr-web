@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   announcements,
@@ -67,7 +67,12 @@ export const GET = withMe(async (me) => {
       .select({ n: sql<number>`count(*)`.mapWith(Number) })
       .from(leaveRequests)
       .where(
-        and(eq(leaveRequests.employeeId, me.id), eq(leaveRequests.status, "menunggu")),
+        and(
+          eq(leaveRequests.employeeId, me.id),
+          // a revision needs the employee to act, so it belongs in their badge —
+          // unlike HR's sidebar count, which stays on `menunggu` alone
+          inArray(leaveRequests.status, ["menunggu", "revisi"]),
+        ),
       ),
     db
       .select({ n: sql<number>`count(*)`.mapWith(Number) })

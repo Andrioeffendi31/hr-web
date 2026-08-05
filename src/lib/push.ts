@@ -12,7 +12,7 @@ import { pushTokens } from "@/db/schema";
 const ENDPOINT = "https://exp.host/--/api/v2/push/send";
 
 /** Where tapping the notification should land (PRD-Mobile §6.6 deep links). */
-export type PushRoute = "/pengajuan" | "/" | "/info" | "/kehadiran";
+export type PushRoute = "/pengajuan" | "/" | "/kehadiran" | "/pengaturan";
 
 type Message = {
   to: string[];

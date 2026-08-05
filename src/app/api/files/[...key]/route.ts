@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { requireUser } from "@/auth";
 import { db } from "@/db";
-import { documents } from "@/db/schema";
+import { documents, leaveRequests } from "@/db/schema";
 import { getObject, presignGet, r2Configured } from "@/lib/r2";
 import { ekstensi, previewKind } from "@/lib/hr";
 
@@ -14,6 +14,7 @@ import { ekstensi, previewKind } from "@/lib/hr";
  *   photo/<id>      any signed-in user (avatars appear in the employee list)
  *   logo/company    any signed-in user (company branding in the app shell)
  *   selfie/<id>/…   HR Admin, or that employee
+ *   lampiran/<req>/… HR Admin, or the employee whose leave request it is
  *
  * Anything else is a 404 — including a key that tries to climb out of its prefix.
  */
@@ -47,6 +48,27 @@ export async function GET(req: Request, ctx: { params: Promise<{ key: string[] }
       return new Response("Tidak boleh diakses", { status: 403 });
     }
     filename = doc.name;
+  } else if (segments[0] === "lampiran") {
+    /**
+     * Authorized from the request row, not from a documents row: a leave
+     * attachment belongs to a pengajuan, and the only people entitled to it are
+     * the employee who filed it and the HR admins who decide it.
+     */
+    const [row] = await db
+      .select({
+        employeeId: leaveRequests.employeeId,
+        name: leaveRequests.attachmentName,
+        key: leaveRequests.attachmentKey,
+      })
+      .from(leaveRequests)
+      .where(eq(leaveRequests.id, Number(segments[1])))
+      .limit(1);
+    // key equality matters: an id alone must not unlock a sibling's attachment
+    if (!row || row.key !== key) return new Response("Tidak ditemukan", { status: 404 });
+    if (!isAdmin && String(row.employeeId) !== me) {
+      return new Response("Tidak boleh diakses", { status: 403 });
+    }
+    filename = row.name;
   } else if (segments[0] === "selfie") {
     if (!isAdmin && segments[1] !== me) {
       return new Response("Tidak boleh diakses", { status: 403 });
