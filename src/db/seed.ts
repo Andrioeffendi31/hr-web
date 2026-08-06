@@ -9,10 +9,12 @@ import {
   attendance,
   attendanceEvents,
   auditLog,
+  divisions,
   documents,
   employees,
   holidays,
   leaveRequests,
+  officeLocations,
   overtimeRequests,
   settings,
 } from "./schema";
@@ -67,10 +69,43 @@ function rng(seed: number) {
 
 async function main() {
   await db.execute(
-    sql`TRUNCATE TABLE audit_log, announcement_reads, documents, announcements, overtime_requests, leave_requests, leave_adjustments, attendance, employees, holidays, settings RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE audit_log, announcement_reads, documents, announcements, overtime_requests, leave_requests, leave_adjustments, attendance, employees, divisions, office_locations, holidays, settings RESTART IDENTITY CASCADE`,
   );
 
   await db.insert(settings).values({ id: 1 });
+
+  /**
+   * Divisions. Operations keeps its own shift on purpose: with every division
+   * inheriting the default, nothing in the demo would ever exercise resolveShift,
+   * and a warehouse crew starting at 07:00 is exactly why the feature exists.
+   */
+  await db.insert(divisions).values([
+    { name: "Human Resource" },
+    { name: "Engineering" },
+    { name: "Finance" },
+    { name: "Marketing" },
+    { name: "Operations", shiftStart: "07:00:00", shiftEnd: "16:00:00", lateToleranceMinutes: 10 },
+  ]);
+  const shiftOf = (division: string) =>
+    division === "Operations"
+      ? { start: "07:00:00", startM: 7 * 60, tol: 10 }
+      : { start: "08:00:00", startM: 8 * 60, tol: 15 };
+
+  /** minutes-since-midnight back to HH:mm */
+  const hhmm = (m: number) =>
+    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+  const [pusat, gudang] = await db
+    .insert(officeLocations)
+    .values([
+      { name: "Kantor Pusat", lat: "-6.224900", lng: "106.809200", radiusM: 150 },
+      { name: "Gudang Cakung", lat: "-6.188900", lng: "106.939400", radiusM: 250 },
+    ])
+    .returning({ id: officeLocations.id, name: officeLocations.name });
+
+  /** WFH and leave days have no office point; field staff punch at the warehouse. */
+  const officeFor = (location: string | null) =>
+    location === "Gudang Cakung" ? gudang.id : location === "Kantor Pusat" ? pusat.id : null;
 
   await db.insert(holidays).values([
     { date: "2026-08-17", name: "Hari Kemerdekaan RI" },
@@ -111,6 +146,7 @@ async function main() {
       clockOut,
       status: status as "hadir",
       location: location ?? null,
+      locationId: clockIn ? officeFor(location ?? null) : null,
     })),
   );
 
@@ -122,7 +158,7 @@ async function main() {
     d.setUTCDate(d.getUTCDate() - back);
     if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
     const date = d.toISOString().slice(0, 10);
-    for (const [name] of EMP) {
+    for (const [name, , division] of EMP) {
       const r = rand();
       if (r < 0.03) {
         history.push({ employeeId: idOf(name), date, status: "cuti", location: "Cuti tahunan" });
@@ -138,16 +174,23 @@ async function main() {
       }
       const late = r > 0.9;
       const wfh = r > 0.82 && r <= 0.9;
-      const clockIn = late
-        ? `08:${String(16 + Math.floor(rand() * 40)).padStart(2, "0")}`
-        : `07:${String(35 + Math.floor(rand() * 24)).padStart(2, "0")}`;
+      // relative to the division's own start, not a hardcoded 08:00 — otherwise
+      // Operations' 07:00 shift would read as 110 late days out of 112
+      const shift = shiftOf(division);
+      const clockIn = hhmm(
+        late
+          ? shift.startM + shift.tol + 1 + Math.floor(rand() * 25)
+          : shift.startM - 25 + Math.floor(rand() * 23),
+      );
+      const location = wfh ? "Rumah" : division === "Operations" ? "Gudang Cakung" : "Kantor Pusat";
       history.push({
         employeeId: idOf(name),
         date,
         clockIn,
         clockOut: `17:${String(Math.floor(rand() * 40)).padStart(2, "0")}`,
-        status: attendanceStatus(clockIn, "08:00:00", 15, wfh),
-        location: wfh ? "Rumah" : "Kantor Pusat",
+        status: attendanceStatus(clockIn, shift.start, shift.tol, wfh),
+        location,
+        locationId: officeFor(location),
       });
     }
   }
@@ -161,6 +204,7 @@ async function main() {
   // WFH days, which sit in Bekasi — otherwise the "di luar radius" branch would
   // never appear in a demo.
   const OFFICE = { lat: -6.2249, lng: 106.8092 };
+  const GUDANG = { lat: -6.1889, lng: 106.9394 };
   const RUMAH = { lat: -6.2383, lng: 106.9756 };
   const punched = await db
     .select({
@@ -182,7 +226,9 @@ async function main() {
   const events: (typeof attendanceEvents.$inferInsert)[] = [];
   for (const row of punched) {
     const jauh = row.location?.startsWith("Rumah");
-    const base = jauh ? RUMAH : OFFICE;
+    // coordinates have to sit at the office the row points at, or the day detail
+    // would report every warehouse punch as 14 km outside its own geofence
+    const base = jauh ? RUMAH : row.location === "Gudang Cakung" ? GUDANG : OFFICE;
     events.push({
       attendanceId: row.id,
       kind: "masuk",

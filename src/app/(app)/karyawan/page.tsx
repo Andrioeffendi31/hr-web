@@ -2,7 +2,12 @@ import { and, asc, count, desc, eq, gte, ilike, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import Link from "next/link";
 import { db } from "@/db";
-import { attendance, employees, overtimeRequests } from "@/db/schema";
+import {
+  attendance,
+  divisions as divisionTable,
+  employees,
+  overtimeRequests,
+} from "@/db/schema";
 import { AttBadge, Avatar, PageHead, Pill } from "@/components/bits";
 import { DataTable, type Column } from "@/components/data-table";
 import { EmployeeDetail } from "./detail-modal";
@@ -51,10 +56,12 @@ export default async function KaryawanPage({
   const manager = alias(employees, "manager");
 
   const [divisions, allEmployees] = await Promise.all([
+    // from the divisions table, not distinct over employees: a division that was
+    // just created and has nobody in it yet still has to be pickable
     db
-      .selectDistinct({ division: employees.division })
-      .from(employees)
-      .orderBy(asc(employees.division)),
+      .select({ division: divisionTable.name })
+      .from(divisionTable)
+      .orderBy(asc(divisionTable.name)),
     db
       .select({ id: employees.id, name: employees.name })
       .from(employees)

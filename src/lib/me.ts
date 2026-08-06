@@ -3,17 +3,32 @@
  * (PRD-Mobile) talks to. Everything here derives the employee from the session;
  * no route may accept an employeeId from the client.
  */
-import { eq } from "drizzle-orm";
+import { eq, getTableColumns } from "drizzle-orm";
 import { requireUser } from "@/auth";
 import { db } from "@/db";
-import { employees, settings } from "@/db/schema";
+import { divisions, employees, settings } from "@/db/schema";
 
 export type Me = Awaited<ReturnType<typeof loadMe>>;
 
+/**
+ * The employee row, plus their division's shift columns flattened onto it.
+ *
+ * Joined here rather than queried per route because this runs on every /api/me/*
+ * request anyway, and three of those routes need the shift — a separate lookup
+ * would be a second round trip for three columns. The result satisfies
+ * resolveShift() directly; a left join, so an employee whose division has no
+ * override simply carries nulls and inherits the company default.
+ */
 async function loadMe(id: number) {
   const [emp] = await db
-    .select()
+    .select({
+      ...getTableColumns(employees),
+      shiftStart: divisions.shiftStart,
+      shiftEnd: divisions.shiftEnd,
+      lateToleranceMinutes: divisions.lateToleranceMinutes,
+    })
     .from(employees)
+    .leftJoin(divisions, eq(employees.division, divisions.name))
     .where(eq(employees.id, id))
     .limit(1);
   if (!emp) throw new Error("Karyawan tidak ditemukan");

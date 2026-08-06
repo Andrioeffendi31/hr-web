@@ -1,7 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { attendance, attendanceEvents } from "@/db/schema";
-import { isIsoDate, jam, jarakMeter } from "@/lib/hr";
+import { attendance, attendanceEvents, officeLocations } from "@/db/schema";
+import { isIsoDate, jam, jarakMeter, resolveShift } from "@/lib/hr";
 import { Bad, config, withMe } from "@/lib/me";
 
 /**
@@ -31,8 +31,14 @@ export const GET = withMe(async (me, _req, ctx) => {
       location: attendance.location,
       note: attendance.note,
       selfieKey: attendance.selfieUrl,
+      /** the office this day was punched against; null for WFH and for rows
+       *  written before locations existed */
+      officeName: officeLocations.name,
+      officeLat: officeLocations.lat,
+      officeLng: officeLocations.lng,
     })
     .from(attendance)
+    .leftJoin(officeLocations, eq(attendance.locationId, officeLocations.id))
     .where(and(eq(attendance.employeeId, me.id), eq(attendance.date, date)))
     .limit(1);
 
@@ -64,7 +70,8 @@ export const GET = withMe(async (me, _req, ctx) => {
     location: day.location,
     note: day.note,
     selfieKey: day.selfieKey,
-    shift: { start: cfg.shiftStart.slice(0, 5), end: cfg.shiftEnd.slice(0, 5) },
+    shift: resolveShift(me, cfg),
+    office: day.officeName,
     events: events.map((e) => ({
       id: e.id,
       kind: e.kind,
@@ -77,15 +84,18 @@ export const GET = withMe(async (me, _req, ctx) => {
       location: e.location,
       note: e.note,
       photoKey: e.photoKey,
-      /** distance from the office at the moment of the event, when it was recorded
-       *  with coordinates — computed server-side against the settings row, the same
-       *  point /api/me/clock measures against */
+      /**
+       * Distance from the office at the moment of the event, measured against the
+       * office this day was actually punched at — never "whichever is nearest now",
+       * which would relabel an old day the moment HR opens a site next door.
+       * Null when the day has no office (WFH) or the event carries no coordinates.
+       */
       distanceM:
-        e.lat && e.lng
+        e.lat && e.lng && day.officeLat && day.officeLng
           ? Math.round(
               jarakMeter(
-                Number(cfg.officeLat),
-                Number(cfg.officeLng),
+                Number(day.officeLat),
+                Number(day.officeLng),
                 Number(e.lat),
                 Number(e.lng),
               ),

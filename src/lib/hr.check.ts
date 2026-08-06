@@ -15,6 +15,7 @@ import {
   previewKind,
   remainingLeave,
   rentangTanggal,
+  resolveShift,
   statusGroup,
   ukuranFile,
   workingDays,
@@ -76,6 +77,31 @@ assert.equal(attendanceStatus("08:15", "08:00:00", 15), "hadir", "tolerance edge
 assert.equal(attendanceStatus("08:26", "08:00:00", 15), "telat");
 assert.equal(attendanceStatus(null, "08:00:00", 15), "belum_absen");
 assert.equal(attendanceStatus("09:00", "08:00:00", 15, true), "wfh");
+
+// per-division shift resolution, against the company default
+const defaultShift = { shiftStart: "08:00:00", shiftEnd: "17:00:00", lateToleranceMinutes: 15 };
+assert.deepEqual(
+  resolveShift(null, defaultShift),
+  { start: "08:00", end: "17:00", toleranceMinutes: 15 },
+  "no division row → company default",
+);
+assert.deepEqual(
+  resolveShift(
+    { shiftStart: "09:30:00", shiftEnd: "18:30:00", lateToleranceMinutes: null },
+    defaultShift,
+  ),
+  { start: "09:30", end: "18:30", toleranceMinutes: 15 },
+  "inherit is per field, not per row",
+);
+// tolerance 0 is "be on time", not "unset" — this is why resolveShift uses ?? over ||
+const strict = resolveShift(
+  { shiftStart: "09:30:00", shiftEnd: null, lateToleranceMinutes: 0 },
+  defaultShift,
+);
+assert.equal(strict.toleranceMinutes, 0);
+assert.equal(strict.end, "17:00");
+assert.equal(attendanceStatus("09:30", strict.start, strict.toleranceMinutes), "hadir");
+assert.equal(attendanceStatus("09:31", strict.start, strict.toleranceMinutes), "telat");
 
 // stat-card buckets
 assert.equal(statusGroup("wfh"), "hadir");

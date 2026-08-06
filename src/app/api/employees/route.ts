@@ -6,6 +6,7 @@ import { requireAdmin } from "@/auth";
 import { db } from "@/db";
 import { auditLog, employees } from "@/db/schema";
 import { isIsoDate } from "@/lib/hr";
+import { duplicate, fkViolation } from "@/lib/pg";
 
 const base = {
   nik: z.string().trim().min(3).max(32),
@@ -32,17 +33,21 @@ const toggleBody = z.object({
   active: z.boolean(),
 });
 
-/** Postgres unique_violation → which column, in Indonesian. Drizzle wraps the
- *  pg error, so the real one is on `.cause`. */
-function duplicateMessage(e: unknown): string | null {
-  type PgError = { code?: string; constraint?: string; detail?: string; cause?: unknown };
-  let err = e as PgError;
-  while (err && err.code !== "23505" && err.cause) err = err.cause as PgError;
-  if (err?.code !== "23505") return null;
-  const hay = `${err.constraint ?? ""} ${err.detail ?? ""}`;
-  if (hay.includes("email")) return "Email sudah dipakai karyawan lain";
-  if (hay.includes("nik")) return "NIK sudah dipakai karyawan lain";
-  return "Data karyawan sudah ada";
+/** Postgres constraint violation → which column, in Indonesian. */
+function constraintMessage(e: unknown): string | null {
+  const dup = duplicate(e);
+  if (dup) {
+    const hay = `${dup.constraint ?? ""} ${dup.detail ?? ""}`;
+    if (hay.includes("email")) return "Email sudah dipakai karyawan lain";
+    if (hay.includes("nik")) return "NIK sudah dipakai karyawan lain";
+    return "Data karyawan sudah ada";
+  }
+  // the division column is a foreign key into `divisions`; a name that is not
+  // there can only come from a stale form or a hand-crafted request
+  if (fkViolation(e)?.constraint?.includes("division")) {
+    return "Divisi tidak dikenal — tambahkan dulu lewat menu Divisi";
+  }
+  return null;
 }
 
 export async function POST(req: Request) {
@@ -74,7 +79,7 @@ export async function POST(req: Request) {
       })
       .returning({ id: employees.id });
   } catch (e) {
-    const dup = duplicateMessage(e);
+    const dup = constraintMessage(e);
     if (dup) return Response.json({ error: dup }, { status: 409 });
     throw e;
   }
@@ -136,7 +141,7 @@ export async function PATCH(req: Request) {
       .where(eq(employees.id, id))
       .returning({ id: employees.id, name: employees.name, active: employees.active });
   } catch (e) {
-    const dup = duplicateMessage(e);
+    const dup = constraintMessage(e);
     if (dup) return Response.json({ error: dup }, { status: 409 });
     throw e;
   }

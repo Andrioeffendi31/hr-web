@@ -2,7 +2,14 @@ import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { MapPin } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
-import { attendance, attendanceEvents, employees, settings } from "@/db/schema";
+import {
+  attendance,
+  attendanceEvents,
+  divisions as divisionTable,
+  employees,
+  officeLocations,
+  settings,
+} from "@/db/schema";
 import { AttBadge, Avatar, Empty, PageHead, Panel, Stat } from "@/components/bits";
 import { DataTable, type Column } from "@/components/data-table";
 import { DateField } from "@/components/date-field";
@@ -13,6 +20,7 @@ import { SelectField } from "@/components/select-field";
 import {
   type AttStatus,
   jam,
+  resolveShift,
   tanggalPanjang,
   todayWib,
 } from "@/lib/hr";
@@ -60,10 +68,35 @@ export default async function KehadiranPage({
 
   const [cfg] = await db.select().from(settings).limit(1);
 
+  // shift columns ride along: the page header has to state which schedule the
+  // hadir/telat column was judged against, and that now depends on the filter
   const divisions = await db
-    .selectDistinct({ division: employees.division })
-    .from(employees)
-    .orderBy(asc(employees.division));
+    .select({
+      division: divisionTable.name,
+      shiftStart: divisionTable.shiftStart,
+      shiftEnd: divisionTable.shiftEnd,
+      lateToleranceMinutes: divisionTable.lateToleranceMinutes,
+    })
+    .from(divisionTable)
+    .orderBy(asc(divisionTable.name));
+
+  /**
+   * The schedule to print in the header.
+   *
+   * With one filtered division that is simply theirs. With "semua divisi" there
+   * is no single answer, so it names the company default and says how many
+   * divisions depart from it — better than printing 08:00–17:00 as if it applied
+   * to everyone when it no longer does.
+   */
+  const picked = divisions.find((d) => d.division === divFilter) ?? null;
+  const shift = resolveShift(picked, cfg);
+  const overrides = divisions.filter(
+    (d) => d.shiftStart || d.lateToleranceMinutes !== null,
+  ).length;
+  const shiftDesc =
+    picked || overrides === 0
+      ? `shift ${shift.start}–${shift.end} · toleransi ${shift.toleranceMinutes} menit`
+      : `shift default ${shift.start}–${shift.end} · toleransi ${shift.toleranceMinutes} menit · ${overrides} divisi punya jam sendiri`;
 
   // Status lives in SQL now: with pagination the page can no longer derive the
   // stat cards or the status filter from the rows it happens to have fetched.
@@ -203,9 +236,16 @@ export default async function KehadiranPage({
         status: attendance.status,
         location: attendance.location,
         selfieUrl: attendance.selfieUrl,
+        officeName: officeLocations.name,
+        officeLat: officeLocations.lat,
+        officeLng: officeLocations.lng,
+        officeRadius: officeLocations.radiusM,
       })
       .from(attendance)
       .innerJoin(employees, eq(employees.id, attendance.employeeId))
+      // the office this day was punched against — left, because a WFH day and any
+      // row from before locations existed simply has none
+      .leftJoin(officeLocations, eq(officeLocations.id, attendance.locationId))
       .where(eq(attendance.id, openId))
       .limit(1);
 
@@ -229,11 +269,14 @@ export default async function KehadiranPage({
         ...row,
         status: row.status as AttStatus,
         events,
-        office: {
-          lat: Number(cfg.officeLat),
-          lng: Number(cfg.officeLng),
-          radius: cfg.geofenceRadiusM,
-        },
+        office: row.officeLat
+          ? {
+              name: row.officeName!,
+              lat: Number(row.officeLat),
+              lng: Number(row.officeLng),
+              radius: row.officeRadius!,
+            }
+          : null,
       };
     }
   }
@@ -422,7 +465,7 @@ export default async function KehadiranPage({
     <>
       <PageHead
         title="Kehadiran Karyawan"
-        desc={`${tanggalPanjang(date)} · shift ${jam(cfg.shiftStart)}–${jam(cfg.shiftEnd)} · toleransi ${cfg.lateToleranceMinutes} menit`}
+        desc={`${tanggalPanjang(date)} · ${shiftDesc}`}
       >
         <form className="flex items-end gap-2">
           <input type="hidden" name="tab" value={tab} />

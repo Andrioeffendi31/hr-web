@@ -121,6 +121,33 @@ export function attendanceStatus(
   return m(clockIn) > m(shiftStart) + toleranceMinutes ? "telat" : "hadir";
 }
 
+/**
+ * The shift an employee actually works: their division's, falling back per field
+ * to the company default in `settings`.
+ *
+ * Per field, not per row — a division that only wants a stricter tolerance sets
+ * that one column and keeps inheriting the hours. `??` and not `||`, because a
+ * tolerance of 0 ("be on time") is a real answer and must not read as unset.
+ *
+ * Pure, so hr.check.ts can assert it and so callers that already hold both rows
+ * pay no extra query.
+ */
+export function resolveShift(
+  div: {
+    shiftStart: string | null;
+    shiftEnd: string | null;
+    lateToleranceMinutes: number | null;
+  } | null,
+  cfg: { shiftStart: string; shiftEnd: string; lateToleranceMinutes: number },
+) {
+  return {
+    // HH:mm — the seconds Postgres' `time` carries are noise to every caller
+    start: (div?.shiftStart ?? cfg.shiftStart).slice(0, 5),
+    end: (div?.shiftEnd ?? cfg.shiftEnd).slice(0, 5),
+    toleranceMinutes: div?.lateToleranceMinutes ?? cfg.lateToleranceMinutes,
+  };
+}
+
 /** Today in WIB. Using UTC here would roll the date over 7 hours early and
  *  mis-bucket the 00:00–07:00 WIB clock-ins. */
 export const todayWib = () =>

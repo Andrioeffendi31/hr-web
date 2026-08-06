@@ -34,6 +34,10 @@ export type AttEvent = {
   note: string | null;
 };
 
+/** The geofence a punch was judged against — name included, because with several
+ *  offices "dari titik absen" no longer says which one. */
+export type Office = { name: string; lat: number; lng: number; radius: number };
+
 export type DayDetail = {
   attendanceId: number;
   employeeId: number;
@@ -48,7 +52,9 @@ export type DayDetail = {
   location: string | null;
   selfieUrl: string | null;
   events: AttEvent[];
-  office: { lat: number; lng: number; radius: number };
+  /** the office this day was punched against; null for WFH and for rows written
+   *  before locations existed, in which case there is no distance to report */
+  office: Office | null;
 };
 
 const KIND_LABEL = {
@@ -98,10 +104,10 @@ export function AttendanceDetail({
 
   const masuk = d.events.find((e) => e.kind === "masuk");
   const jarak =
-    masuk?.lat && masuk.lng
+    d.office && masuk?.lat && masuk.lng
       ? jarakMeter(d.office.lat, d.office.lng, Number(masuk.lat), Number(masuk.lng))
       : null;
-  const cocok = jarak !== null && jarak <= d.office.radius;
+  const cocok = jarak !== null && jarak <= d.office!.radius;
 
   // automatic pings, newest last (events already arrive ordered by `at`)
   const pings = d.events.filter((e) => e.kind === "lokasi");
@@ -172,12 +178,14 @@ export function AttendanceDetail({
                 {d.location ?? "Lokasi tidak dicatat"}
               </div>
               <div className="text-muted-foreground mt-0.5 text-[11.5px]">
-                {jarak === null ? (
+                {!d.office ? (
+                  "Tanpa titik kantor (WFH)"
+                ) : jarak === null ? (
                   "Koordinat tidak direkam"
                 ) : (
                   <>
                     {cocok ? "Lokasi cocok" : "Di luar radius"} ·{" "}
-                    <span className="tnum">{formatJarak(jarak)}</span> dari titik absen
+                    <span className="tnum">{formatJarak(jarak)}</span> dari {d.office.name}
                     {!cocok && ` (radius ${d.office.radius} m)`}
                   </>
                 )}
@@ -272,7 +280,7 @@ function TimelineEntry({
 }: {
   event: AttEvent;
   name: string;
-  office: { lat: number; lng: number; radius: number };
+  office: Office | null;
 }) {
   const router = useRouter();
   const up = useMutation({
@@ -294,7 +302,7 @@ function TimelineEntry({
   });
 
   const jarak =
-    e.lat && e.lng
+    office && e.lat && e.lng
       ? jarakMeter(office.lat, office.lng, Number(e.lat), Number(e.lng))
       : null;
   const src = e.photoUrl ? `/api/files/${e.photoUrl}` : null;

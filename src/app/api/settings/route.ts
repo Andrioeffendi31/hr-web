@@ -18,9 +18,8 @@ const body = z
     lateToleranceMinutes: z.coerce.number().int().min(0).max(120),
     baseLeaveQuota: z.coerce.number().int().min(1).max(60),
     weeklyOvertimeCapHours: z.coerce.number().int().min(1).max(40),
-    officeLat: z.coerce.number().min(-90).max(90),
-    officeLng: z.coerce.number().min(-180).max(180),
-    geofenceRadiusM: z.coerce.number().int().min(25).max(5000),
+    // the office point moved to its own table (/api/locations) once one company
+    // could have more than one — the settings row keeps only the schedule defaults
   })
   .refine((v) => v.shiftStart < v.shiftEnd, {
     message: "Jam keluar harus setelah jam masuk",
@@ -51,8 +50,6 @@ export async function PATCH(req: Request) {
     ...parsed.data,
     shiftStart: `${parsed.data.shiftStart}:00`,
     shiftEnd: `${parsed.data.shiftEnd}:00`,
-    officeLat: parsed.data.officeLat.toFixed(6),
-    officeLng: parsed.data.officeLng.toFixed(6),
   };
 
   await db.transaction(async (tx) => {

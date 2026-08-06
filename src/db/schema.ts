@@ -67,6 +67,44 @@ export const folderEnum = pgEnum("doc_folder", [
   "legal",
 ]);
 
+/**
+ * Divisions, and the shift each one works.
+ *
+ * The name is the primary key rather than a serial id, because `division` was a
+ * free-text column long before this table existed and is read as text in a dozen
+ * places — filters, reports, exports, delegate lookup, search. Keying on the name
+ * lets every one of those keep working verbatim and turns the column into a real
+ * foreign key at the same time; ON UPDATE CASCADE makes a rename propagate rather
+ * than orphan.
+ *
+ * Every shift column is nullable, and NULL means "inherit the company default in
+ * `settings`" (see resolveShift in lib/hr.ts). So a company with one schedule adds
+ * divisions and changes nothing else.
+ */
+export const divisions = pgTable("divisions", {
+  name: text("name").primaryKey(),
+  shiftStart: time("shift_start"),
+  shiftEnd: time("shift_end"),
+  lateToleranceMinutes: integer("late_tolerance_minutes"),
+});
+
+/**
+ * The places an employee may clock in from (PRD §6.8 "Lokasi absensi", widened
+ * from the single point that used to live on `settings`).
+ *
+ * Each carries its own radius: a head office on a city block and a warehouse yard
+ * do not deserve the same geofence. Deactivated rather than deleted, because
+ * attendance rows point here and history must keep resolving.
+ */
+export const officeLocations = pgTable("office_locations", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  lat: numeric("lat", { precision: 9, scale: 6 }).notNull(),
+  lng: numeric("lng", { precision: 9, scale: 6 }).notNull(),
+  radiusM: integer("radius_m").notNull().default(150),
+  active: boolean("active").notNull().default(true),
+});
+
 export const employees = pgTable("employees", {
   id: serial("id").primaryKey(),
   nik: text("nik").notNull().unique(),
@@ -74,7 +112,9 @@ export const employees = pgTable("employees", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   role: roleEnum("role").notNull().default("employee"),
-  division: text("division").notNull(),
+  division: text("division")
+    .notNull()
+    .references(() => divisions.name, { onUpdate: "cascade" }),
   position: text("position").notNull(),
   contractType: contractEnum("contract_type").notNull(),
   joinedAt: date("joined_at").notNull(),
@@ -102,6 +142,22 @@ export const attendance = pgTable(
     selfieUrl: text("selfie_url"),
     lat: numeric("lat", { precision: 9, scale: 6 }),
     lng: numeric("lng", { precision: 9, scale: 6 }),
+    /**
+     * The office picked at clock-in. Clock-out is measured against this one too,
+     * rather than whatever happens to be nearest at the time — somebody who drives
+     * to another branch after lunch still ends their day where they started it.
+     *
+     * NULL means the day has no office point: a WFH punch, a row HR entered by
+     * hand, or anything from before locations existed. Every reader treats that as
+     * "no distance to show" rather than falling back to a default office, since
+     * guessing would silently relabel history the moment HR adds a nearby site.
+     */
+    locationId: integer("location_id").references(() => officeLocations.id, {
+      // restrict, not set null: erasing which office a punch was measured against
+      // is destroying the evidence behind a hadir/telat decision. A location with
+      // history can be deactivated; only one nobody ever used can be deleted.
+      onDelete: "restrict",
+    }),
   },
   (t) => [uniqueIndex("attendance_emp_date").on(t.employeeId, t.date)],
 );
@@ -332,8 +388,16 @@ export const settings = pgTable("settings", {
   shiftStart: time("shift_start").notNull().default("08:00:00"),
   shiftEnd: time("shift_end").notNull().default("17:00:00"),
   lateToleranceMinutes: integer("late_tolerance_minutes").notNull().default(15),
-  /** Office point every clock-in is measured against (PRD §6: "wajib
-   *  geolocation match radius kantor"). Default is Jl. Sudirman, per the mockup. */
+  /**
+   * DEAD — superseded by the `office_locations` table, which lets one company have
+   * a head office and a warehouse with different radii. Nothing reads or writes
+   * these any more.
+   *
+   * Still declared so `drizzle-kit push` does not drop the columns: the backfill in
+   * drizzle/0002_lokasi_absen.sql reads them to create the first location row.
+   * Delete both this block and the columns one deploy after that has run
+   * everywhere, so a rollback still finds its source data.
+   */
   officeLat: numeric("office_lat", { precision: 9, scale: 6 })
     .notNull()
     .default("-6.224900"),

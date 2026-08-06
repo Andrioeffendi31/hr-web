@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   announcements,
@@ -6,9 +6,10 @@ import {
   authenticators,
   employees,
   leaveRequests,
+  officeLocations,
   overtimeRequests,
 } from "@/db/schema";
-import { initials, tanggalPendek, todayWib } from "@/lib/hr";
+import { initials, resolveShift, tanggalPendek, todayWib } from "@/lib/hr";
 import { leaveBalances } from "@/lib/leave";
 import { config, withMe } from "@/lib/me";
 
@@ -19,7 +20,7 @@ export const GET = withMe(async (me) => {
   const month = today.slice(0, 7);
   const year = Number(today.slice(0, 4));
 
-  const [cfg, [att], balances, [ot], anns, team, [pendLeave], [pendOt], passkeys] =
+  const [cfg, [att], balances, [ot], anns, team, [pendLeave], [pendOt], passkeys, offices] =
     await Promise.all([
     config(),
     db
@@ -94,6 +95,13 @@ export const GET = withMe(async (me) => {
       .select({ id: authenticators.credentialId })
       .from(authenticators)
       .where(eq(authenticators.employeeId, me.id)),
+    /** every place this employee may punch from — the phone picks one and the
+     *  server re-checks the geofence against whichever it picked */
+    db
+      .select()
+      .from(officeLocations)
+      .where(eq(officeLocations.active, true))
+      .orderBy(asc(officeLocations.name)),
   ]);
 
   const present = team.filter(
@@ -118,18 +126,33 @@ export const GET = withMe(async (me) => {
       status: att?.status ?? "belum_absen",
       location: att?.location ?? null,
       selfieKey: att?.selfieUrl ?? null,
+      /** the office chosen at clock-in, so clock-out can follow it without asking */
+      officeId: att?.locationId ?? null,
     },
-    shift: {
-      start: cfg.shiftStart.slice(0, 5),
-      end: cfg.shiftEnd.slice(0, 5),
-      toleranceMinutes: cfg.lateToleranceMinutes,
-    },
-    office: {
-      lat: Number(cfg.officeLat),
-      lng: Number(cfg.officeLng),
-      radiusM: cfg.geofenceRadiusM,
-      label: me.workLocation,
-    },
+    shift: resolveShift(me, cfg),
+    offices: offices.map((o) => ({
+      id: o.id,
+      name: o.name,
+      lat: Number(o.lat),
+      lng: Number(o.lng),
+      radiusM: o.radiusM,
+    })),
+    /**
+     * TRANSITIONAL — delete after the next mobile release.
+     *
+     * `office` singular is what installs before the multi-location update read,
+     * and runtimeVersion is `appVersion`, so an OTA never reaches a binary on an
+     * older version: those would hit `data.office.lat` on undefined and white-screen
+     * the home tab. Six lines buys the freedom to deploy web and mobile in any order.
+     */
+    office: offices[0]
+      ? {
+          lat: Number(offices[0].lat),
+          lng: Number(offices[0].lng),
+          radiusM: offices[0].radiusM,
+          label: offices[0].name,
+        }
+      : null,
     leave: {
       remaining: balances[0]?.remaining ?? 0,
       quota: balances[0]?.quota ?? cfg.baseLeaveQuota,

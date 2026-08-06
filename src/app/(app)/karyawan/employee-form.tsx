@@ -192,9 +192,11 @@ export function EmployeeForm({
                   defaultValue={initial?.division}
                   options={divisions.map((d) => ({ value: d, label: d }))}
                   placeholder="Pilih divisi"
-                  searchPlaceholder="Cari atau ketik divisi baru…"
-                  emptyText="Ketik untuk membuat divisi baru."
-                  allowCreate
+                  searchPlaceholder="Cari divisi…"
+                  // typing a new one is gone on purpose: a division now carries a
+                  // work schedule, so inventing one here would create a team whose
+                  // late-threshold nobody ever set
+                  emptyText="Divisi tidak ada. Tambahkan lewat menu Divisi."
                   className="mt-1"
                 />
               </div>

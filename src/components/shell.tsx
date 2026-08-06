@@ -5,11 +5,13 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BarChart3,
+  Building2,
   CalendarDays,
   CalendarOff,
   Clock,
   FolderClosed,
   LogOut,
+  MapPin,
   Megaphone,
   Menu,
   Moon,
@@ -44,6 +46,8 @@ const GROUPS = [
     label: "Data & Informasi",
     items: [
       { href: "/karyawan", label: "Karyawan", icon: Users },
+      { href: "/divisi", label: "Divisi", icon: Building2 },
+      { href: "/lokasi", label: "Lokasi Absen", icon: MapPin },
       { href: "/libur", label: "Hari Libur", icon: CalendarOff },
       { href: "/pengumuman", label: "Pengumuman", icon: Megaphone },
       { href: "/berkas", label: "Berkas", icon: FolderClosed },
@@ -61,6 +65,8 @@ const TITLES: Record<string, [string, string]> = {
   "/cuti": ["Cuti & Izin", "antrian persetujuan dan saldo cuti"],
   "/lembur": ["Lembur", "pengajuan dan durasi jam lembur"],
   "/karyawan": ["Karyawan", "data kepegawaian & riwayat kehadiran"],
+  "/divisi": ["Divisi", "jam kerja & toleransi keterlambatan per divisi"],
+  "/lokasi": ["Lokasi Absen", "titik kantor & radius geofence"],
   "/libur": ["Hari Libur", "libur nasional & cuti bersama"],
   "/pengumuman": ["Pengumuman", "informasi internal untuk karyawan"],
   "/berkas": ["Berkas", "dokumen pribadi & perusahaan"],

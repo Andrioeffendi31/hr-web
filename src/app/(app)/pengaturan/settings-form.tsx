@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -25,9 +26,6 @@ type SettingsValue = {
   lateToleranceMinutes: number;
   baseLeaveQuota: number;
   weeklyOvertimeCapHours: number;
-  officeLat: number;
-  officeLng: number;
-  geofenceRadiusM: number;
 };
 
 const LABEL = "text-[12px] font-medium";
@@ -187,8 +185,8 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
 
         <SettingSection
           icon={Clock3}
-          title="Jadwal kerja"
-          description="Menentukan jam kerja normal dan kapan kehadiran ditandai terlambat.">
+          title="Jadwal kerja default"
+          description="Dipakai oleh divisi yang tidak mengatur jam kerjanya sendiri.">
           <div className="grid gap-3 sm:grid-cols-3">
             <Field
               label="Jam masuk"
@@ -214,7 +212,10 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
           </div>
           <p className="text-subtle mt-3 text-[11.5px] leading-relaxed">
             Contoh: jam masuk 08:00 dengan toleransi 15 menit berarti absen
-            setelah 08:15 berstatus terlambat.
+            setelah 08:15 berstatus terlambat.{" "}
+            <Link href="/divisi" className="text-primary font-medium hover:underline">
+              Divisi dengan jam berbeda diatur di sini ↗
+            </Link>
           </p>
         </SettingSection>
 
@@ -251,43 +252,16 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
         <SettingSection
           icon={MapPin}
           title="Lokasi absensi"
-          description="Clock-in hanya diterima saat perangkat berada di dalam radius kantor.">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Field
-              label="Latitude"
-              name="officeLat"
-              type="number"
-              step="0.000001"
-              min={-90}
-              max={90}
-              defaultValue={initial.officeLat}
-            />
-            <Field
-              label="Longitude"
-              name="officeLng"
-              type="number"
-              step="0.000001"
-              min={-180}
-              max={180}
-              defaultValue={initial.officeLng}
-            />
-            <Field
-              label="Radius geofence"
-              name="geofenceRadiusM"
-              type="number"
-              min={25}
-              max={5000}
-              suffix="meter"
-              defaultValue={initial.geofenceRadiusM}
-            />
-          </div>
-          <a
-            href={`https://www.google.com/maps?q=${initial.officeLat},${initial.officeLng}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-primary mt-3 inline-flex text-[11.5px] font-medium hover:underline">
-            Lihat titik awal di Google Maps ↗
-          </a>
+          description="Titik kantor kini punya halamannya sendiri, karena satu perusahaan bisa punya lebih dari satu.">
+          <p className="text-muted-foreground text-[12.5px] leading-relaxed">
+            Karyawan memilih titik absen saat masuk, dan absen keluar mengikuti
+            pilihan itu. Setiap lokasi punya radius geofence sendiri.
+          </p>
+          <Link
+            href="/lokasi"
+            className="text-primary mt-3 inline-flex text-[12px] font-medium hover:underline">
+            Kelola lokasi absen ↗
+          </Link>
         </SettingSection>
       </div>
 
@@ -310,12 +284,8 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
         </p>
         <div className="mt-4 space-y-2 border-y py-3 text-[11.5px]">
           <Summary
-            label="Jam kerja"
+            label="Jam kerja default"
             value={`${initial.shiftStart}–${initial.shiftEnd}`}
-          />
-          <Summary
-            label="Radius kantor"
-            value={`${initial.geofenceRadiusM} m`}
           />
           <Summary
             label="Cuti dasar"

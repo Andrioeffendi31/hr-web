@@ -17,9 +17,6 @@ export default async function PengaturanPage() {
     lateToleranceMinutes: row?.lateToleranceMinutes ?? 15,
     baseLeaveQuota: row?.baseLeaveQuota ?? 12,
     weeklyOvertimeCapHours: row?.weeklyOvertimeCapHours ?? 14,
-    officeLat: Number(row?.officeLat ?? -6.2249),
-    officeLng: Number(row?.officeLng ?? 106.8092),
-    geofenceRadiusM: row?.geofenceRadiusM ?? 150,
   };
 
   return (
