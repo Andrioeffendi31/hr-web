@@ -19,7 +19,7 @@ export const GET = withMe(async (me) => {
   const month = today.slice(0, 7);
   const year = Number(today.slice(0, 4));
 
-  const [cfg, [att], balances, [ot], anns, team, [pendLeave], [pendOt], [passkeys]] =
+  const [cfg, [att], balances, [ot], anns, team, [pendLeave], [pendOt], passkeys] =
     await Promise.all([
     config(),
     db
@@ -85,11 +85,13 @@ export const GET = withMe(async (me) => {
           eq(overtimeRequests.status, "menunggu"),
         ),
       ),
-    /** how many passkeys this account has, so the phone can stop offering to
-     *  enrol a device that already did — and can tell that a passkey deleted from
-     *  the web console really is gone */
+    /** The credential ids this account has, not a count: a count says how many
+     *  passkeys exist but not *which* device holds them, so the phone could only
+     *  guess. Given the ids it compares against the one it created itself and
+     *  knows. They are not secret — `allowCredentials` publishes them at every
+     *  login — and there are a handful per person at most. */
     db
-      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .select({ id: authenticators.credentialId })
       .from(authenticators)
       .where(eq(authenticators.employeeId, me.id)),
   ]);
@@ -136,7 +138,7 @@ export const GET = withMe(async (me) => {
     },
     overtime: { minutes: ot.minutes, capHours: cfg.weeklyOvertimeCapHours },
     pendingRequests: pendLeave.n + pendOt.n,
-    passkeys: passkeys.n,
+    passkeys: passkeys.map((k) => k.id),
     announcements: anns.map((a) => ({
       ...a,
       date: tanggalPendek(a.createdAt.toISOString().slice(0, 10)),
