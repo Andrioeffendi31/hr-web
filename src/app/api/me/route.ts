@@ -3,6 +3,7 @@ import { db } from "@/db";
 import {
   announcements,
   attendance,
+  authenticators,
   employees,
   leaveRequests,
   overtimeRequests,
@@ -18,7 +19,7 @@ export const GET = withMe(async (me) => {
   const month = today.slice(0, 7);
   const year = Number(today.slice(0, 4));
 
-  const [cfg, [att], balances, [ot], anns, team, [pendLeave], [pendOt]] =
+  const [cfg, [att], balances, [ot], anns, team, [pendLeave], [pendOt], [passkeys]] =
     await Promise.all([
     config(),
     db
@@ -84,6 +85,13 @@ export const GET = withMe(async (me) => {
           eq(overtimeRequests.status, "menunggu"),
         ),
       ),
+    /** how many passkeys this account has, so the phone can stop offering to
+     *  enrol a device that already did — and can tell that a passkey deleted from
+     *  the web console really is gone */
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(authenticators)
+      .where(eq(authenticators.employeeId, me.id)),
   ]);
 
   const present = team.filter(
@@ -128,6 +136,7 @@ export const GET = withMe(async (me) => {
     },
     overtime: { minutes: ot.minutes, capHours: cfg.weeklyOvertimeCapHours },
     pendingRequests: pendLeave.n + pendOt.n,
+    passkeys: passkeys.n,
     announcements: anns.map((a) => ({
       ...a,
       date: tanggalPendek(a.createdAt.toISOString().slice(0, 10)),
