@@ -137,6 +137,9 @@ export const GET = withMe(async (me) => {
       lng: Number(o.lng),
       radiusM: o.radiusM,
     })),
+    /** the one to show before GPS answers; falls back to the first by name so the
+     *  phone never has to render "pilih kantor" when there is an obvious answer */
+    defaultOfficeId: cfg.defaultLocationId ?? offices[0]?.id ?? null,
     leave: {
       remaining: balances[0]?.remaining ?? 0,
       quota: balances[0]?.quota ?? cfg.baseLeaveQuota,

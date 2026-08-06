@@ -388,8 +388,21 @@ export const settings = pgTable("settings", {
   shiftStart: time("shift_start").notNull().default("08:00:00"),
   shiftEnd: time("shift_end").notNull().default("17:00:00"),
   lateToleranceMinutes: integer("late_tolerance_minutes").notNull().default(15),
-  // The single office point that used to live here is now the `office_locations`
-  // table — one company can have a head office and a warehouse yard that do not
-  // share a radius. Migrated by drizzle/0002_divisi_lokasi.sql, columns dropped by
-  // 0003_drop_office_settings.sql.
+  /**
+   * The office the phone offers first.
+   *
+   * The single office point that used to live here became the `office_locations`
+   * table (0002_divisi_lokasi.sql, columns dropped by 0003) — one company can have
+   * a head office and a warehouse yard that do not share a radius. What is left is
+   * the choice of which one is primary: the app picks the nearest once GPS answers,
+   * but that takes a second or two, and this is what it shows in the meantime.
+   *
+   * Nullable, and SET NULL on delete: a company that has not chosen falls back to
+   * the first location by name, and deleting the chosen one must not take the
+   * settings row down with it.
+   */
+  defaultLocationId: integer("default_location_id").references(
+    () => officeLocations.id,
+    { onDelete: "set null" },
+  ),
 });

@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FileDrop } from "@/components/file-drop";
+import { SelectField } from "@/components/select-field";
 import { cn } from "@/lib/utils";
 
 type SettingsValue = {
@@ -26,6 +27,17 @@ type SettingsValue = {
   lateToleranceMinutes: number;
   baseLeaveQuota: number;
   weeklyOvertimeCapHours: number;
+  /** id of the office the app offers first; "" when none is chosen */
+  defaultLocationId: string;
+};
+
+/** Just enough of an office to name it and show the geofence it carries. */
+type Location = {
+  id: number;
+  name: string;
+  lat: number;
+  lng: number;
+  radiusM: number;
 };
 
 const LABEL = "text-[12px] font-medium";
@@ -41,10 +53,21 @@ async function errorFrom(res: Response, fallback: string) {
   return data;
 }
 
-export function SettingsForm({ initial }: { initial: SettingsValue }) {
+export function SettingsForm({
+  initial,
+  locations,
+}: {
+  initial: SettingsValue;
+  locations: Location[];
+}) {
   const router = useRouter();
   const [logoKey, setLogoKey] = useState(initial.companyLogoUrl);
   const [saved, setSaved] = useState(false);
+  // mirrored in state only so the coordinates below the select can follow it
+  const [defaultLocationId, setDefaultLocationId] = useState(
+    initial.defaultLocationId,
+  );
+  const chosen = locations.find((l) => String(l.id) === defaultLocationId);
 
   const save = useMutation({
     mutationFn: async (payload: Record<string, FormDataEntryValue>) =>
@@ -104,12 +127,14 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
       onSubmit={(e) => {
         e.preventDefault();
         save.mutate(Object.fromEntries(new FormData(e.currentTarget)));
-      }}>
+      }}
+    >
       <div className="space-y-4">
         <SettingSection
           icon={Building2}
           title="Identitas perusahaan"
-          description="Nama dan logo ini tampil pada navigasi utama untuk seluruh tim HR.">
+          description="Nama dan logo ini tampil pada navigasi utama untuk seluruh tim HR."
+        >
           <div className="grid items-start gap-5 lg:grid-cols-1">
             <label className={LABEL}>
               Nama perusahaan
@@ -159,7 +184,8 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
                       <button
                         type="button"
                         disabled={removeLogo.isPending}
-                        className="text-danger hover:bg-danger-subtle inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium transition-colors disabled:opacity-50">
+                        className="text-danger hover:bg-danger-subtle inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium transition-colors disabled:opacity-50"
+                      >
                         <Trash2 className="size-3" aria-hidden />
                         Hapus
                       </button>
@@ -186,7 +212,8 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
         <SettingSection
           icon={Clock3}
           title="Jadwal kerja default"
-          description="Dipakai oleh divisi yang tidak mengatur jam kerjanya sendiri.">
+          description="Dipakai oleh divisi yang tidak mengatur jam kerjanya sendiri."
+        >
           <div className="grid gap-3 sm:grid-cols-3">
             <Field
               label="Jam masuk"
@@ -213,7 +240,10 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
           <p className="text-subtle mt-3 text-[11.5px] leading-relaxed">
             Contoh: jam masuk 08:00 dengan toleransi 15 menit berarti absen
             setelah 08:15 berstatus terlambat.{" "}
-            <Link href="/divisi" className="text-primary font-medium hover:underline">
+            <Link
+              href="/divisi"
+              className="text-primary font-medium hover:underline"
+            >
               Divisi dengan jam berbeda diatur di sini ↗
             </Link>
           </p>
@@ -222,7 +252,8 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
         <SettingSection
           icon={CalendarCheck2}
           title="Kebijakan cuti & lembur"
-          description="Batas dasar yang dipakai saat menghitung saldo dan memvalidasi pengajuan.">
+          description="Batas dasar yang dipakai saat menghitung saldo dan memvalidasi pengajuan."
+        >
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
               label="Jatah cuti tahunan"
@@ -252,14 +283,48 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
         <SettingSection
           icon={MapPin}
           title="Lokasi absensi"
-          description="Titik kantor kini punya halamannya sendiri, karena satu perusahaan bisa punya lebih dari satu.">
-          <p className="text-muted-foreground text-[12.5px] leading-relaxed">
-            Karyawan memilih titik absen saat masuk, dan absen keluar mengikuti
-            pilihan itu. Setiap lokasi punya radius geofence sendiri.
-          </p>
+          description="Karyawan memilih titik absen saat masuk; absen keluar mengikuti pilihan itu."
+        >
+          {locations.length === 0 ? (
+            <p className="text-muted-foreground text-[12.5px] leading-relaxed">
+              Belum ada lokasi absen, jadi karyawan hanya bisa absen dengan
+              menandai WFH.
+            </p>
+          ) : (
+            <>
+              <div className={LABEL}>
+                <label htmlFor="defaultLocationId">Kantor default</label>
+                <SelectField
+                  id="defaultLocationId"
+                  name="defaultLocationId"
+                  defaultValue={defaultLocationId}
+                  onChange={setDefaultLocationId}
+                  ariaLabel="Kantor default"
+                  className="mt-1 h-10 w-full sm:max-w-[280px]"
+                  options={locations.map((l) => ({
+                    value: String(l.id),
+                    label: l.name,
+                  }))}
+                />
+              </div>
+              {/* read-only: the coordinates belong to the location, and editing
+                  them in two places is how the two places start disagreeing */}
+              <p className="text-subtle tnum mt-2 text-[11.5px]">
+                {chosen
+                  ? `${chosen.lat.toFixed(6)}, ${chosen.lng.toFixed(6)} · radius ${chosen.radiusM} m`
+                  : "Lokasi ini sudah tidak aktif — pilih yang lain."}
+              </p>
+              <p className="text-subtle mt-3 text-[11.5px] leading-relaxed">
+                Ini yang ditawarkan aplikasi lebih dulu. Begitu GPS menjawab,
+                titik terdekatlah yang dipilih, kecuali karyawan menggantinya
+                sendiri.
+              </p>
+            </>
+          )}
           <Link
             href="/lokasi"
-            className="text-primary mt-3 inline-flex text-[12px] font-medium hover:underline">
+            className="text-primary mt-3 inline-flex text-[12px] font-medium hover:underline"
+          >
             Kelola lokasi absen ↗
           </Link>
         </SettingSection>
@@ -287,6 +352,7 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
             label="Jam kerja default"
             value={`${initial.shiftStart}–${initial.shiftEnd}`}
           />
+          <Summary label="Kantor default" value={chosen?.name ?? "—"} />
           <Summary
             label="Cuti dasar"
             value={`${initial.baseLeaveQuota} hari`}
@@ -296,7 +362,8 @@ export function SettingsForm({ initial }: { initial: SettingsValue }) {
           type="submit"
           size="lg"
           className="mt-4 w-full"
-          disabled={save.isPending}>
+          disabled={save.isPending}
+        >
           <Save aria-hidden />
           {save.isPending ? "Menyimpan…" : "Simpan perubahan"}
         </Button>
