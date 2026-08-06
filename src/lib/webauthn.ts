@@ -61,6 +61,25 @@ export function androidOrigins(): string[] {
     .map((hex) => `android:apk-key-hash:${Buffer.from(hex, "hex").toString("base64url")}`);
 }
 
+/**
+ * The WebAuthn user handle for an employee, as base64url.
+ *
+ * `@simplewebauthn/server` v9 copies `userID` into `user.id` verbatim, and its own
+ * browser helper then converts that string to bytes with UTF-8 — so a bare "3"
+ * works in a browser and is silently non-conformant everywhere else. The WebAuthn
+ * JSON spec says `user.id` is base64url, and Android's Credential Manager reads it
+ * that way: react-native-passkey hands our JSON straight to
+ * `CreatePublicKeyCredentialRequest`, where "3" is six bits — not a whole byte —
+ * and no provider can build a credential from it. The app reports "No create
+ * options available".
+ *
+ * The bytes are opaque to us: nothing on the server ever decodes a user handle
+ * back into an employee id, so encoding it properly costs nothing and existing
+ * credentials are unaffected.
+ */
+export const userHandle = (employeeId: number) =>
+  Buffer.from(String(employeeId)).toString("base64url");
+
 /** Stores a challenge server-side and returns the handle the client echoes back. */
 export async function putChallenge(challenge: string, employeeId?: number) {
   const id = randomBytes(18).toString("base64url");

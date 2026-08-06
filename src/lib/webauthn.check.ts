@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { androidOrigins } from "./webauthn";
+import { androidOrigins, userHandle } from "./webauthn";
 
 /**
  * assetlinks.json and the accepted WebAuthn origins are driven by one env var and
@@ -33,5 +33,22 @@ assert.equal(androidOrigins().length, 2, "formatting must not silently drop a ke
 
 set("nonsense");
 assert.deepEqual(androidOrigins(), [], "a malformed value is no key, not a bad one");
+
+/**
+ * user.id must survive a strict base64url decode, because Android's Credential
+ * Manager does exactly that with the JSON we hand it — and answers "No create
+ * options available" when it cannot, which names neither the field nor the reason.
+ */
+for (const id of [1, 3, 42, 12345]) {
+  const handle = userHandle(id);
+  assert.match(handle, /^[A-Za-z0-9_-]+$/, `${handle} is not base64url`);
+  assert.equal(handle.length % 4 !== 1, true, `${handle} is not a whole number of bytes`);
+  assert.equal(
+    Buffer.from(handle, "base64url").toString("utf8"),
+    String(id),
+    "the handle must round-trip, even though only the client reads it",
+  );
+}
+assert.notEqual(userHandle(3), "3", "the bare id is what broke Android");
 
 console.log("webauthn.check.ts ok");

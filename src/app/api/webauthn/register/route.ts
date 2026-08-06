@@ -11,7 +11,7 @@ import { auditLog, authenticators } from "@/db/schema";
 import {
   labelFromUserAgent,
   putChallenge,
-  rpFrom,
+  rpFrom, userHandle,
   takeChallenge,
 } from "@/lib/webauthn";
 
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
   const options = await generateRegistrationOptions({
     rpName,
     rpID,
-    userID: String(employeeId),
+    userID: userHandle(employeeId),
     userName: user.email ?? String(employeeId),
     userDisplayName: user.name ?? undefined,
     attestationType: "none",
