@@ -30,9 +30,11 @@ const a = keyFor("doc", "kontrak", "Kontrak.pdf", "u1");
 assert.equal(a, "docs/kontrak/u1-kontrak.pdf");
 assert.notEqual(a, keyFor("doc", "kontrak", "Kontrak.pdf", "u2"));
 
-// photo and selfie keys are deterministic: re-uploading overwrites, no orphans
-assert.equal(keyFor("photo", "42"), "photo/42");
-assert.equal(keyFor("photo", "42"), keyFor("photo", "42"));
+// a photo key is unique per upload, so replacing one changes the URL and no cache
+// can keep serving the face somebody just replaced — the caller deletes the old
+assert.equal(keyFor("photo", "42", "", "abc"), "photo/42/abc");
+assert.notEqual(keyFor("photo", "42"), keyFor("photo", "42"));
+// selfie keys stay deterministic: one per punch, and the punch id is in the scope
 assert.equal(keyFor("selfie", "42/2026-08-02"), "selfie/42/2026-08-02");
 
 // every generated key stays inside its own prefix

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { authenticators, employees } from "@/db/schema";
 import { PageHead, Panel, Pill } from "@/components/bits";
 import { PasskeyManager } from "./passkey-manager";
+import { PhotoForm } from "./photo-form";
 import { tanggalPendek } from "@/lib/hr";
 
 export const metadata = { title: "Profil — Ruang HR" };
@@ -47,6 +48,13 @@ export default async function ProfilPage() {
       <PageHead title="Profil & Keamanan" desc={me.name} />
 
       <div className="flex flex-wrap items-start gap-4">
+        <Panel
+          title="Foto profil"
+          className="w-full shrink-0 lg:w-[320px] lg:order-2"
+        >
+          <PhotoForm name={me.name} photoKey={me.photoUrl} />
+        </Panel>
+
         <Panel
           title="Passkey"
           className="min-w-0 flex-1 basis-[520px]"

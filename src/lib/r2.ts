@@ -86,8 +86,16 @@ export function keyFor(
   switch (kind) {
     case "doc":
       return `docs/${scope}/${uuid}-${safeName(filename)}`;
+    /**
+     * A fresh key per upload, not a stable `photo/<id>`.
+     *
+     * Overwriting one object meant a replaced photo kept showing for up to the
+     * five minutes the proxy tells browsers to cache it — and longer in a phone's
+     * image cache. A new key changes the URL, so the new face appears at once while
+     * avatars in a fifty-row list stay cacheable. The caller deletes the old object.
+     */
     case "photo":
-      return `photo/${scope}`;
+      return `photo/${scope}/${uuid}`;
     case "selfie":
       return `selfie/${scope}`;
     /** its own prefix, so the files route can authorize it from the request row

@@ -23,6 +23,7 @@ import {
   r2Configured,
 } from "@/lib/r2";
 import { isIsoDate } from "@/lib/hr";
+import { replacePhoto } from "@/lib/photo";
 
 /** Step 2 of a document upload: the bytes are already in R2 (see
  *  /api/files/presign), this writes the metadata row. */
@@ -201,26 +202,23 @@ async function uploadImage(req: Request, actorId: number) {
   }
 
   if (m.kind === "photo") {
-    const key = keyFor("photo", String(m.employeeId));
-    const [row] = await db
-      .update(employees)
-      .set({ photoUrl: key })
-      .where(eq(employees.id, m.employeeId))
-      .returning({ id: employees.id });
-    if (!row) {
-      return Response.json({ error: "Karyawan tidak ditemukan" }, { status: 404 });
+    // same helper the employee's own /api/me/photo uses: one set of limits, one
+    // audit trail, one rule for removing the object being replaced
+    try {
+      const { key } = await replacePhoto({
+        employeeId: m.employeeId,
+        file,
+        actorId,
+      });
+      revalidatePath("/karyawan");
+      revalidatePath("/", "layout");
+      return Response.json({ ok: true, key });
+    } catch (e) {
+      return Response.json(
+        { error: (e as Error).message },
+        { status: (e as { status?: number }).status ?? 400 },
+      );
     }
-    // written after the row check so a bad id cannot leave a stray object
-    await putObject(key, bytes, file.type);
-
-    await db.insert(auditLog).values({
-      actorId,
-      action: "employee.photo",
-      entity: "employees",
-      entityId: m.employeeId,
-    });
-    revalidatePath("/karyawan");
-    return Response.json({ ok: true, key });
   }
 
   if (m.kind === "event") {

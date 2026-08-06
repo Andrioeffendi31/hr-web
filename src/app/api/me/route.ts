@@ -55,6 +55,7 @@ export const GET = withMe(async (me) => {
       .select({
         id: employees.id,
         name: employees.name,
+        photoKey: employees.photoUrl,
         status: attendance.status,
       })
       .from(employees)
@@ -137,6 +138,9 @@ export const GET = withMe(async (me) => {
       avatars: present.slice(0, 4).map((t) => ({
         id: t.id,
         initials: initials(t.name),
+        /** the same colleague is a photo in the Tim tab; the stack on the Beranda
+         *  should not show them as initials */
+        photoKey: t.photoKey,
       })),
     },
   });

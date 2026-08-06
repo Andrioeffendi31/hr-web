@@ -47,6 +47,30 @@ export const POST = withMe(async (me, req) => {
     throw new Bad(parsed.error.issues[0]?.message ?? "Permintaan tidak valid");
   }
   const { action, lat, lng, location, wfh } = parsed.data;
+
+  /**
+   * The selfie is mandatory for both punches, and it is checked here — before the
+   * geofence, before the duplicate check, and above all before any row is written.
+   * The upload used to happen after the insert, so rejecting a photo at that point
+   * would have left the punch recorded and the evidence missing: exactly the state
+   * the requirement exists to prevent.
+   *
+   * Storage being unreachable therefore blocks attendance rather than quietly
+   * recording photoless punches. That is the policy, not an oversight — an
+   * exception that fires whenever R2 has a bad day is not a requirement.
+   */
+  const file = form.get("selfie");
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Bad("Foto selfie wajib untuk absen masuk maupun keluar");
+  }
+  if (!r2Configured()) throw new Bad("Object storage belum dikonfigurasi", 503);
+  if (!allowed(extOf(file.name), "photo")) {
+    throw new Bad("Foto harus JPG, PNG atau WEBP");
+  }
+  if (file.size > MAX_IMAGE) {
+    throw new Bad(`Foto terlalu besar (maks ${MAX_IMAGE / (1024 * 1024)} MB)`, 413);
+  }
+
   const cfg = await config();
   const today = todayWib();
 
@@ -135,30 +159,19 @@ export const POST = withMe(async (me, req) => {
     })
     .returning({ id: attendanceEvents.id });
 
-  let selfieKey: string | null = null;
-  const file = form.get("selfie");
-  if (file instanceof File && file.size > 0) {
-    if (!r2Configured()) throw new Bad("Object storage belum dikonfigurasi", 503);
-    if (!allowed(extOf(file.name), "photo")) {
-      throw new Bad("Foto harus JPG, PNG atau WEBP");
-    }
-    if (file.size > MAX_IMAGE) {
-      throw new Bad(`Foto terlalu besar (maks ${MAX_IMAGE / (1024 * 1024)} MB)`, 413);
-    }
-    selfieKey = keyFor("selfie", `${me.id}/${today}/${event.id}`);
-    await putObject(selfieKey, await file.arrayBuffer(), file.type);
+  const selfieKey = keyFor("selfie", `${me.id}/${today}/${event.id}`);
+  await putObject(selfieKey, await file.arrayBuffer(), file.type);
+  await db
+    .update(attendanceEvents)
+    .set({ photoUrl: selfieKey })
+    .where(eq(attendanceEvents.id, event.id));
+  // the admin table shows one selfie per day and clock-in is the one that proves
+  // who showed up, so only that punch claims it
+  if (action === "in") {
     await db
-      .update(attendanceEvents)
-      .set({ photoUrl: selfieKey })
-      .where(eq(attendanceEvents.id, event.id));
-    // the admin table shows one selfie per day and clock-in is the one that
-    // proves who showed up, so only that punch claims it
-    if (action === "in") {
-      await db
-        .update(attendance)
-        .set({ selfieUrl: selfieKey })
-        .where(eq(attendance.id, attendanceId));
-    }
+      .update(attendance)
+      .set({ selfieUrl: selfieKey })
+      .where(eq(attendance.id, attendanceId));
   }
 
   revalidatePath("/kehadiran");
