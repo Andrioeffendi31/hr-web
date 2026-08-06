@@ -31,23 +31,34 @@ export function rpFrom(headers: Headers) {
      * sends `https://<rpID>` which is already the web origin. Verification must
      * accept the set, or the mobile passkey (PRD-Mobile §7) fails as a forgery.
      */
-    origins: [origin, ...(androidOrigin() ? [androidOrigin()!] : [])],
+    origins: [origin, ...androidOrigins()],
   };
 }
 
 /**
- * The Android app's WebAuthn origin, derived from the signing certificate — the
- * same fingerprint that goes in assetlinks.json, so one env var configures both
- * and they cannot disagree.
+ * The Android app's WebAuthn origins, derived from the signing certificates —
+ * the same env var that fills assetlinks.json, so what we publish and what we
+ * accept cannot disagree.
  *
- * Set ANDROID_CERT_SHA256 to the SHA-256 of the signing cert as printed by
- * `eas credentials` or `keytool -list` (colon-separated hex). Absent, the Android
- * app simply cannot use passkeys; nothing else is affected.
+ * Plural, because a project legitimately has more than one signing key: EAS signs
+ * the distributed build, `expo run:android` signs local dev builds with the debug
+ * keystore, and Play App Signing re-signs on the way to the store. Credential
+ * Manager only offers passkeys to an app whose *own* certificate is listed, so a
+ * fingerprint missing here is not a verification failure later — it is the app
+ * reporting "No create options available" and no passkey ever being made.
+ *
+ * ANDROID_CERT_SHA256 takes one fingerprint or several, comma-separated, in the
+ * colon-hex form `eas credentials` and `keytool -list` print. The assetlinks route
+ * already split on commas; this used to require exactly one and returned null for
+ * anything else — so adding a second key would have quietly stopped accepting the
+ * first one's ceremonies while still advertising both.
  */
-export function androidOrigin(): string | null {
-  const hex = process.env.ANDROID_CERT_SHA256?.replace(/[^0-9a-fA-F]/g, "");
-  if (!hex || hex.length !== 64) return null;
-  return `android:apk-key-hash:${Buffer.from(hex, "hex").toString("base64url")}`;
+export function androidOrigins(): string[] {
+  return (process.env.ANDROID_CERT_SHA256 ?? "")
+    .split(",")
+    .map((f) => f.replace(/[^0-9a-fA-F]/g, ""))
+    .filter((hex) => hex.length === 64)
+    .map((hex) => `android:apk-key-hash:${Buffer.from(hex, "hex").toString("base64url")}`);
 }
 
 /** Stores a challenge server-side and returns the handle the client echoes back. */
