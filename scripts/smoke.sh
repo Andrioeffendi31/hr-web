@@ -48,7 +48,7 @@ curl -s -b "$BADJAR" -c "$BADJAR" -o /dev/null \
 check "no session for bad password" "" "$(curl -s -b "$BADJAR" "$BASE/api/auth/session" | grep -o 'hr_admin' | head -1)"
 
 echo "4. every module page renders"
-for p in kehadiran cuti lembur karyawan libur pengumuman berkas laporan; do
+for p in kehadiran cuti lembur karyawan divisi lokasi libur pengumuman berkas laporan pengaturan; do
   check "/$p" 200 "$(code "$BASE/$p")"
 done
 check "/kehadiran?tab=recap" 200 "$(code "$BASE/kehadiran?tab=recap")"

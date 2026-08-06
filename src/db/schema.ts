@@ -388,21 +388,8 @@ export const settings = pgTable("settings", {
   shiftStart: time("shift_start").notNull().default("08:00:00"),
   shiftEnd: time("shift_end").notNull().default("17:00:00"),
   lateToleranceMinutes: integer("late_tolerance_minutes").notNull().default(15),
-  /**
-   * DEAD — superseded by the `office_locations` table, which lets one company have
-   * a head office and a warehouse with different radii. Nothing reads or writes
-   * these any more.
-   *
-   * Still declared so `drizzle-kit push` does not drop the columns: the backfill in
-   * drizzle/0002_lokasi_absen.sql reads them to create the first location row.
-   * Delete both this block and the columns one deploy after that has run
-   * everywhere, so a rollback still finds its source data.
-   */
-  officeLat: numeric("office_lat", { precision: 9, scale: 6 })
-    .notNull()
-    .default("-6.224900"),
-  officeLng: numeric("office_lng", { precision: 9, scale: 6 })
-    .notNull()
-    .default("106.809200"),
-  geofenceRadiusM: integer("geofence_radius_m").notNull().default(150),
+  // The single office point that used to live here is now the `office_locations`
+  // table — one company can have a head office and a warehouse yard that do not
+  // share a radius. Migrated by drizzle/0002_divisi_lokasi.sql, columns dropped by
+  // 0003_drop_office_settings.sql.
 });

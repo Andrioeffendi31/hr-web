@@ -137,22 +137,6 @@ export const GET = withMe(async (me) => {
       lng: Number(o.lng),
       radiusM: o.radiusM,
     })),
-    /**
-     * TRANSITIONAL — delete after the next mobile release.
-     *
-     * `office` singular is what installs before the multi-location update read,
-     * and runtimeVersion is `appVersion`, so an OTA never reaches a binary on an
-     * older version: those would hit `data.office.lat` on undefined and white-screen
-     * the home tab. Six lines buys the freedom to deploy web and mobile in any order.
-     */
-    office: offices[0]
-      ? {
-          lat: Number(offices[0].lat),
-          lng: Number(offices[0].lng),
-          radiusM: offices[0].radiusM,
-          label: offices[0].name,
-        }
-      : null,
     leave: {
       remaining: balances[0]?.remaining ?? 0,
       quota: balances[0]?.quota ?? cfg.baseLeaveQuota,
