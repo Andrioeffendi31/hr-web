@@ -13,9 +13,8 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Lingkaran, PetaProps, Titik, Tone } from "./peta";
 
-/** OpenFreeMap's hosted Positron: neutral greys, so office colours and the
- *  geofence stay the loudest things on the tile. No API key exists to leak. */
-const STYLE = "https://tiles.openfreemap.org/styles/positron";
+/** OpenFreeMap's hosted Bright. No API key exists to leak. */
+const STYLE = "https://tiles.openfreemap.org/styles/bright";
 
 const EMPTY: GeoJSON.FeatureCollection = {
   type: "FeatureCollection",
