@@ -74,6 +74,7 @@ export function PetaMap({
   const markers = useRef<Marker[]>([]);
   const pick = useRef(onPick);
   const [ready, setReady] = useState(false);
+  const [gagal, setGagal] = useState<string | null>(null);
 
   useEffect(() => {
     pick.current = onPick;
@@ -94,6 +95,10 @@ export function PetaMap({
     m.on("click", (e: MapMouseEvent) =>
       pick.current?.(e.lngLat.lat, e.lngLat.lng),
     );
+    // Without this, every failure — tiles unreachable, style rejected, WebGL
+    // refused — looks identical: an empty grey box with working zoom buttons and
+    // nothing but a console line to say why.
+    m.on("error", (e) => setGagal(e.error?.message ?? "Peta gagal dimuat"));
     m.on("load", () => {
       m.addSource("fence", { type: "geojson", data: EMPTY });
       m.addLayer({
@@ -185,14 +190,21 @@ export function PetaMap({
   }, [ready, pKey, cKey, trail]);
 
   return (
-    <div
-      ref={box}
-      className={className}
-      style={{
-        height: height ?? "100%",
-        width: "100%",
-        cursor: onPick ? "crosshair" : undefined,
-      }}
-    />
+    <div className="relative" style={{ height: height ?? "100%" }}>
+      <div
+        ref={box}
+        className={className}
+        style={{
+          height: "100%",
+          width: "100%",
+          cursor: onPick ? "crosshair" : undefined,
+        }}
+      />
+      {gagal && (
+        <p className="bg-danger-subtle text-danger absolute inset-x-0 bottom-0 px-3 py-2 text-[11.5px]">
+          {gagal}
+        </p>
+      )}
+    </div>
   );
 }
