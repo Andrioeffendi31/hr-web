@@ -28,6 +28,7 @@ export function FileDrop({
   disabled,
   className,
   children,
+  capture,
 }: {
   accept: string;
   maxBytes: number;
@@ -37,6 +38,9 @@ export function FileDrop({
   disabled?: boolean;
   className?: string;
   children?: React.ReactNode;
+  /** Ask a phone for the camera instead of the gallery. Ignored on desktop,
+   *  where it degrades to the ordinary file picker. */
+  capture?: "user" | "environment";
 }) {
   const [dragging, setDragging] = useState(false);
 
@@ -79,6 +83,7 @@ export function FileDrop({
     <input
       type="file"
       accept={accept}
+      capture={capture}
       disabled={disabled}
       onChange={(e) => {
         take(e.currentTarget.files);

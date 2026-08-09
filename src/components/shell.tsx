@@ -10,6 +10,7 @@ import {
   CalendarOff,
   Clock,
   FolderClosed,
+  Home,
   LogOut,
   MapPin,
   Megaphone,
@@ -23,6 +24,7 @@ import {
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { SearchDialog } from "@/components/search-dialog";
+import { type Role } from "@/lib/access";
 import { initials } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 import { useUi } from "@/store/ui";
@@ -60,6 +62,30 @@ const GROUPS = [
   },
 ] as const;
 
+/**
+ * What an employee (or manager) sees instead.
+ *
+ * A separate array rather than filtering GROUPS: a merged list still forces a
+ * per-item decision about which group label it belongs under, so the filter buys
+ * nothing and costs a role key on every entry. access.check.ts is what keeps the
+ * two lists honest against the policy.
+ */
+const SAYA_GROUPS = [
+  {
+    label: "Saya",
+    items: [
+      { href: "/saya", label: "Beranda", icon: Home },
+      { href: "/saya/kehadiran", label: "Kehadiran Saya", icon: Clock },
+      { href: "/saya/pengajuan", label: "Pengajuan", icon: CalendarDays },
+      { href: "/saya/berkas", label: "Berkas Saya", icon: FolderClosed },
+    ],
+  },
+  {
+    label: "Informasi",
+    items: [{ href: "/saya/pengumuman", label: "Pengumuman", icon: Megaphone }],
+  },
+] as const;
+
 const TITLES: Record<string, [string, string]> = {
   "/kehadiran": ["Kehadiran", "papan absensi harian & rekap bulanan"],
   "/cuti": ["Cuti & Izin", "antrian persetujuan dan saldo cuti"],
@@ -72,22 +98,30 @@ const TITLES: Record<string, [string, string]> = {
   "/berkas": ["Berkas", "dokumen pribadi & perusahaan"],
   "/laporan": ["Laporan", "rekap siap audit, unduh sebagai CSV"],
   "/profil": ["Profil & Keamanan", "passkey dan data kepegawaian Anda"],
+  "/saya": ["Beranda", "absensi dan ringkasan hari ini"],
+  "/saya/kehadiran": ["Kehadiran Saya", "riwayat absensi per bulan"],
+  "/saya/pengajuan": ["Pengajuan", "cuti, lembur, dan riwayatnya"],
+  "/saya/berkas": ["Berkas Saya", "dokumen pribadi & perusahaan"],
+  "/saya/pengumuman": ["Pengumuman", "informasi internal dari HR"],
   "/pengaturan": ["Pengaturan", "identitas, jadwal kerja & kebijakan perusahaan"],
 };
 
 function NavList({
+  groups,
   badges,
   liveLabel,
   onNavigate,
 }: {
-  badges: NavBadges;
-  liveLabel: string;
+  groups: typeof GROUPS | typeof SAYA_GROUPS;
+  /** absent for an employee: those counts are company-wide admin data */
+  badges?: NavBadges;
+  liveLabel?: string;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
   return (
     <>
-      {GROUPS.map((group) => (
+      {groups.map((group) => (
         <div key={group.label}>
           <div className="text-subtle px-2.5 pt-3.5 pb-1 text-[10px] font-semibold tracking-[0.09em] uppercase">
             {group.label}
@@ -95,7 +129,7 @@ function NavList({
           {group.items.map((item) => {
             const active = pathname === item.href;
             const count =
-              "badge" in item ? badges[item.badge as keyof NavBadges] : 0;
+              badges && "badge" in item ? badges[item.badge as keyof NavBadges] : 0;
             return (
               <Link
                 key={item.href}
@@ -122,17 +156,19 @@ function NavList({
         </div>
       ))}
 
-      <div className="mt-auto flex flex-col gap-2.5 pt-3.5">
-        <div className="bg-card flex items-start gap-2 rounded-[11px] border p-3">
-          <span
-            className="bg-success mt-1.5 size-[7px] shrink-0 animate-pulsedot rounded-full"
-            aria-hidden
-          />
-          <span className="text-muted-foreground text-[11.5px] leading-snug">
-            {liveLabel}
-          </span>
+      {liveLabel && (
+        <div className="mt-auto flex flex-col gap-2.5 pt-3.5">
+          <div className="bg-card flex items-start gap-2 rounded-[11px] border p-3">
+            <span
+              className="bg-success mt-1.5 size-[7px] shrink-0 animate-pulsedot rounded-full"
+              aria-hidden
+            />
+            <span className="text-muted-foreground text-[11.5px] leading-snug">
+              {liveLabel}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }
@@ -146,16 +182,18 @@ export function Shell({
   user,
 }: {
   children: React.ReactNode;
-  badges: NavBadges;
-  liveLabel: string;
+  badges?: NavBadges;
+  liveLabel?: string;
   companyName: string;
   companyLogoUrl?: string | null;
-  user: { name: string; position: string };
+  user: { name: string; position: string; role: Role };
 }) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useUi();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [title, sub] = TITLES[pathname] ?? ["Ruang HR", ""];
+  const isAdmin = user.role === "hr_admin";
+  const groups = isAdmin ? GROUPS : SAYA_GROUPS;
 
   const brand = (
     <div className="flex items-center gap-2.5 px-2 pt-1 pb-4">
@@ -212,7 +250,7 @@ export function Shell({
     <div className="bg-background flex h-dvh overflow-hidden">
       <aside className="bg-sidebar hidden w-[228px] shrink-0 flex-col overflow-y-auto border-r px-3 py-4 md:flex">
         {brand}
-        <NavList badges={badges} liveLabel={liveLabel} />
+        <NavList groups={groups} badges={badges} liveLabel={liveLabel} />
         {userBlock}
       </aside>
 
@@ -229,6 +267,7 @@ export function Shell({
               <SheetTitle className="sr-only">Navigasi</SheetTitle>
               {brand}
               <NavList
+                groups={groups}
                 badges={badges}
                 liveLabel={liveLabel}
                 onNavigate={() => setMobileOpen(false)}
@@ -246,7 +285,9 @@ export function Shell({
             </span>
           </div>
 
-          <SearchDialog />
+          {/* searches employees through /api/search, which is requireAdmin() —
+              and every quick link inside it points at an admin route */}
+          {isAdmin && <SearchDialog />}
 
           <button
             onClick={toggleTheme}

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { CalendarCheck, Fingerprint, ShieldCheck } from "lucide-react";
 import { auth } from "@/auth";
+import { canAccess, homeFor, type Role } from "@/lib/access";
 import { LoginForm } from "./login-form";
 
 export const metadata = { title: "Masuk — Ruang HR" };
@@ -30,17 +31,22 @@ export default async function LoginPage({
 }) {
   const { next, error } = await searchParams;
   const session = await auth();
-  if (session?.user?.role === "hr_admin") redirect(next ?? "/kehadiran");
 
   // only allow same-origin paths back, so ?next= can't be used for redirects off-site
-  const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/kehadiran";
+  const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
 
-  const initialError =
-    error === "invalid"
-      ? "Email atau kata sandi salah."
-      : error === "admin_only"
-        ? "Akun ini bukan HR Admin. Karyawan menggunakan aplikasi Ruang HR Mobile."
-        : undefined;
+  // every signed-in role is sent away, not just admins — an employee used to be
+  // left sitting on the login page, and signing in again just bounced them back
+  if (session?.user) {
+    const role = session.user.role as Role;
+    redirect(safeNext && canAccess(safeNext, role) ? safeNext : homeFor(role));
+  }
+
+  // "/" resolves the role server-side once the cookie exists, so the form no
+  // longer has to guess a destination before knowing who is signing in
+  const target = safeNext ?? "/";
+
+  const initialError = error === "invalid" ? "Email atau kata sandi salah." : undefined;
 
   const brand = (
     <div className="flex items-center gap-2.5">
@@ -71,11 +77,11 @@ export default async function LoginPage({
 
         <div className="max-w-[420px]">
           <h1 className="text-[26px] leading-tight font-semibold tracking-tight">
-            Konsol HR untuk operasional harian.
+            Satu ruang untuk kehadiran dan pengajuan.
           </h1>
           <p className="text-muted-foreground mt-3 text-[13.5px] leading-relaxed">
-            Kehadiran, cuti, lembur, data karyawan, pengumuman, berkas, dan
-            laporan — semuanya berjalan di atas satu sumber data.
+            Karyawan mencatat absensi dan mengajukan cuti; tim HR menyetujui,
+            mengelola data, dan menarik laporan — di atas satu sumber data.
           </p>
 
           <ul className="mt-8 flex flex-col gap-5">
@@ -96,8 +102,7 @@ export default async function LoginPage({
         </div>
 
         <p className="text-subtle text-[11.5px]">
-          Karyawan menggunakan aplikasi Ruang HR Mobile untuk absensi dan
-          pengajuan.
+          Absensi dan pengajuan juga tersedia di aplikasi Ruang HR Mobile.
         </p>
       </aside>
 
@@ -106,7 +111,7 @@ export default async function LoginPage({
           <div className="mb-8 lg:hidden">{brand}</div>
 
           <h2 className="font-heading text-xl font-semibold tracking-tight">
-            Masuk ke konsol HR
+            Masuk ke Ruang HR
           </h2>
           <p className="text-muted-foreground mt-1.5 text-[13px]">
             Gunakan passkey perangkat Anda, atau email dan kata sandi kantor.

@@ -9,6 +9,7 @@ import {
   settings,
 } from "@/db/schema";
 import { Shell } from "@/components/shell";
+import { type Role } from "@/lib/access";
 import { todayWib } from "@/lib/hr";
 
 export default async function AppLayout({
@@ -18,31 +19,48 @@ export default async function AppLayout({
 }) {
   const session = await auth();
   const today = todayWib();
+  const isAdmin = session?.user?.role === "hr_admin";
 
   // error.tsx cannot catch what its own sibling layout throws, and production
   // redacts error.message on the client — so an unreachable database has to be
   // recognised here, where the real error still exists.
-  let data;
+  let cfg;
+  let stats;
   try {
-    data = await loadShellData(today);
+    // The settings row is brand, not admin data — every sidebar needs the company
+    // name and logo. The five aggregates below it are company-wide counts, so for
+    // an employee they are simply never issued: there is nothing to redact if the
+    // query never runs, and nothing to forget on the next person's page.
+    [[cfg], stats] = await Promise.all([
+      db.select().from(settings).limit(1),
+      isAdmin ? loadAdminStats(today) : null,
+    ]);
   } catch (e) {
     return <DatabaseDown error={e as Error} />;
   }
-  const [belum, cuti, lembur, sudahAbsen, aktif, [cfg]] = data;
 
   return (
     <Shell
-      badges={{
-        belumAbsen: belum[0].n,
-        cutiPending: cuti[0].n,
-        lemburPending: lembur[0].n,
-      }}
-      liveLabel={`${sudahAbsen[0].n} dari ${aktif[0].n} karyawan sudah absen masuk hari ini.`}
+      badges={
+        stats
+          ? {
+              belumAbsen: stats[0][0].n,
+              cutiPending: stats[1][0].n,
+              lemburPending: stats[2][0].n,
+            }
+          : undefined
+      }
+      liveLabel={
+        stats
+          ? `${stats[3][0].n} dari ${stats[4][0].n} karyawan sudah absen masuk hari ini.`
+          : undefined
+      }
       companyName={cfg?.companyName ?? "PT Nusantara Digital"}
       companyLogoUrl={cfg?.companyLogoUrl}
       user={{
         name: session?.user?.name ?? "—",
         position: session?.user?.position ?? "",
+        role: (session?.user?.role ?? "employee") as Role,
       }}
     >
       {children}
@@ -50,7 +68,7 @@ export default async function AppLayout({
   );
 }
 
-function loadShellData(today: string) {
+function loadAdminStats(today: string) {
   return Promise.all([
     db
       .select({ n: count() })
@@ -71,7 +89,6 @@ function loadShellData(today: string) {
       .from(attendance)
       .where(and(eq(attendance.date, today), isNotNull(attendance.clockIn))),
     db.select({ n: count() }).from(employees).where(eq(employees.active, true)),
-    db.select().from(settings).limit(1),
   ]);
 }
 

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check": "tsx src/lib/hr.check.ts && tsx src/lib/r2.check.ts && tsx src/lib/webauthn.check.ts",
+    "check": "tsx src/lib/hr.check.ts && tsx src/lib/r2.check.ts && tsx src/lib/webauthn.check.ts && tsx src/lib/access.check.ts && tsx src/lib/image.check.ts",
     "db:push": "dotenv -e .env.local -- drizzle-kit push",
     "db:seed": "dotenv -e .env.local -- tsx src/db/seed.ts",
     "db:up": "podman start hr-pg || podman run -d --name hr-pg -e POSTGRES_PASSWORD=hrpass -e POSTGRES_DB=hrapp -p 55432:5432 postgres:16-alpine",

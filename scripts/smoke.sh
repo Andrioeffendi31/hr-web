@@ -261,7 +261,40 @@ check "bad page is 400" 400 "$(code "$BASE/api/feed/pengumuman?page=0")"
 check "feed needs a session" 403 \
   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/feed/pengumuman")"
 
-rm -f "$JAR" "$BADJAR"
+echo "16. karyawan di web: self-service boleh, konsol admin tidak"
+# The whole point of the (admin) route group and lib/access.ts: nine admin pages
+# have no guard of their own and used to rely on the proxy refusing every
+# non-admin. If this section ever goes green-to-red, that guard has come undone.
+EMPJAR="$(mktemp)"
+EMPCSRF="$(curl -s -b "$EMPJAR" -c "$EMPJAR" "$BASE/api/auth/csrf" | sed 's/.*"csrfToken":"\([^"]*\)".*/\1/')"
+curl -s -b "$EMPJAR" -c "$EMPJAR" -o /dev/null \
+  -d "csrfToken=$EMPCSRF" -d "email=${EMPEMAIL:-bagas.prasetyo@nusantaradigital.co.id}" \
+  -d "password=$PASS" "$BASE/api/auth/callback/credentials"
+empcode() { curl -s -b "$EMPJAR" -c "$EMPJAR" -o /dev/null -w '%{http_code}' "$@"; }
+
+check "karyawan signs in" "employee" \
+  "$(curl -s -b "$EMPJAR" "$BASE/api/auth/session" | grep -o 'employee' | head -1)"
+for p in kehadiran karyawan cuti lembur berkas laporan libur pengumuman divisi lokasi pengaturan; do
+  check "karyawan ditolak dari /$p" 307 "$(empcode "$BASE/$p")"
+done
+for p in saya saya/kehadiran saya/pengajuan saya/berkas saya/pengumuman profil; do
+  check "karyawan boleh /$p" 200 "$(empcode "$BASE/$p")"
+done
+check "admin boleh /saya juga" 200 "$(code "$BASE/saya")"
+# the API layer is the real authorization; the pages above are only the shortcut
+check "karyawan tidak bisa PATCH settings" 403 \
+  "$(empcode -X PATCH -H 'Content-Type: application/json' -d '{}' "$BASE/api/settings")"
+check "karyawan tidak bisa POST employees" 403 \
+  "$(empcode -X POST -H 'Content-Type: application/json' -d '{}' "$BASE/api/employees")"
+check "karyawan tidak bisa menyetujui pengajuan" 403 \
+  "$(empcode -X POST -H 'Content-Type: application/json' -d '{}' "$BASE/api/requests")"
+check "karyawan tidak bisa mencari karyawan" 403 "$(empcode "$BASE/api/search?q=a")"
+check "karyawan tetap bisa baca datanya sendiri" 200 "$(empcode "$BASE/api/me")"
+# the sidebar must not carry company-wide counts to somebody who may not see them
+check "beranda karyawan tanpa agregat admin" 0 \
+  "$(curl -s -b "$EMPJAR" "$BASE/saya" | grep -c 'sudah absen masuk hari ini')"
+
+rm -f "$JAR" "$BADJAR" "$EMPJAR"
 echo
 [ $fail -eq 0 ] && echo "smoke: all checks passed" || echo "smoke: FAILURES above"
 exit $fail

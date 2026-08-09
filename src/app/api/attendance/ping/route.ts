@@ -3,8 +3,9 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/auth";
 import { db } from "@/db";
-import { attendance, attendanceEvents } from "@/db/schema";
-import { todayWib } from "@/lib/hr";
+import { attendance, attendanceEvents, officeLocations } from "@/db/schema";
+import { formatJarak, jarakMeter, todayWib } from "@/lib/hr";
+import { sendPush } from "@/lib/push";
 
 /**
  * Periodic location ping while the employee is clocked in (every ~3 hours from
@@ -18,6 +19,12 @@ import { todayWib } from "@/lib/hr";
  *  2. The minimum gap below IS the rate limit (PRD §12 asks for one on the
  *     attendance endpoints), so a looping or malicious client cannot flood the
  *     log: at most one row per ~2.5 hours per attendance day.
+ *
+ * A ping outside the geofence it was clocked in against is flagged on the event
+ * and pushed back to the employee. Unlike clock-in it is never *rejected*: the
+ * point of a trail is to record where somebody actually was, and a refused ping
+ * would erase exactly the fact worth recording. The same gap is what keeps the
+ * warning from becoming a nag — at most one every ~2.5 hours.
  */
 const body = z.object({
   lat: z.coerce.number().min(-90).max(90),
@@ -49,8 +56,16 @@ export async function POST(req: Request) {
       id: attendance.id,
       clockIn: attendance.clockIn,
       clockOut: attendance.clockOut,
+      // the office chosen at clock-in — the only point this ping can meaningfully
+      // be measured against. Null on a WFH day, where being away from an office
+      // is the arrangement rather than something to flag.
+      officeName: officeLocations.name,
+      officeLat: officeLocations.lat,
+      officeLng: officeLocations.lng,
+      officeRadiusM: officeLocations.radiusM,
     })
     .from(attendance)
+    .leftJoin(officeLocations, eq(officeLocations.id, attendance.locationId))
     .where(
       and(
         eq(attendance.employeeId, Number(user.id)),
@@ -92,6 +107,22 @@ export async function POST(req: Request) {
     }
   }
 
+  /**
+   * Is this ping outside the geofence it was clocked in against?
+   *
+   * Measured against the office the day belongs to, never "whichever is nearest
+   * now" — somebody who clocked in at the head office and spent the afternoon two
+   * streets from the warehouse is away from where they said they would be, and a
+   * nearest-match would quietly call that fine.
+   *
+   * A WFH day has no office, so there is nothing to be outside of and no warning
+   * to give.
+   */
+  const meter = att.officeLat
+    ? jarakMeter(lat, lng, Number(att.officeLat), Number(att.officeLng!))
+    : null;
+  const outside = meter !== null && meter > att.officeRadiusM!;
+
   const [row] = await db
     .insert(attendanceEvents)
     .values({
@@ -100,11 +131,25 @@ export async function POST(req: Request) {
       lat: String(lat),
       lng: String(lng),
       location: location ?? null,
+      // only when it is worth saying: the drawer already renders the distance for
+      // every ping, so a note repeating it would be noise. This one flags it.
+      note: outside ? `Di luar radius ${att.officeName}` : null,
     })
     .returning({ id: attendanceEvents.id, at: attendanceEvents.at });
+
+  if (outside) {
+    // awaited, but sendPush swallows its own failures — an unreachable phone must
+    // not turn a recorded ping into a 500 the device would retry
+    await sendPush({
+      to: Number(user.id),
+      title: "Anda di luar area kantor",
+      body: `Terpantau ${formatJarak(meter!)} dari ${att.officeName} pada pengecekan lokasi berkala.`,
+      route: "/kehadiran",
+    });
+  }
 
   // no auditLog row: that table tracks administrative actions needing a trail,
   // and attendance_events is already the trail for this one
   revalidatePath("/kehadiran");
-  return Response.json({ ok: true, id: row.id, at: row.at });
+  return Response.json({ ok: true, id: row.id, at: row.at, outside });
 }

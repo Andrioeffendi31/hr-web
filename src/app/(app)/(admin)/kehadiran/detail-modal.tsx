@@ -111,6 +111,17 @@ export function AttendanceDetail({
 
   // automatic pings, newest last (events already arrive ordered by `at`)
   const pings = d.events.filter((e) => e.kind === "lokasi");
+  // how many of them landed outside the geofence — the one thing about a trail
+  // worth knowing before deciding whether to read the trail
+  const pingsLuar = d.office
+    ? pings.filter(
+        (e) =>
+          e.lat &&
+          e.lng &&
+          jarakMeter(d.office!.lat, d.office!.lng, Number(e.lat), Number(e.lng)) >
+            d.office!.radius,
+      ).length
+    : 0;
   const sedangBekerja = Boolean(d.clockIn && !d.clockOut);
 
   return (
@@ -199,6 +210,12 @@ export function AttendanceDetail({
                   : `Terpantau tiap 3 jam · ${pings.length} ping · terakhir ${waktu(
                       pings[pings.length - 1].at,
                     )}`}
+                {pingsLuar > 0 && (
+                  <span className="text-warning font-medium">
+                    {" "}
+                    · {pingsLuar} di luar radius
+                  </span>
+                )}
               </div>
             </div>
             {masuk?.lat && masuk.lng && (
@@ -333,7 +350,18 @@ function TimelineEntry({
             {e.lat && e.lng && ` · ${koordinat(e.lat, e.lng)}`}
             {jarak !== null && ` · ${formatJarak(jarak)} dari kantor`}
           </div>
-          {e.note && <div className="mt-1 text-[12px]">{e.note}</div>}
+          {/* a ping only carries a note when it fell outside the geofence, so that
+              one gets the warning tone; a manual `catatan` is just text */}
+          {e.note && (
+            <div
+              className={cn(
+                "mt-1 text-[12px]",
+                e.kind === "lokasi" && "text-warning font-medium",
+              )}
+            >
+              {e.note}
+            </div>
+          )}
         </div>
 
         {/* an automatic ping has no photographer, so no uploader is offered —
