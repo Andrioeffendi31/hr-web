@@ -10,6 +10,7 @@ import {
   isIsoDate,
   isoFromDate,
   jarakMeter,
+  jejakAbsen,
   leaveQuota,
   overtimeMinutes,
   previewKind,
@@ -205,5 +206,31 @@ assert.equal(previewKind("html"), null);
 assert.equal(previewKind("xlsx"), null);
 assert.equal(ukuranFile(320 * 1024), "320 KB");
 assert.equal(ukuranFile(1.5 * 1024 * 1024), "1,5 MB");
+
+// jejakAbsen: the tone rule is the whole point — a ping outside the fence has to
+// read as a warning, one inside must not, and a punch keeps its own colour
+{
+  const kantor = { lat: -6.2, lng: 106.8, radius: 150 };
+  const at = new Date("2026-08-09T01:00:00Z");
+  const t = jejakAbsen(
+    [
+      { kind: "masuk", at, lat: "-6.2", lng: "106.8" },
+      { kind: "lokasi", at, lat: "-6.2001", lng: "106.8" },
+      { kind: "lokasi", at, lat: "-6.25", lng: "106.8" },
+      { kind: "lokasi", at, lat: null, lng: null },
+    ],
+    kantor,
+  );
+  assert.equal(t.length, 3, "an event without coordinates is dropped, not pinned at 0,0");
+  assert.equal(t[0].tone, "masuk");
+  assert.equal(t[1].tone, "ping", "11 m away is inside a 150 m fence");
+  assert.equal(t[2].tone, "peringatan", "5,5 km away is outside it");
+  assert.match(t[0].label, /^Absen masuk 08\.00 · 0 m dari kantor$/, "WIB, not UTC");
+  // WFH: no fence, so nothing can be outside one
+  assert.equal(
+    jejakAbsen([{ kind: "lokasi", at, lat: "-6.25", lng: "106.8" }], null)[0].tone,
+    "ping",
+  );
+}
 
 console.log("hr.ts self-check OK");

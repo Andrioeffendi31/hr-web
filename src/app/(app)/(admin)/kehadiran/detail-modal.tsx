@@ -7,6 +7,7 @@ import { Camera, ExternalLink, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { AttBadge, Avatar } from "@/components/bits";
+import { PetaPanel } from "@/components/peta";
 import { FileDrop } from "@/components/file-drop";
 import { FilePreview } from "@/components/file-preview";
 import { SelfieCell } from "./selfie-cell";
@@ -17,6 +18,7 @@ import {
   formatJarak,
   jam,
   jarakMeter,
+  jejakAbsen,
   overtimeMinutes,
   tanggalPanjang,
 } from "@/lib/hr";
@@ -123,6 +125,7 @@ export function AttendanceDetail({
       ).length
     : 0;
   const sedangBekerja = Boolean(d.clockIn && !d.clockOut);
+  const titik = jejakAbsen(d.events, d.office);
 
   return (
     <Dialog open onOpenChange={(open) => !open && router.push(backHref)}>
@@ -164,8 +167,7 @@ export function AttendanceDetail({
             ))}
           </div>
 
-          {/* Location. The mockup's whole geo presentation is this line of text —
-              no map, so none is drawn here either. */}
+          {/* Location: the verdict in one line, the evidence on the map below it */}
           <div
             className={cn(
               "mt-3 flex items-start gap-3 rounded-[11px] border p-3",
@@ -230,6 +232,37 @@ export function AttendanceDetail({
               </a>
             )}
           </div>
+
+          {titik.length > 0 && (
+            <PetaPanel
+              className="mt-3"
+              height={240}
+              trail
+              points={
+                d.office
+                  ? [
+                      {
+                        lat: d.office.lat,
+                        lng: d.office.lng,
+                        label: `${d.office.name} · radius ${d.office.radius} m`,
+                        tone: "kantor" as const,
+                      },
+                      ...titik,
+                    ]
+                  : titik
+              }
+              circles={
+                d.office
+                  ? [{ lat: d.office.lat, lng: d.office.lng, radiusM: d.office.radius }]
+                  : []
+              }
+              note={
+                d.office
+                  ? "Garis putus-putus adalah urutan absen dan ping otomatis. Titik oranye jatuh di luar radius."
+                  : "Hari WFH — tidak ada radius kantor untuk dibandingkan."
+              }
+            />
+          )}
 
           <div className="mt-5 mb-2.5 flex items-center justify-between">
             <h3 className="text-[12.5px] font-semibold">Log lokasi</h3>

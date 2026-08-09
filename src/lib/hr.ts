@@ -272,6 +272,64 @@ export const formatJarak = (meter: number) =>
     ? `${(meter / 1000).toFixed(1).replace(".", ",")} km`
     : `${Math.round(meter)} m`;
 
+const KIND_LABEL_ID = {
+  masuk: "Absen masuk",
+  keluar: "Absen keluar",
+  catatan: "Catatan",
+  lokasi: "Ping lokasi",
+} as const;
+
+/** WIB, matching every other time in the app. */
+export const jamWib = (at: Date) =>
+  at.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Jakarta",
+  });
+
+/**
+ * Attendance events as map markers, in chronological order.
+ *
+ * Both day views — HR's modal and the employee's own page — draw the identical
+ * trail, and the tone rule (a ping outside the fence is a warning, one inside is
+ * just context) is a judgement about the data, not about either screen. Events
+ * with no coordinate are dropped rather than pinned at (0,0), which is in the
+ * Atlantic.
+ */
+export function jejakAbsen(
+  events: {
+    kind: keyof typeof KIND_LABEL_ID;
+    at: Date;
+    lat: string | null;
+    lng: string | null;
+  }[],
+  office: { lat: number; lng: number; radius: number } | null,
+) {
+  return events.flatMap((e) => {
+    if (!e.lat || !e.lng) return [];
+    const lat = Number(e.lat);
+    const lng = Number(e.lng);
+    const jarak = office ? jarakMeter(office.lat, office.lng, lat, lng) : null;
+    const luar = jarak !== null && jarak > office!.radius;
+    return [
+      {
+        lat,
+        lng,
+        tone: (e.kind === "masuk"
+          ? "masuk"
+          : e.kind === "keluar"
+            ? "keluar"
+            : luar
+              ? "peringatan"
+              : "ping") as "masuk" | "keluar" | "ping" | "peringatan",
+        label: `${KIND_LABEL_ID[e.kind]} ${jamWib(e.at)}${
+          jarak !== null ? ` · ${formatJarak(jarak)} dari kantor` : ""
+        }`,
+      },
+    ];
+  });
+}
+
 /** What the preview dialog can render in-page. SVG and HTML are deliberately
  *  absent: they execute, and previewing them would run untrusted markup. */
 export function previewKind(ext: string): "image" | "pdf" | null {

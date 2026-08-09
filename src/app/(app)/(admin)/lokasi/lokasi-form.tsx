@@ -7,6 +7,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Peta } from "@/components/peta";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,17 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
+  // The coordinate lives in state now because two controls write it — the map and
+  // the number fields — and each has to show what the other did.
+  const blank = {
+    lat: initial?.lat ?? "",
+    lng: initial?.lng ?? "",
+    radiusM: String(initial?.radiusM ?? 150),
+  };
+  const [f, setF] = useState(blank);
+  const titik = Number(f.lat) && Number(f.lng) ? { lat: Number(f.lat), lng: Number(f.lng) } : null;
+  const radiusM = Math.min(5000, Math.max(25, Number(f.radiusM) || 150));
+
   const save = useMutation({
     mutationFn: (body: Record<string, unknown>) => send("POST", body),
     onSuccess: (_d, v) => {
@@ -55,7 +67,15 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
   });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        // the dialog used to forget an abandoned edit because its inputs
+        // unmounted; state has to be told
+        if (!o) setF(blank);
+      }}
+    >
       <DialogTrigger asChild>
         {initial ? (
           <button
@@ -78,7 +98,8 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
             {initial ? `Ubah ${initial.name}` : "Lokasi absen baru"}
           </DialogTitle>
           <DialogDescription className="text-[12.5px]">
-            Buka Google Maps, klik kanan pada titik kantor, lalu salin koordinatnya.
+            Ketuk peta di titik kantor, lalu atur radiusnya. Koordinat bisa juga
+            diketik manual.
           </DialogDescription>
         </DialogHeader>
 
@@ -111,6 +132,21 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
             />
           </label>
 
+          <div className="h-[220px] overflow-hidden rounded-[11px] border">
+            <Peta
+              points={titik ? [{ ...titik, tone: "kantor" }] : []}
+              circles={titik ? [{ ...titik, radiusM }] : []}
+              onPick={(lat, lng) =>
+                setF((s) => ({ ...s, lat: lat.toFixed(6), lng: lng.toFixed(6) }))
+              }
+            />
+          </div>
+          {!titik && (
+            <p className="text-subtle -mt-1 text-[11px]">
+              Belum ada titik — ketuk peta untuk menandai kantor.
+            </p>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <label className="text-[12px] font-medium">
               Latitude
@@ -121,7 +157,8 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
                 min={-90}
                 max={90}
                 required
-                defaultValue={initial?.lat ?? ""}
+                value={f.lat}
+                onChange={(e) => setF((s) => ({ ...s, lat: e.currentTarget.value }))}
                 className={FIELD}
               />
             </label>
@@ -134,7 +171,8 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
                 min={-180}
                 max={180}
                 required
-                defaultValue={initial?.lng ?? ""}
+                value={f.lng}
+                onChange={(e) => setF((s) => ({ ...s, lng: e.currentTarget.value }))}
                 className={FIELD}
               />
             </label>
@@ -148,11 +186,13 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
               min={25}
               max={5000}
               required
-              defaultValue={initial?.radiusM ?? 150}
+              value={f.radiusM}
+              onChange={(e) => setF((s) => ({ ...s, radiusM: e.currentTarget.value }))}
               className={FIELD}
             />
             <span className="text-subtle mt-1 block text-[11px] font-normal">
               Terlalu kecil dan pergeseran GPS biasa akan menolak absen yang sah.
+              Lingkaran di peta adalah radius sebenarnya.
             </span>
           </label>
 

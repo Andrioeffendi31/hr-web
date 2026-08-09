@@ -3,6 +3,7 @@ import { requireAdmin } from "@/auth";
 import { db } from "@/db";
 import { attendance, officeLocations } from "@/db/schema";
 import { Empty, PageHead, Panel, Pill, Stat } from "@/components/bits";
+import { PetaPanel } from "@/components/peta";
 import { DeleteLokasi, LokasiDialog } from "./lokasi-form";
 
 /**
@@ -64,6 +65,26 @@ export default async function LokasiPage() {
         <p className="border-warning/40 bg-warning/10 text-warning mb-4 rounded-[11px] border px-4 py-2.5 text-[12.5px]">
           Tidak ada lokasi aktif — karyawan hanya bisa absen dengan menandai WFH.
         </p>
+      )}
+
+      {rows.length > 0 && (
+        <PetaPanel
+          className="mb-4"
+          height={280}
+          points={rows.map((r) => ({
+            lat: Number(r.lat),
+            lng: Number(r.lng),
+            label: `${r.name} · radius ${r.radiusM} m${r.active ? "" : " (nonaktif)"}`,
+            tone: r.active ? "kantor" : "ping",
+          }))}
+          circles={rows.map((r) => ({
+            lat: Number(r.lat),
+            lng: Number(r.lng),
+            radiusM: r.radiusM,
+            tone: r.active ? "kantor" : "ping",
+          }))}
+          note="Lingkaran adalah radius geofence sebenarnya. Ketuk titik untuk melihat namanya."
+        />
       )}
 
       <Panel title="Daftar lokasi">

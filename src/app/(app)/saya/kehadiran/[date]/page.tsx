@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { attendance, attendanceEvents, officeLocations } from "@/db/schema";
 import { AttBadge, Empty, PageHead, Panel } from "@/components/bits";
+import { PetaPanel } from "@/components/peta";
 import {
   type AttStatus,
   durasi,
@@ -13,6 +14,7 @@ import {
   isIsoDate,
   jam,
   jarakMeter,
+  jejakAbsen,
   overtimeMinutes,
   tanggalPanjang,
 } from "@/lib/hr";
@@ -74,6 +76,7 @@ export default async function DetailKehadiranPage({
       officeName: officeLocations.name,
       officeLat: officeLocations.lat,
       officeLng: officeLocations.lng,
+      officeRadius: officeLocations.radiusM,
     })
     .from(attendance)
     .leftJoin(officeLocations, eq(officeLocations.id, attendance.locationId))
@@ -103,6 +106,15 @@ export default async function DetailKehadiranPage({
 
   const minutes =
     day.clockIn && day.clockOut ? overtimeMinutes(day.clockIn, day.clockOut) : null;
+
+  const kantor = day.officeLat
+    ? {
+        lat: Number(day.officeLat),
+        lng: Number(day.officeLng),
+        radius: day.officeRadius!,
+      }
+    : null;
+  const titik = jejakAbsen(events, kantor);
 
   const jarakDari = (lat: string | null, lng: string | null) =>
     day.officeLat && lat && lng
@@ -153,6 +165,36 @@ export default async function DetailKehadiranPage({
               </p>
             )}
           </Panel>
+
+          {titik.length > 0 && (
+            <PetaPanel
+              height={240}
+              trail
+              points={
+                kantor
+                  ? [
+                      {
+                        lat: kantor.lat,
+                        lng: kantor.lng,
+                        tone: "kantor" as const,
+                        label: `${day.officeName} · radius ${kantor.radius} m`,
+                      },
+                      ...titik,
+                    ]
+                  : titik
+              }
+              circles={
+                kantor
+                  ? [{ lat: kantor.lat, lng: kantor.lng, radiusM: kantor.radius }]
+                  : []
+              }
+              note={
+                kantor
+                  ? "Lingkaran adalah radius kantor. Titik oranye adalah ping yang tercatat di luar radius."
+                  : "Hari WFH — tidak ada radius kantor untuk dibandingkan."
+              }
+            />
+          )}
 
           <Panel title="Jejak lokasi">
             {events.length === 0 ? (

@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FileDrop } from "@/components/file-drop";
+import { Peta } from "@/components/peta";
 import { SelectField } from "@/components/select-field";
 import { formatJarak, jarakMeter } from "@/lib/hr";
 import { toWebp } from "@/lib/image";
@@ -295,6 +296,33 @@ export function ClockDialog({ data, onClose }: { data: Bootstrap; onClose: () =>
               </button>
             )}
           </div>
+
+          {/* the same two facts as the card above, but as a picture: where the
+              fence is and which side of it you are standing on */}
+          {fix && (
+            <div className="h-[180px] overflow-hidden rounded-[11px] border">
+              <Peta
+                points={[
+                  { ...fix, tone: "saya", label: "Posisi Anda sekarang" },
+                  ...(chosen
+                    ? [
+                        {
+                          lat: chosen.lat,
+                          lng: chosen.lng,
+                          tone: "kantor" as const,
+                          label: `${chosen.name} · radius ${chosen.radiusM} m`,
+                        },
+                      ]
+                    : []),
+                ]}
+                circles={
+                  chosen && !noGeofence
+                    ? [{ lat: chosen.lat, lng: chosen.lng, radiusM: chosen.radiusM }]
+                    : []
+                }
+              />
+            </div>
+          )}
 
           {/* office picker — read-only on the way out */}
           {action === "in" && data.offices.length > 1 && (
