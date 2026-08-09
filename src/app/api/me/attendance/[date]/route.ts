@@ -36,6 +36,7 @@ export const GET = withMe(async (me, _req, ctx) => {
       officeName: officeLocations.name,
       officeLat: officeLocations.lat,
       officeLng: officeLocations.lng,
+      officeRadiusM: officeLocations.radiusM,
     })
     .from(attendance)
     .leftJoin(officeLocations, eq(attendance.locationId, officeLocations.id))
@@ -72,6 +73,18 @@ export const GET = withMe(async (me, _req, ctx) => {
     selfieKey: day.selfieKey,
     shift: resolveShift(me, cfg),
     office: day.officeName,
+    /**
+     * The same office as a point, so the phone can draw the day rather than only
+     * list it. Added alongside `office` rather than replacing it: a shipped build
+     * reads that string, and an installed app is not something we get to migrate.
+     */
+    officeGeo: day.officeLat
+      ? {
+          lat: Number(day.officeLat),
+          lng: Number(day.officeLng),
+          radiusM: day.officeRadiusM!,
+        }
+      : null,
     events: events.map((e) => ({
       id: e.id,
       kind: e.kind,
@@ -84,6 +97,9 @@ export const GET = withMe(async (me, _req, ctx) => {
       location: e.location,
       note: e.note,
       photoKey: e.photoKey,
+      /** where it happened; null for a punch written before coordinates were kept */
+      lat: e.lat === null ? null : Number(e.lat),
+      lng: e.lng === null ? null : Number(e.lng),
       /**
        * Distance from the office at the moment of the event, measured against the
        * office this day was actually punched at — never "whichever is nearest now",
