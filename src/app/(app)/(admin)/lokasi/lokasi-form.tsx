@@ -87,6 +87,18 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
       : null;
   const radiusM = Math.min(5000, Math.max(25, Number(f.radiusM) || 150));
 
+  /**
+   * The value has to be read here, not inside the updater: React runs a lazy
+   * `setState(fn)` during the *next* render, by which point it has nulled the
+   * synthetic event's `currentTarget` — reading it there threw on every keystroke
+   * and took the page down with the error boundary.
+   */
+  const ubah =
+    (k: keyof typeof blank) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      const v = e.target.value;
+      setF((s) => ({ ...s, [k]: v }));
+    };
+
   const pakai = (lat: number, lng: number) => {
     setF((s) => ({ ...s, lat: lat.toFixed(6), lng: lng.toFixed(6) }));
     setHits([]);
@@ -274,7 +286,7 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
                 max={90}
                 required
                 value={f.lat}
-                onChange={(e) => setF((s) => ({ ...s, lat: e.currentTarget.value }))}
+                onChange={ubah("lat")}
                 className={FIELD}
               />
             </label>
@@ -288,7 +300,7 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
                 max={180}
                 required
                 value={f.lng}
-                onChange={(e) => setF((s) => ({ ...s, lng: e.currentTarget.value }))}
+                onChange={ubah("lng")}
                 className={FIELD}
               />
             </label>
@@ -303,7 +315,7 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
               max={5000}
               required
               value={f.radiusM}
-              onChange={(e) => setF((s) => ({ ...s, radiusM: e.currentTarget.value }))}
+              onChange={ubah("radiusM")}
               className={FIELD}
             />
             <span className="text-subtle mt-1 block text-[11px] font-normal">
