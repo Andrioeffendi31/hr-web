@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Crosshair, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -30,6 +30,27 @@ type Location = {
   active: boolean;
 };
 
+type Hit = { nama: string; lat: number; lng: number };
+
+/**
+ * Nominatim (OpenStreetMap) — same reason as the tiles: no key, no billing. Its
+ * usage policy caps this at one request per keystroke-burst, so the search only
+ * fires on submit, never on every character.
+ */
+async function cariAlamat(q: string): Promise<Hit[]> {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=id&q=${encodeURIComponent(q)}`,
+    { headers: { Accept: "application/json" } },
+  );
+  if (!res.ok) throw new Error("Pencarian lokasi gagal");
+  const data = (await res.json()) as { display_name: string; lat: string; lon: string }[];
+  return data.map((d) => ({
+    nama: d.display_name,
+    lat: Number(d.lat),
+    lng: Number(d.lon),
+  }));
+}
+
 async function send(method: string, body: unknown) {
   const res = await fetch("/api/locations", {
     method,
@@ -53,8 +74,32 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
     radiusM: String(initial?.radiusM ?? 150),
   };
   const [f, setF] = useState(blank);
-  const titik = Number(f.lat) && Number(f.lng) ? { lat: Number(f.lat), lng: Number(f.lng) } : null;
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<Hit[]>([]);
+
+  // A half-typed or swapped coordinate is normal while editing, so the map only
+  // gets one it can actually plot — latitude beyond ±90 makes MapLibre throw.
+  const lat = Number(f.lat);
+  const lng = Number(f.lng);
+  const titik =
+    f.lat !== "" && f.lng !== "" && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+      ? { lat, lng }
+      : null;
   const radiusM = Math.min(5000, Math.max(25, Number(f.radiusM) || 150));
+
+  const pakai = (lat: number, lng: number) => {
+    setF((s) => ({ ...s, lat: lat.toFixed(6), lng: lng.toFixed(6) }));
+    setHits([]);
+  };
+
+  const cari = useMutation({
+    mutationFn: cariAlamat,
+    onSuccess: (h) => {
+      setHits(h);
+      if (!h.length) toast.error("Lokasi tidak ditemukan");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const save = useMutation({
     mutationFn: (body: Record<string, unknown>) => send("POST", body),
@@ -73,7 +118,11 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
         setOpen(o);
         // the dialog used to forget an abandoned edit because its inputs
         // unmounted; state has to be told
-        if (!o) setF(blank);
+        if (!o) {
+          setF(blank);
+          setQ("");
+          setHits([]);
+        }
       }}
     >
       <DialogTrigger asChild>
@@ -98,8 +147,8 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
             {initial ? `Ubah ${initial.name}` : "Lokasi absen baru"}
           </DialogTitle>
           <DialogDescription className="text-[12.5px]">
-            Ketuk peta di titik kantor, lalu atur radiusnya. Koordinat bisa juga
-            diketik manual.
+            Cari alamatnya, pakai lokasi perangkat, atau ketuk peta — lalu atur
+            radiusnya. Koordinat bisa juga diketik manual.
           </DialogDescription>
         </DialogHeader>
 
@@ -132,18 +181,85 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
             />
           </label>
 
+          <div className="relative">
+            <div className="flex gap-2">
+              <input
+                value={q}
+                onChange={(e) => setQ(e.currentTarget.value)}
+                // Enter inside a form submits it; here it means "search"
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  if (q.trim().length > 2) cari.mutate(q.trim());
+                }}
+                placeholder="Cari alamat atau nama tempat…"
+                className={`${FIELD} mt-0`}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-9 shrink-0"
+                disabled={cari.isPending || q.trim().length < 3}
+                onClick={() => cari.mutate(q.trim())}
+              >
+                <Search className="size-3.5" aria-hidden />
+                {cari.isPending ? "Mencari…" : "Cari"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-9 shrink-0"
+                title="Pakai lokasi saya sekarang"
+                onClick={() =>
+                  navigator.geolocation.getCurrentPosition(
+                    (p) => pakai(p.coords.latitude, p.coords.longitude),
+                    // denied permission is the common case and the browser gives
+                    // no second chance, so say what to do about it
+                    (e) =>
+                      toast.error(
+                        e.code === e.PERMISSION_DENIED
+                          ? "Izin lokasi ditolak — aktifkan di pengaturan browser."
+                          : "Tidak bisa membaca lokasi perangkat.",
+                      ),
+                    { enableHighAccuracy: true, timeout: 10_000 },
+                  )
+                }
+              >
+                <Crosshair className="size-3.5" aria-hidden />
+                <span className="sr-only">Lokasi saya</span>
+              </Button>
+            </div>
+            {hits.length > 0 && (
+              <ul className="bg-card absolute inset-x-0 top-10 z-20 max-h-44 overflow-auto rounded-[9px] border shadow-lg">
+                {hits.map((h) => (
+                  <li key={`${h.lat},${h.lng}`}>
+                    <button
+                      type="button"
+                      onClick={() => pakai(h.lat, h.lng)}
+                      className="hover:bg-accent block w-full px-2.5 py-2 text-left text-[12px] leading-snug"
+                    >
+                      {h.nama}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="h-[220px] overflow-hidden rounded-[11px] border">
             <Peta
               points={titik ? [{ ...titik, tone: "kantor" }] : []}
               circles={titik ? [{ ...titik, radiusM }] : []}
-              onPick={(lat, lng) =>
-                setF((s) => ({ ...s, lat: lat.toFixed(6), lng: lng.toFixed(6) }))
-              }
+              onPick={pakai}
             />
           </div>
           {!titik && (
             <p className="text-subtle -mt-1 text-[11px]">
-              Belum ada titik — ketuk peta untuk menandai kantor.
+              {f.lat === "" && f.lng === ""
+                ? "Belum ada titik — cari alamat atau ketuk peta untuk menandai kantor."
+                : "Koordinat di luar jangkauan (lat −90…90, lng −180…180), jadi belum bisa ditampilkan."}
             </p>
           )}
 

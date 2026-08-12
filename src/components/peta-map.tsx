@@ -53,6 +53,15 @@ function circleFeature({ lat, lng, radiusM, tone = "kantor" }: Lingkaran) {
   };
 }
 
+/**
+ * MapLibre throws on a latitude outside ±90 (`new LngLat`), and a half-typed
+ * coordinate in a form is an ordinary state, not an exception — one bad keystroke
+ * used to take the whole page down with the error boundary. Dropped here rather
+ * than at each call site so every map gets it.
+ */
+const waras = (t: { lat: number; lng: number }) =>
+  Number.isFinite(t.lat) && Number.isFinite(t.lng) && Math.abs(t.lat) <= 90;
+
 function markerEl(t: Titik) {
   const el = document.createElement("div");
   el.className = "size-3.5 rounded-full border-2 border-white shadow";
@@ -61,13 +70,15 @@ function markerEl(t: Titik) {
 }
 
 export function PetaMap({
-  points,
-  circles = [],
+  points: semuaTitik,
+  circles: semuaLingkaran = [],
   trail = false,
   height,
   onPick,
   className,
 }: PetaProps) {
+  const points = semuaTitik.filter(waras);
+  const circles = semuaLingkaran.filter(waras);
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const markers = useRef<Marker[]>([]);
