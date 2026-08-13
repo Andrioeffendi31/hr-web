@@ -37,7 +37,9 @@ export default async function DivisiPage() {
     shiftEnd: cfg?.shiftEnd ?? "17:00:00",
     lateToleranceMinutes: cfg?.lateToleranceMinutes ?? 15,
   };
-  const custom = rows.filter((r) => r.shiftStart || r.lateToleranceMinutes !== null);
+  const custom = rows.filter(
+    (r) => r.shiftStart || r.lateToleranceMinutes !== null,
+  );
   const def = resolveShift(null, fallback);
 
   return (
@@ -75,11 +77,17 @@ export default async function DivisiPage() {
               const shift = resolveShift(r, fallback);
               const inherits = !r.shiftStart && r.lateToleranceMinutes === null;
               return (
-                <li key={r.name} className="flex items-center gap-3 px-4 py-2.5">
+                <li
+                  key={r.name}
+                  className="flex items-center gap-3 px-4 py-2.5"
+                >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium">{r.name}</span>
+                    <span className="block truncate text-[13px] font-medium">
+                      {r.name}
+                    </span>
                     <span className="text-subtle tnum text-[11.5px]">
-                      {shift.start}–{shift.end} · toleransi {shift.toleranceMinutes} menit
+                      {shift.start}–{shift.end} · toleransi{" "}
+                      {shift.toleranceMinutes} menit
                     </span>
                   </span>
                   <Pill tone={inherits ? "neutral" : "info"}>

@@ -40,7 +40,9 @@ export function AdjustBalance({
         body: JSON.stringify({ employeeId, year, ...input }),
       });
       if (!res.ok) {
-        const { error } = (await res.json().catch(() => ({}))) as { error?: string };
+        const { error } = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
         throw new Error(error ?? "Gagal menyimpan koreksi saldo");
       }
       return res.json();
@@ -57,7 +59,7 @@ export function AdjustBalance({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         aria-label={`Koreksi saldo cuti ${name}`}
-        className="text-subtle hover:text-foreground hover:bg-accent -my-1 flex size-6 shrink-0 items-center justify-center rounded-md transition-colors"
+        className="text-subtle hover:text-foreground hover:bg-accent -my-1 flex size-8 shrink-0 items-center justify-center rounded-md transition-colors"
       >
         <Pencil className="size-3" aria-hidden />
       </DialogTrigger>
@@ -73,10 +75,13 @@ export function AdjustBalance({
           }}
         >
           <DialogHeader>
-            <DialogTitle className="text-[15px]">Koreksi saldo — {name}</DialogTitle>
+            <DialogTitle className="text-[15px]">
+              Koreksi saldo — {name}
+            </DialogTitle>
             <DialogDescription className="text-[12.5px]">
               Sisa cuti tahun lalu atau koreksi manual untuk tahun {year}. Boleh
-              negatif. Nilai ini menggantikan koreksi sebelumnya, bukan menambah.
+              negatif. Nilai ini menggantikan koreksi sebelumnya, bukan
+              menambah.
             </DialogDescription>
           </DialogHeader>
 
@@ -106,7 +111,7 @@ export function AdjustBalance({
           </div>
 
           <DialogFooter className="mt-4">
-            <Button type="submit" size="sm" disabled={m.isPending}>
+            <Button type="submit" disabled={m.isPending}>
               Simpan
             </Button>
           </DialogFooter>

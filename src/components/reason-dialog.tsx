@@ -46,7 +46,9 @@ export function ReasonDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            const note = String(new FormData(e.currentTarget).get("note") ?? "").trim();
+            const note = String(
+              new FormData(e.currentTarget).get("note") ?? "",
+            ).trim();
             setOpen(false);
             onSubmit(note);
           }}
@@ -77,7 +79,11 @@ export function ReasonDialog({
           </label>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
               Batal
             </Button>
             <Button type="submit">{confirmLabel}</Button>

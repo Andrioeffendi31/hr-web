@@ -28,7 +28,9 @@ export function RemindButton({
     },
     onSuccess: ({ sent }) =>
       toast.success(
-        sent === 1 ? "Pengingat terkirim" : `Pengingat terkirim ke ${sent} karyawan`,
+        sent === 1
+          ? "Pengingat terkirim"
+          : `Pengingat terkirim ke ${sent} karyawan`,
       ),
     onError: (e: Error) => toast.error(e.message),
   });
@@ -38,10 +40,10 @@ export function RemindButton({
       onClick={() => m.mutate()}
       disabled={m.isPending}
       className={cn(
-        "hover:bg-accent shrink-0 rounded-lg border font-medium transition-colors disabled:opacity-50",
+        "hover:bg-accent flex h-8 shrink-0 items-center rounded-lg border font-medium transition-colors disabled:opacity-50",
         compact
-          ? "text-muted-foreground px-2 py-1 text-[11.5px]"
-          : "bg-surface-2 px-2.5 py-1 text-[12px]",
+          ? "text-muted-foreground px-2.5 text-[11.5px]"
+          : "bg-surface-2 px-2.5 text-[12px]",
       )}
     >
       {m.isPending ? "Mengirim…" : label}

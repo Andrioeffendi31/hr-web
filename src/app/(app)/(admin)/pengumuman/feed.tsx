@@ -43,7 +43,11 @@ export function AnnouncementFeed({
   initialHasMore: boolean;
 }) {
   const { items, sentinelRef, hasNextPage, isFetchingNextPage, fetchNextPage } =
-    useInfiniteFeed<Announcement>({ kind: "pengumuman", initial, initialHasMore });
+    useInfiniteFeed<Announcement>({
+      kind: "pengumuman",
+      initial,
+      initialHasMore,
+    });
 
   if (items.length === 0) {
     return (

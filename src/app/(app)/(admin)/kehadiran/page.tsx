@@ -10,7 +10,14 @@ import {
   officeLocations,
   settings,
 } from "@/db/schema";
-import { AttBadge, Avatar, Empty, PageHead, Panel, Stat } from "@/components/bits";
+import {
+  AttBadge,
+  Avatar,
+  Empty,
+  PageHead,
+  Panel,
+  Stat,
+} from "@/components/bits";
 import { DataTable, type Column } from "@/components/data-table";
 import { DateField } from "@/components/date-field";
 import { AbsenteePanel } from "./absentee-panel";
@@ -50,7 +57,8 @@ const SORTABLE = {
 function href(base: Search, patch: Search) {
   const p = new URLSearchParams();
   const merged = { ...base, ...patch };
-  for (const [k, v] of Object.entries(merged)) if (v && v !== "all") p.set(k, v);
+  for (const [k, v] of Object.entries(merged))
+    if (v && v !== "all") p.set(k, v);
   return `/kehadiran${p.size ? `?${p}` : ""}`;
 }
 
@@ -132,81 +140,99 @@ export default async function KehadiranPage({
     location: attendance.location,
     selfieUrl: attendance.selfieUrl,
   };
-  const [[counts], visibleRaw, [boardTotal], absenteeRows, [absenteeTotal], onLeaveRaw] =
-    await Promise.all([
-      db
-        .select({
-          total: sql<number>`count(*)`.mapWith(Number),
-          hadir: sql<number>`count(*) filter (where ${GROUP_SQL.hadir})`.mapWith(Number),
-          telat: sql<number>`count(*) filter (where ${GROUP_SQL.telat})`.mapWith(Number),
-          cuti: sql<number>`count(*) filter (where ${GROUP_SQL.cuti})`.mapWith(Number),
-          belum: sql<number>`count(*) filter (where ${GROUP_SQL.belum})`.mapWith(Number),
-        })
-        .from(employees)
-        .leftJoin(
-          attendance,
-          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
-        )
-        .where(baseWhere),
+  const [
+    [counts],
+    visibleRaw,
+    [boardTotal],
+    absenteeRows,
+    [absenteeTotal],
+    onLeaveRaw,
+  ] = await Promise.all([
+    db
+      .select({
+        total: sql<number>`count(*)`.mapWith(Number),
+        hadir: sql<number>`count(*) filter (where ${GROUP_SQL.hadir})`.mapWith(
+          Number,
+        ),
+        telat: sql<number>`count(*) filter (where ${GROUP_SQL.telat})`.mapWith(
+          Number,
+        ),
+        cuti: sql<number>`count(*) filter (where ${GROUP_SQL.cuti})`.mapWith(
+          Number,
+        ),
+        belum: sql<number>`count(*) filter (where ${GROUP_SQL.belum})`.mapWith(
+          Number,
+        ),
+      })
+      .from(employees)
+      .leftJoin(
+        attendance,
+        and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+      )
+      .where(baseWhere),
 
-      db
-        .select(boardSelect)
-        .from(employees)
-        .leftJoin(
-          attendance,
-          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
-        )
-        .where(boardWhere)
-        .orderBy(order)
-        .limit(perPage)
-        .offset(offset),
+    db
+      .select(boardSelect)
+      .from(employees)
+      .leftJoin(
+        attendance,
+        and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+      )
+      .where(boardWhere)
+      .orderBy(order)
+      .limit(perPage)
+      .offset(offset),
 
-      db
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
-        .from(employees)
-        .leftJoin(
-          attendance,
-          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
-        )
-        .where(boardWhere),
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(employees)
+      .leftJoin(
+        attendance,
+        and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+      )
+      .where(boardWhere),
 
-      db
-        .select({ id: employees.id, name: employees.name, division: employees.division })
-        .from(employees)
-        .leftJoin(
-          attendance,
-          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
-        )
-        .where(and(baseWhere, GROUP_SQL.belum))
-        .orderBy(asc(employees.name))
-        .limit(FEED_PAGE),
+    db
+      .select({
+        id: employees.id,
+        name: employees.name,
+        division: employees.division,
+      })
+      .from(employees)
+      .leftJoin(
+        attendance,
+        and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+      )
+      .where(and(baseWhere, GROUP_SQL.belum))
+      .orderBy(asc(employees.name))
+      .limit(FEED_PAGE),
 
-      db
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
-        .from(employees)
-        .leftJoin(
-          attendance,
-          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
-        )
-        .where(and(baseWhere, GROUP_SQL.belum)),
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(employees)
+      .leftJoin(
+        attendance,
+        and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+      )
+      .where(and(baseWhere, GROUP_SQL.belum)),
 
-      db
-        .select({
-          id: employees.id,
-          name: employees.name,
-          division: employees.division,
-          location: attendance.location,
-          status: attendance.status,
-        })
-        .from(employees)
-        .leftJoin(
-          attendance,
-          and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
-        )
-        .where(and(baseWhere, GROUP_SQL.cuti))
-        .orderBy(asc(employees.name))
-        .limit(50),
-    ]);
+    db
+      .select({
+        id: employees.id,
+        name: employees.name,
+        division: employees.division,
+        location: attendance.location,
+        status: attendance.status,
+      })
+      .from(employees)
+      .leftJoin(
+        attendance,
+        and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+      )
+      .where(and(baseWhere, GROUP_SQL.cuti))
+      .orderBy(asc(employees.name))
+      .limit(50),
+  ]);
 
   const visible = visibleRaw.map((r) => ({
     ...r,
@@ -289,10 +315,21 @@ export default async function KehadiranPage({
             id: employees.id,
             name: employees.name,
             division: employees.division,
-            hadir: sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(Number),
-            telat: sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(Number),
-            cuti: sql<number>`count(*) filter (where ${attendance.status} in ('cuti','izin','sakit'))`.mapWith(Number),
-            absen: sql<number>`count(*) filter (where ${attendance.status} = 'belum_absen')`.mapWith(Number),
+            hadir:
+              sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(
+                Number,
+              ),
+            telat:
+              sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(
+                Number,
+              ),
+            cuti: sql<number>`count(*) filter (where ${attendance.status} in ('cuti','izin','sakit'))`.mapWith(
+              Number,
+            ),
+            absen:
+              sql<number>`count(*) filter (where ${attendance.status} = 'belum_absen')`.mapWith(
+                Number,
+              ),
             hari: sql<number>`count(*)`.mapWith(Number),
           })
           .from(employees)
@@ -307,7 +344,9 @@ export default async function KehadiranPage({
           .where(
             and(
               eq(employees.active, true),
-              divFilter === "all" ? undefined : eq(employees.division, divFilter),
+              divFilter === "all"
+                ? undefined
+                : eq(employees.division, divFilter),
             ),
           )
           .groupBy(employees.id, employees.name, employees.division)
@@ -338,7 +377,9 @@ export default async function KehadiranPage({
         >
           <Avatar name={r.name} photoKey={r.photoUrl} />
           <span className="min-w-0">
-            <span className="block truncate text-[13px] font-medium">{r.name}</span>
+            <span className="block truncate text-[13px] font-medium">
+              {r.name}
+            </span>
             <span className="text-subtle tnum block text-[11px]">{r.nik}</span>
           </span>
         </Link>
@@ -438,7 +479,9 @@ export default async function KehadiranPage({
       key: "tingkat",
       header: "Tingkat kehadiran",
       cell: (r) => {
-        const pct = r.hari ? Math.round(((r.hadir + r.telat) / r.hari) * 100) : 0;
+        const pct = r.hari
+          ? Math.round(((r.hadir + r.telat) / r.hari) * 100)
+          : 0;
         return (
           <div className="flex items-center gap-2.5">
             <div
@@ -449,7 +492,11 @@ export default async function KehadiranPage({
               <div
                 className={cn(
                   "h-full rounded-full",
-                  pct >= 95 ? "bg-success" : pct >= 85 ? "bg-warning" : "bg-danger",
+                  pct >= 95
+                    ? "bg-success"
+                    : pct >= 85
+                      ? "bg-warning"
+                      : "bg-danger",
                 )}
                 style={{ width: `${pct}%` }}
               />
@@ -469,7 +516,9 @@ export default async function KehadiranPage({
       >
         <form className="flex items-end gap-2">
           <input type="hidden" name="tab" value={tab} />
-          {divFilter !== "all" && <input type="hidden" name="div" value={divFilter} />}
+          {divFilter !== "all" && (
+            <input type="hidden" name="div" value={divFilter} />
+          )}
           <div>
             <label
               htmlFor="tanggal"
@@ -477,7 +526,12 @@ export default async function KehadiranPage({
             >
               Tanggal
             </label>
-            <DateField id="tanggal" name="date" defaultValue={date} autoSubmit />
+            <DateField
+              id="tanggal"
+              name="date"
+              defaultValue={date}
+              autoSubmit
+            />
           </div>
           <a
             href={`/api/export/kehadiran?date=${date}&div=${divFilter}`}
@@ -569,7 +623,10 @@ export default async function KehadiranPage({
                 className="bg-surface-2 data-[size=default]:h-8 rounded-lg text-[12.5px]"
                 options={[
                   { value: "all", label: "Semua divisi" },
-                  ...divisions.map((d) => ({ value: d.division, label: d.division })),
+                  ...divisions.map((d) => ({
+                    value: d.division,
+                    label: d.division,
+                  })),
                 ]}
               />
             </form>
@@ -624,7 +681,10 @@ export default async function KehadiranPage({
             ) : (
               <ul className="divide-y">
                 {onLeave.map((a) => (
-                  <li key={a.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                  <li
+                    key={a.id}
+                    className="flex items-center gap-2.5 px-4 py-2.5"
+                  >
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[12.5px] font-medium">
                         {a.name}
@@ -646,4 +706,3 @@ export default async function KehadiranPage({
     </>
   );
 }
-

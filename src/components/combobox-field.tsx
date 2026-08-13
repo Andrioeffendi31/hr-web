@@ -10,7 +10,11 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { Option } from "@/components/select-field";
 import { cn } from "@/lib/utils";
 
@@ -76,9 +80,15 @@ export function ComboboxField({
         )}
       >
         <span className="truncate">{label || placeholder}</span>
-        <ChevronsUpDown className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+        <ChevronsUpDown
+          className="text-muted-foreground size-3.5 shrink-0"
+          aria-hidden
+        />
       </PopoverTrigger>
-      <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+      <PopoverContent
+        className="w-(--radix-popover-trigger-width) p-0"
+        align="start"
+      >
         <Command>
           <CommandInput
             placeholder={searchPlaceholder}
@@ -94,9 +104,16 @@ export function ComboboxField({
                 </CommandItem>
               )}
               {options.map((o) => (
-                <CommandItem key={o.value} value={o.label} onSelect={() => pick(o.value)}>
+                <CommandItem
+                  key={o.value}
+                  value={o.label}
+                  onSelect={() => pick(o.value)}
+                >
                   <Check
-                    className={cn("size-3.5", value === o.value ? "opacity-100" : "opacity-0")}
+                    className={cn(
+                      "size-3.5",
+                      value === o.value ? "opacity-100" : "opacity-0",
+                    )}
                     aria-hidden
                   />
                   {o.label}

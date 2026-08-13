@@ -33,7 +33,8 @@ export default async function LoginPage({
   const session = await auth();
 
   // only allow same-origin paths back, so ?next= can't be used for redirects off-site
-  const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+  const safeNext =
+    next && next.startsWith("/") && !next.startsWith("//") ? next : null;
 
   // every signed-in role is sent away, not just admins — an employee used to be
   // left sitting on the login page, and signing in again just bounced them back
@@ -46,7 +47,8 @@ export default async function LoginPage({
   // longer has to guess a destination before knowing who is signing in
   const target = safeNext ?? "/";
 
-  const initialError = error === "invalid" ? "Email atau kata sandi salah." : undefined;
+  const initialError =
+    error === "invalid" ? "Email atau kata sandi salah." : undefined;
 
   const brand = (
     <div className="flex items-center gap-2.5">
@@ -91,7 +93,9 @@ export default async function LoginPage({
                   <h.icon className="size-[18px]" aria-hidden />
                 </span>
                 <span>
-                  <span className="block text-[13.5px] font-medium">{h.title}</span>
+                  <span className="block text-[13.5px] font-medium">
+                    {h.title}
+                  </span>
                   <span className="text-muted-foreground mt-0.5 block text-[12.5px] leading-relaxed">
                     {h.body}
                   </span>

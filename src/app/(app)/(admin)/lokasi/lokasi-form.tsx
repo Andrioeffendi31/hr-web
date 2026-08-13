@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { Crosshair, Pencil, Plus, Search, Trash2 } from "lucide-react";
@@ -34,13 +34,13 @@ type Hit = { nama: string; lat: number; lng: number };
 
 /**
  * Nominatim (OpenStreetMap) — same reason as the tiles: no key, no billing. Its
- * usage policy caps this at one request per keystroke-burst, so the search only
- * fires on submit, never on every character.
+ * usage policy caps this at roughly a request a second, hence the debounce at the
+ * call site rather than a lookup per keystroke.
  */
-async function cariAlamat(q: string): Promise<Hit[]> {
+async function cariAlamat(q: string, signal: AbortSignal): Promise<Hit[]> {
   const res = await fetch(
     `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=id&q=${encodeURIComponent(q)}`,
-    { headers: { Accept: "application/json" } },
+    { headers: { Accept: "application/json" }, signal },
   );
   if (!res.ok) throw new Error("Pencarian lokasi gagal");
   const data = (await res.json()) as {
@@ -108,14 +108,45 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
     setHits([]);
   };
 
-  const cari = useMutation({
-    mutationFn: cariAlamat,
-    onSuccess: (h) => {
-      setHits(h);
-      if (!h.length) toast.error("Lokasi tidak ditemukan");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  /**
+   * Debounced instead of a search button. Nominatim asks for at most a request a
+   * second, and aborting the previous one keeps a slow early reply from landing on
+   * top of a newer query.
+   */
+  const [mencari, setMencari] = useState(false);
+  const tunda = useRef<{
+    t?: ReturnType<typeof setTimeout>;
+    stop?: AbortController;
+  }>({});
+  const batal = () => {
+    clearTimeout(tunda.current.t);
+    tunda.current.stop?.abort();
+  };
+  useEffect(() => batal, []);
+
+  const ketik = (nilai: string) => {
+    setQ(nilai);
+    batal();
+    const s = nilai.trim();
+    if (s.length < 3) {
+      setHits([]);
+      setMencari(false);
+      return;
+    }
+    setMencari(true);
+    const stop = new AbortController();
+    tunda.current = {
+      stop,
+      t: setTimeout(() => {
+        cariAlamat(s, stop.signal)
+          .then(setHits)
+          .catch((e: Error) => {
+            if (e.name !== "AbortError") toast.error(e.message);
+          })
+          .finally(() => setMencari(false));
+      }, 600),
+    };
+  };
 
   const save = useMutation({
     mutationFn: (body: Record<string, unknown>) => send("POST", body),
@@ -135,9 +166,11 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
         // the dialog used to forget an abandoned edit because its inputs
         // unmounted; state has to be told
         if (!o) {
+          batal();
           setF(blank);
           setQ("");
           setHits([]);
+          setMencari(false);
         }
       }}
     >
@@ -145,12 +178,12 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
         {initial ? (
           <button
             aria-label={`Ubah ${initial.name}`}
-            className="text-subtle hover:text-foreground hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-md transition-colors"
+            className="text-subtle hover:text-foreground hover:bg-accent flex size-8 shrink-0 items-center justify-center rounded-md transition-colors"
           >
             <Pencil className="size-3.5" aria-hidden />
           </button>
         ) : (
-          <Button size="sm">
+          <Button>
             <Plus className="size-3.5" aria-hidden />
             Tambah lokasi
           </Button>
@@ -219,34 +252,25 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
 
             <div className="relative">
               <div className="flex gap-2">
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.currentTarget.value)}
-                  // Enter inside a form submits it; here it means "search"
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter") return;
-                    e.preventDefault();
-                    if (q.trim().length > 2) cari.mutate(q.trim());
-                  }}
-                  placeholder="Cari alamat atau nama tempat…"
-                  className={`${FIELD} mt-0`}
-                />
+                <div className="relative flex-1">
+                  <Search
+                    className="text-subtle pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2"
+                    aria-hidden
+                  />
+                  <input
+                    value={q}
+                    onChange={(e) => ketik(e.currentTarget.value)}
+                    // Enter inside a form means submit; the search runs on its own
+                    onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
+                    placeholder="Cari alamat atau nama tempat…"
+                    className={`${FIELD} mt-0 pl-8`}
+                  />
+                </div>
                 <Button
                   type="button"
-                  size="sm"
+                  size="icon"
                   variant="secondary"
-                  className="h-9 shrink-0"
-                  disabled={cari.isPending || q.trim().length < 3}
-                  onClick={() => cari.mutate(q.trim())}
-                >
-                  <Search className="size-3.5" aria-hidden />
-                  {cari.isPending ? "Mencari…" : "Cari"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="h-9 shrink-0"
+                  className="shrink-0 rounded-[9px]"
                   title="Pakai lokasi saya sekarang"
                   onClick={() =>
                     navigator.geolocation.getCurrentPosition(
@@ -267,6 +291,9 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
                   <span className="sr-only">Lokasi saya</span>
                 </Button>
               </div>
+              {mencari && (
+                <p className="text-subtle mt-1 text-[11px]">Mencari…</p>
+              )}
               {hits.length > 0 && (
                 <ul className="bg-card absolute inset-x-0 top-10 z-20 max-h-44 overflow-auto rounded-[9px] border shadow-lg">
                   {hits.map((h) => (
@@ -349,7 +376,7 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
           <Button
             type="submit"
             form="lokasi-form"
-            size="sm"
+
             disabled={save.isPending}
           >
             {save.isPending ? "Menyimpan…" : "Simpan"}
@@ -385,7 +412,7 @@ export function DeleteLokasi({
         <button
           aria-label={`Hapus ${name}`}
           disabled={m.isPending}
-          className="text-subtle hover:text-danger hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-md transition-colors"
+          className="text-subtle hover:text-danger hover:bg-accent flex size-8 shrink-0 items-center justify-center rounded-md transition-colors"
         >
           <Trash2 className="size-3.5" aria-hidden />
         </button>

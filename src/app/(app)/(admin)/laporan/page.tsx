@@ -9,12 +9,36 @@ import { namaBulan, todayWib } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 
 const REPORTS = [
-  { key: "kehadiran", label: "Rekap kehadiran", desc: "Masuk, keluar, dan status harian per karyawan" },
-  { key: "keterlambatan", label: "Rekap keterlambatan", desc: "Jumlah dan menit keterlambatan per karyawan" },
-  { key: "cuti", label: "Rekap cuti & izin", desc: "Pengajuan, durasi, dan saldo terpakai" },
-  { key: "lembur", label: "Rekap lembur", desc: "Jam lembur dan tipe hari per karyawan" },
-  { key: "divisi", label: "Absensi per divisi", desc: "Tingkat kehadiran agregat tiap divisi" },
-  { key: "karyawan", label: "Daftar karyawan aktif", desc: "Data kepegawaian siap audit" },
+  {
+    key: "kehadiran",
+    label: "Rekap kehadiran",
+    desc: "Masuk, keluar, dan status harian per karyawan",
+  },
+  {
+    key: "keterlambatan",
+    label: "Rekap keterlambatan",
+    desc: "Jumlah dan menit keterlambatan per karyawan",
+  },
+  {
+    key: "cuti",
+    label: "Rekap cuti & izin",
+    desc: "Pengajuan, durasi, dan saldo terpakai",
+  },
+  {
+    key: "lembur",
+    label: "Rekap lembur",
+    desc: "Jam lembur dan tipe hari per karyawan",
+  },
+  {
+    key: "divisi",
+    label: "Absensi per divisi",
+    desc: "Tingkat kehadiran agregat tiap divisi",
+  },
+  {
+    key: "karyawan",
+    label: "Daftar karyawan aktif",
+    desc: "Data kepegawaian siap audit",
+  },
 ] as const;
 
 export default async function LaporanPage({
@@ -30,10 +54,21 @@ export default async function LaporanPage({
   const byDivision = await db
     .select({
       division: employees.division,
-      hadir: sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(Number),
-      telat: sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(Number),
-      cuti: sql<number>`count(*) filter (where ${attendance.status} in ('cuti','izin','sakit'))`.mapWith(Number),
-      absen: sql<number>`count(*) filter (where ${attendance.status} = 'belum_absen')`.mapWith(Number),
+      hadir:
+        sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(
+          Number,
+        ),
+      telat:
+        sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(
+          Number,
+        ),
+      cuti: sql<number>`count(*) filter (where ${attendance.status} in ('cuti','izin','sakit'))`.mapWith(
+        Number,
+      ),
+      absen:
+        sql<number>`count(*) filter (where ${attendance.status} = 'belum_absen')`.mapWith(
+          Number,
+        ),
       hari: sql<number>`count(${attendance.id})`.mapWith(Number),
     })
     .from(employees)
@@ -54,7 +89,10 @@ export default async function LaporanPage({
 
   return (
     <>
-      <PageHead title="Laporan" desc={`Periode ${periodLabel} · ${from} s/d ${to}`}>
+      <PageHead
+        title="Laporan"
+        desc={`Periode ${periodLabel} · ${from} s/d ${to}`}
+      >
         <form className="flex items-end gap-2">
           <div>
             <label
@@ -63,7 +101,13 @@ export default async function LaporanPage({
             >
               Dari
             </label>
-            <DateField id="from" name="from" defaultValue={from} max={to} autoSubmit />
+            <DateField
+              id="from"
+              name="from"
+              defaultValue={from}
+              max={to}
+              autoSubmit
+            />
           </div>
           <div>
             <label
@@ -72,7 +116,13 @@ export default async function LaporanPage({
             >
               Sampai
             </label>
-            <DateField id="to" name="to" defaultValue={to} min={from} autoSubmit />
+            <DateField
+              id="to"
+              name="to"
+              defaultValue={to}
+              min={from}
+              autoSubmit
+            />
           </div>
         </form>
       </PageHead>
@@ -87,7 +137,9 @@ export default async function LaporanPage({
               return (
                 <li key={d.division}>
                   <div className="mb-1 flex items-baseline justify-between gap-2">
-                    <span className="text-[12.5px] font-medium">{d.division}</span>
+                    <span className="text-[12.5px] font-medium">
+                      {d.division}
+                    </span>
                     <span className="tnum text-muted-foreground text-[11.5px]">
                       {Math.round(pct(d.hadir + d.telat))}% hadir
                     </span>
@@ -95,10 +147,22 @@ export default async function LaporanPage({
                   {/* Four segments, not three — cuti/izin/sakit is its own bucket so
                       the red segment means "tidak absen" and nothing else. */}
                   <div className="bg-muted flex h-2.5 overflow-hidden rounded-full">
-                    <div className="bg-success h-full" style={{ width: `${pct(d.hadir)}%` }} />
-                    <div className="bg-warning h-full" style={{ width: `${pct(d.telat)}%` }} />
-                    <div className="bg-subtle h-full" style={{ width: `${pct(d.cuti)}%` }} />
-                    <div className="bg-danger h-full" style={{ width: `${pct(d.absen)}%` }} />
+                    <div
+                      className="bg-success h-full"
+                      style={{ width: `${pct(d.hadir)}%` }}
+                    />
+                    <div
+                      className="bg-warning h-full"
+                      style={{ width: `${pct(d.telat)}%` }}
+                    />
+                    <div
+                      className="bg-subtle h-full"
+                      style={{ width: `${pct(d.cuti)}%` }}
+                    />
+                    <div
+                      className="bg-danger h-full"
+                      style={{ width: `${pct(d.absen)}%` }}
+                    />
                   </div>
                 </li>
               );
@@ -136,10 +200,18 @@ export default async function LaporanPage({
               {byDivision.map((d) => (
                 <tr key={d.division} className="border-b last:border-0">
                   <td className="py-2 text-[12.5px]">{d.division}</td>
-                  <td className="tnum text-success py-2 text-[12.5px]">{d.hadir}</td>
-                  <td className="tnum text-warning py-2 text-[12.5px]">{d.telat}</td>
-                  <td className="tnum text-muted-foreground py-2 text-[12.5px]">{d.cuti}</td>
-                  <td className="tnum text-danger py-2 text-[12.5px]">{d.absen}</td>
+                  <td className="tnum text-success py-2 text-[12.5px]">
+                    {d.hadir}
+                  </td>
+                  <td className="tnum text-warning py-2 text-[12.5px]">
+                    {d.telat}
+                  </td>
+                  <td className="tnum text-muted-foreground py-2 text-[12.5px]">
+                    {d.cuti}
+                  </td>
+                  <td className="tnum text-danger py-2 text-[12.5px]">
+                    {d.absen}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -166,8 +238,8 @@ export default async function LaporanPage({
       </div>
 
       <p className="text-subtle mt-4 text-[11.5px]">
-        Ekspor dalam format CSV (UTF-8 BOM) — terbuka langsung di Excel dan Google
-        Sheets. Ekspor PDF menyusul pada fase berikutnya.
+        Ekspor dalam format CSV (UTF-8 BOM) — terbuka langsung di Excel dan
+        Google Sheets. Ekspor PDF menyusul pada fase berikutnya.
       </p>
     </>
   );

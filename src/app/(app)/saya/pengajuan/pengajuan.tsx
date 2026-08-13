@@ -63,14 +63,21 @@ export function Pengajuan() {
 
   return (
     <>
-      <PageHead title="Pengajuan" desc="Ajukan cuti atau lembur dan pantau statusnya.">
-        <Button size="sm" onClick={() => setOpen("new")}>
+      <PageHead
+        title="Pengajuan"
+        desc="Ajukan cuti atau lembur dan pantau statusnya."
+      >
+        <Button onClick={() => setOpen("new")}>
           <Plus className="size-3.5" aria-hidden />
           {tab === "cuti" ? "Ajukan cuti" : "Ajukan lembur"}
         </Button>
       </PageHead>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="mb-4">
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v as Tab)}
+        className="mb-4"
+      >
         <TabsList>
           <TabsTrigger value="cuti">Cuti</TabsTrigger>
           <TabsTrigger value="lembur">Lembur</TabsTrigger>
@@ -82,8 +89,10 @@ export function Pengajuan() {
           <div className="p-4">
             <div className="mb-2 flex items-baseline justify-between text-[13px]">
               <span className="font-medium">
-                <span className="tnum text-[17px] font-semibold">{bal.remaining}</span> hari
-                tersisa
+                <span className="tnum text-[17px] font-semibold">
+                  {bal.remaining}
+                </span>{" "}
+                hari tersisa
               </span>
               <span className="text-subtle tnum text-[12px]">
                 {bal.used} / {bal.quota} terpakai
@@ -91,8 +100,8 @@ export function Pengajuan() {
             </div>
             <Progress value={bal.quota ? (bal.used / bal.quota) * 100 : 0} />
             <p className="text-subtle mt-2 text-[11.5px]">
-              Durasi dihitung dalam hari kerja — akhir pekan dan hari libur nasional
-              tidak dipotong.
+              Durasi dihitung dalam hari kerja — akhir pekan dan hari libur
+              nasional tidak dipotong.
             </p>
           </div>
         </Panel>
@@ -101,7 +110,9 @@ export function Pengajuan() {
       {tab === "lembur" && (
         <Panel title="Lembur disetujui" className="mb-4">
           <p className="p-4 text-[13px]">
-            <span className="tnum text-[17px] font-semibold">{durasi(lemburMenit)}</span>{" "}
+            <span className="tnum text-[17px] font-semibold">
+              {durasi(lemburMenit)}
+            </span>{" "}
             <span className="text-subtle text-[12px]">
               total dari pengajuan yang sudah disetujui
             </span>
@@ -111,7 +122,9 @@ export function Pengajuan() {
 
       <Panel title="Riwayat pengajuan">
         {q.isPending ? (
-          <p className="text-muted-foreground px-4 py-10 text-center text-[13px]">Memuat…</p>
+          <p className="text-muted-foreground px-4 py-10 text-center text-[13px]">
+            Memuat…
+          </p>
         ) : items.length === 0 ? (
           <Empty>Belum ada pengajuan {tab}.</Empty>
         ) : (
@@ -143,7 +156,9 @@ export function Pengajuan() {
                     {r.attachment && (
                       <span className="text-subtle mt-0.5 block truncate text-[11px]">
                         Lampiran: {r.attachment.name}
-                        {r.attachment.size ? ` · ${ukuranFile(r.attachment.size)}` : ""}
+                        {r.attachment.size
+                          ? ` · ${ukuranFile(r.attachment.size)}`
+                          : ""}
                       </span>
                     )}
                   </span>

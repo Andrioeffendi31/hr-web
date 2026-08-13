@@ -55,9 +55,16 @@ export function AbsenteePanel({
                   <span className="block truncate text-[12.5px] font-medium">
                     {a.name}
                   </span>
-                  <span className="text-subtle block text-[11px]">{a.division}</span>
+                  <span className="text-subtle block text-[11px]">
+                    {a.division}
+                  </span>
                 </span>
-                <RemindButton ids={[a.id]} date={date} label="Ingatkan" compact />
+                <RemindButton
+                  ids={[a.id]}
+                  date={date}
+                  label="Ingatkan"
+                  compact
+                />
               </li>
             ))}
           </ul>

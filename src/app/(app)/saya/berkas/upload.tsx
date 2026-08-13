@@ -38,7 +38,10 @@ export function UploadBerkas() {
     mutationFn: async (f: File) => {
       const fd = new FormData();
       fd.append("file", f);
-      const res = await fetch("/api/me/documents", { method: "POST", body: fd });
+      const res = await fetch("/api/me/documents", {
+        method: "POST",
+        body: fd,
+      });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Gagal mengunggah");
       return data;
@@ -61,7 +64,7 @@ export function UploadBerkas() {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">
+        <Button>
           <Upload className="size-3.5" aria-hidden />
           Unggah berkas
         </Button>
@@ -87,7 +90,6 @@ export function UploadBerkas() {
 
         <DialogFooter>
           <Button
-            size="sm"
             disabled={!file || up.isPending}
             onClick={() => file && up.mutate(file)}
           >

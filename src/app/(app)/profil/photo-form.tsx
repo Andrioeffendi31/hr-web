@@ -13,18 +13,28 @@ import { FileDrop } from "@/components/file-drop";
  * /api/files — that endpoint takes the id from the session, so this page has no
  * way to aim an upload at somebody else even if the markup were tampered with.
  */
-export function PhotoForm({ name, photoKey }: { name: string; photoKey: string | null }) {
+export function PhotoForm({
+  name,
+  photoKey,
+}: {
+  name: string;
+  photoKey: string | null;
+}) {
   const router = useRouter();
 
   const upload = useMutation({
     mutationFn: (file: File) => {
       const fd = new FormData();
       fd.append("photo", file);
-      return fetch("/api/me/photo", { method: "POST", body: fd }).then(async (res) => {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        if (!res.ok) throw new Error(data.error ?? "Gagal mengunggah foto");
-        return data;
-      });
+      return fetch("/api/me/photo", { method: "POST", body: fd }).then(
+        async (res) => {
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          if (!res.ok) throw new Error(data.error ?? "Gagal mengunggah foto");
+          return data;
+        },
+      );
     },
     onSuccess: () => {
       toast.success("Foto profil diperbarui");

@@ -121,9 +121,16 @@ export function EmployeeDetail({
             <section>
               <div className="grid grid-cols-2 gap-2.5">
                 {stats.map((s) => (
-                  <div key={s.label} className="bg-surface-2 rounded-[11px] border p-3">
-                    <div className="text-muted-foreground text-[11.5px]">{s.label}</div>
-                    <div className={`tnum mt-0.5 text-[18px] font-bold ${s.cls}`}>
+                  <div
+                    key={s.label}
+                    className="bg-surface-2 rounded-[11px] border p-3"
+                  >
+                    <div className="text-muted-foreground text-[11.5px]">
+                      {s.label}
+                    </div>
+                    <div
+                      className={`tnum mt-0.5 text-[18px] font-bold ${s.cls}`}
+                    >
                       {s.value}
                     </div>
                   </div>
@@ -139,14 +146,18 @@ export function EmployeeDetail({
                     key={label}
                     className="flex items-center justify-between gap-3 border-b py-2.5 last:border-0"
                   >
-                    <dt className="text-muted-foreground text-[12.5px]">{label}</dt>
+                    <dt className="text-muted-foreground text-[12.5px]">
+                      {label}
+                    </dt>
                     <dd className="truncate text-right text-[12.5px] font-medium">
                       {value}
                     </dd>
                   </div>
                 ))}
                 <div className="flex items-center justify-between gap-3 pt-2.5">
-                  <dt className="text-muted-foreground text-[12.5px]">Status</dt>
+                  <dt className="text-muted-foreground text-[12.5px]">
+                    Status
+                  </dt>
                   <dd>
                     <Pill tone={d.active ? "success" : "danger"}>
                       {d.active ? "Aktif" : "Tidak aktif"}
@@ -205,7 +216,7 @@ export function EmployeeDetail({
               active: d.active,
             }}
             trigger={
-              <Button variant="outline" className="h-10 w-full">
+              <Button variant="outline" className="w-full">
                 Ubah data
               </Button>
             }
@@ -216,14 +227,16 @@ export function EmployeeDetail({
                 variant="outline"
                 disabled={toggle.isPending}
                 className={
-                  d.active ? "text-danger hover:text-danger h-10 w-full" : "h-10 w-full"
+                  d.active ? "text-danger hover:text-danger w-full" : "w-full"
                 }
               >
                 {d.active ? "Nonaktifkan" : "Aktifkan"}
               </Button>
             }
             title={
-              d.active ? `Nonaktifkan ${d.name}?` : `Aktifkan kembali ${d.name}?`
+              d.active
+                ? `Nonaktifkan ${d.name}?`
+                : `Aktifkan kembali ${d.name}?`
             }
             description={
               d.active

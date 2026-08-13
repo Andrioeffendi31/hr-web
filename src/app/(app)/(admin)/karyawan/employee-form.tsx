@@ -62,7 +62,9 @@ export function EmployeeForm({
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const { error } = (await res.json().catch(() => ({}))) as { error?: string };
+        const { error } = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
         throw new Error(error ?? "Gagal menyimpan data karyawan");
       }
       return res.json();
@@ -87,11 +89,15 @@ export function EmployeeForm({
       fd.append("kind", "photo");
       fd.append("employeeId", String(initial!.id));
       fd.append("file", file);
-      return fetch("/api/files", { method: "POST", body: fd }).then(async (res) => {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        if (!res.ok) throw new Error(data.error ?? "Gagal mengunggah foto");
-        return data;
-      });
+      return fetch("/api/files", { method: "POST", body: fd }).then(
+        async (res) => {
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          if (!res.ok) throw new Error(data.error ?? "Gagal mengunggah foto");
+          return data;
+        },
+      );
     },
     onSuccess: () => {
       toast.success("Foto profil diperbarui");
@@ -126,7 +132,10 @@ export function EmployeeForm({
               return;
             }
             m.mutate({
-              ...(editing && { id: initial!.id, active: initial!.active ?? true }),
+              ...(editing && {
+                id: initial!.id,
+                active: initial!.active ?? true,
+              }),
               nik: f.get("nik"),
               name: f.get("name"),
               email: f.get("email"),
@@ -168,11 +177,21 @@ export function EmployeeForm({
             <div className="grid grid-cols-2 gap-3">
               <label className={LABEL}>
                 NIK
-                <input name="nik" required defaultValue={initial?.nik} className={FIELD} />
+                <input
+                  name="nik"
+                  required
+                  defaultValue={initial?.nik}
+                  className={FIELD}
+                />
               </label>
               <label className={LABEL}>
                 Nama lengkap
-                <input name="name" required defaultValue={initial?.name} className={FIELD} />
+                <input
+                  name="name"
+                  required
+                  defaultValue={initial?.name}
+                  className={FIELD}
+                />
               </label>
               <label className={`${LABEL} col-span-2`}>
                 Email kantor
@@ -259,7 +278,9 @@ export function EmployeeForm({
                 <ComboboxField
                   id="managerId"
                   name="managerId"
-                  defaultValue={initial?.managerId ? String(initial.managerId) : ""}
+                  defaultValue={
+                    initial?.managerId ? String(initial.managerId) : ""
+                  }
                   options={managers
                     .filter((mg) => mg.id !== initial?.id)
                     .map((mg) => ({ value: String(mg.id), label: mg.name }))}
@@ -281,8 +302,8 @@ export function EmployeeForm({
                     className={FIELD}
                   />
                   <span className="text-subtle mt-1 block text-[11px] font-normal">
-                    Minimal 8 karakter. Karyawan mendaftarkan passkey sendiri setelah
-                    login pertama.
+                    Minimal 8 karakter. Karyawan mendaftarkan passkey sendiri
+                    setelah login pertama.
                   </span>
                 </label>
               )}
@@ -295,12 +316,12 @@ export function EmployeeForm({
             <Button
               type="button"
               variant="outline"
-              className="h-10 w-full"
+              className="w-full"
               onClick={() => setOpen(false)}
             >
               Batal
             </Button>
-            <Button type="submit" className="h-10 w-full" disabled={m.isPending}>
+            <Button type="submit" className="w-full" disabled={m.isPending}>
               {editing ? "Simpan perubahan" : "Tambah karyawan"}
             </Button>
           </div>

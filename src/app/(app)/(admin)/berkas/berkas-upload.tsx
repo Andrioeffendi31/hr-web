@@ -36,11 +36,18 @@ const json = (url: string, body: unknown) =>
 
 /** XHR, not fetch: a 100 MB upload needs a progress bar, and fetch cannot
  *  report how much of the request body has gone out. */
-function putWithProgress(url: string, file: File, onProgress: (pct: number) => void) {
+function putWithProgress(
+  url: string,
+  file: File,
+  onProgress: (pct: number) => void,
+) {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.setRequestHeader(
+      "Content-Type",
+      file.type || "application/octet-stream",
+    );
     xhr.upload.onprogress = (e) =>
       e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
     xhr.onload = () =>
@@ -48,7 +55,9 @@ function putWithProgress(url: string, file: File, onProgress: (pct: number) => v
         ? resolve()
         : reject(new Error(`Penyimpanan menolak berkas (${xhr.status})`));
     xhr.onerror = () =>
-      reject(new Error("Koneksi ke penyimpanan gagal — cek aturan CORS bucket"));
+      reject(
+        new Error("Koneksi ke penyimpanan gagal — cek aturan CORS bucket"),
+      );
     xhr.onabort = () => reject(new Error("Unggahan dibatalkan"));
     xhr.send(file);
   });
@@ -112,7 +121,7 @@ export function UploadDocument({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="h-8">
+        <Button>
           <Upload className="size-3.5" aria-hidden />
           Unggah berkas
         </Button>
@@ -197,7 +206,7 @@ export function UploadDocument({
           )}
 
           <DialogFooter>
-            <Button type="submit" size="sm" disabled={upload.isPending}>
+            <Button type="submit" disabled={upload.isPending}>
               {upload.isPending ? "Mengunggah…" : "Unggah"}
             </Button>
           </DialogFooter>

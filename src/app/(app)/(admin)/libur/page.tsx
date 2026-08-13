@@ -20,12 +20,20 @@ export default async function LiburPage({
   const sp = await searchParams;
   const thisYear = Number(todayWib().slice(0, 4));
   const parsed = Number(sp.year);
-  const year = Number.isInteger(parsed) && parsed >= 2000 && parsed <= 2100 ? parsed : thisYear;
+  const year =
+    Number.isInteger(parsed) && parsed >= 2000 && parsed <= 2100
+      ? parsed
+      : thisYear;
 
   const rows = await db
     .select()
     .from(holidays)
-    .where(and(gte(holidays.date, `${year}-01-01`), lte(holidays.date, `${year}-12-31`)))
+    .where(
+      and(
+        gte(holidays.date, `${year}-01-01`),
+        lte(holidays.date, `${year}-12-31`),
+      ),
+    )
     .orderBy(asc(holidays.date));
 
   // Weekend holidays cost nothing — they were not working days to begin with.
@@ -73,15 +81,25 @@ export default async function LiburPage({
       </div>
 
       <div className="flex flex-wrap items-start gap-4">
-        <Panel title={`Kalender ${year}`} className="min-w-0 flex-1 basis-[520px]">
+        <Panel
+          title={`Kalender ${year}`}
+          className="min-w-0 flex-1 basis-[520px]"
+        >
           {rows.length === 0 ? (
-            <Empty>Belum ada hari libur untuk {year}. Tambah manual atau import CSV.</Empty>
+            <Empty>
+              Belum ada hari libur untuk {year}. Tambah manual atau import CSV.
+            </Empty>
           ) : (
             <ul className="divide-y">
               {rows.map((r) => (
-                <li key={r.date} className="flex items-center gap-3 px-4 py-2.5">
+                <li
+                  key={r.date}
+                  className="flex items-center gap-3 px-4 py-2.5"
+                >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium">{r.name}</span>
+                    <span className="block truncate text-[13px] font-medium">
+                      {r.name}
+                    </span>
                     <span className="text-subtle text-[11.5px]">
                       {tanggalPanjang(r.date)}
                       {isWeekend(r.date) && " · akhir pekan"}

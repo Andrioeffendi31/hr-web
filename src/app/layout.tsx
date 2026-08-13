@@ -9,7 +9,10 @@ const poppins = Poppins({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
 });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
   title: "Ruang HR — PT Nusantara Digital",

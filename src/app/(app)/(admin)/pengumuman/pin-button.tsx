@@ -32,7 +32,7 @@ export function PinButton({ id, pinned }: { id: number; pinned: boolean }) {
       aria-pressed={pinned}
       aria-label={pinned ? "Lepas sematan pengumuman" : "Sematkan pengumuman"}
       className={cn(
-        "flex size-9 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:opacity-50",
+        "flex size-8 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:opacity-50",
         pinned
           ? "border-primary/45 bg-primary-subtle text-primary"
           : "bg-surface-2 text-subtle hover:text-foreground",

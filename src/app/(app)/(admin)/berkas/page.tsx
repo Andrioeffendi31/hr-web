@@ -19,7 +19,11 @@ const FOLDERS = [
   { v: "legal", label: "Dokumen Perusahaan", tone: "warning" as Tone },
 ] as const;
 
-const EXT_TONE: Record<string, Tone> = { PDF: "danger", XLSX: "success", JPG: "info" };
+const EXT_TONE: Record<string, Tone> = {
+  PDF: "danger",
+  XLSX: "success",
+  JPG: "info",
+};
 
 type Search = {
   folder?: string;
@@ -43,10 +47,7 @@ export default async function BerkasPage({
 }) {
   const sp = await searchParams;
   const folder = (FOLDERS.find((f) => f.v === sp.folder)?.v ?? "personal") as
-    | "personal"
-    | "kontrak"
-    | "sertif"
-    | "legal";
+    "personal" | "kontrak" | "sertif" | "legal";
   const ownerFilter = sp.owner ? Number(sp.owner) : null;
   const owner = alias(employees, "owner");
 
@@ -69,7 +70,9 @@ export default async function BerkasPage({
       .select({
         folder: documents.folder,
         n: count(),
-        bytes: sql<number>`coalesce(sum(${documents.sizeBytes}), 0)`.mapWith(Number),
+        bytes: sql<number>`coalesce(sum(${documents.sizeBytes}), 0)`.mapWith(
+          Number,
+        ),
       })
       .from(documents)
       .groupBy(documents.folder),
@@ -94,7 +97,9 @@ export default async function BerkasPage({
 
     db
       .select({
-        bytes: sql<number>`coalesce(sum(${documents.sizeBytes}), 0)`.mapWith(Number),
+        bytes: sql<number>`coalesce(sum(${documents.sizeBytes}), 0)`.mapWith(
+          Number,
+        ),
       })
       .from(documents),
 
@@ -118,7 +123,10 @@ export default async function BerkasPage({
       sortable: true,
       cell: (f) => (
         <span className="flex items-center gap-2.5">
-          <Pill tone={EXT_TONE[f.ext] ?? "neutral"} className="tnum text-[9.5px]">
+          <Pill
+            tone={EXT_TONE[f.ext] ?? "neutral"}
+            className="tnum text-[9.5px]"
+          >
             {f.ext}
           </Pill>
           <span className="truncate text-[13px] font-medium">{f.name}</span>
@@ -216,7 +224,9 @@ export default async function BerkasPage({
               aria-current={active ? "true" : undefined}
               className={cn(
                 "bg-card flex items-center gap-3 rounded-xl border p-3.5 shadow-sm transition-colors",
-                active ? "border-primary/45 ring-primary-subtle ring-2" : "hover:border-border-strong",
+                active
+                  ? "border-primary/45 ring-primary-subtle ring-2"
+                  : "hover:border-border-strong",
               )}
             >
               <span
@@ -235,7 +245,9 @@ export default async function BerkasPage({
                 <FolderClosed className="size-[17px]" aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-[13px] font-medium">{f.label}</span>
+                <span className="block truncate text-[13px] font-medium">
+                  {f.label}
+                </span>
                 <span className="text-subtle tnum block text-[11.5px]">
                   {c?.n ?? 0} berkas · {ukuranFile(c?.bytes ?? 0)}
                 </span>
@@ -259,7 +271,10 @@ export default async function BerkasPage({
             )}
             <UploadDocument
               folder={folder}
-              employees={staff.map((s) => ({ value: String(s.id), label: s.name }))}
+              employees={staff.map((s) => ({
+                value: String(s.id),
+                label: s.name,
+              }))}
             />
           </>
         }

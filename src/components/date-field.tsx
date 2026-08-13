@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { id as localeId } from "react-day-picker/locale";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { dateFromIso, isoFromDate, tanggalPanjang } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +64,10 @@ export function DateField({
           className,
         )}
       >
-        <CalendarDays className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+        <CalendarDays
+          className="text-muted-foreground size-3.5 shrink-0"
+          aria-hidden
+        />
         {value ? tanggalPanjang(value) : "Pilih tanggal"}
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

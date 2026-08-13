@@ -88,7 +88,7 @@ export function Avatar({
   className?: string;
 }) {
   const shape = cn(
-    "flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10.5px] font-semibold",
+    "flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10.5px] font-semibold",
     className,
   );
   if (photoKey) {
@@ -120,7 +120,9 @@ export function PageHead({
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="mb-0.5 text-[22px] font-semibold tracking-tight">{title}</h1>
+        <h1 className="mb-0.5 text-[22px] font-semibold tracking-tight">
+          {title}
+        </h1>
         <p className="text-muted-foreground text-[13.5px]">{desc}</p>
       </div>
       {children && <div className="flex items-end gap-2">{children}</div>}
@@ -157,7 +159,9 @@ export function Stat({
   const body = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-muted-foreground text-xs font-medium">{label}</span>
+        <span className="text-muted-foreground text-xs font-medium">
+          {label}
+        </span>
         <span
           className={cn("size-[7px] rounded-full", {
             "bg-success": tone === "success",
@@ -171,7 +175,12 @@ export function Stat({
         />
       </div>
       <div className="mt-1.5 flex items-baseline gap-1.5">
-        <span className={cn("tnum text-[25px] font-bold tracking-tight", valueColor)}>
+        <span
+          className={cn(
+            "tnum text-[25px] font-bold tracking-tight",
+            valueColor,
+          )}
+        >
           {value}
         </span>
         {sub && <span className="text-subtle text-[11.5px]">{sub}</span>}
@@ -186,7 +195,11 @@ export function Stat({
   );
 
   return href ? (
-    <Link href={href} className={cls} aria-current={active ? "true" : undefined}>
+    <Link
+      href={href}
+      className={cls}
+      aria-current={active ? "true" : undefined}
+    >
       {body}
     </Link>
   ) : (

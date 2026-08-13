@@ -42,7 +42,7 @@ type Location = {
 
 const LABEL = "text-[12px] font-medium";
 const FIELD =
-  "bg-card border-border-strong mt-1 h-10 w-full rounded-[9px] border px-3 text-[13px] outline-none transition-shadow focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20";
+  "bg-card border-border-strong mt-1 h-9 w-full rounded-[9px] border px-3 text-[13px] outline-none transition-shadow focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20";
 
 async function errorFrom(res: Response, fallback: string) {
   const data = (await res.json().catch(() => ({}))) as {
@@ -300,7 +300,7 @@ export function SettingsForm({
                   defaultValue={defaultLocationId}
                   onChange={setDefaultLocationId}
                   ariaLabel="Kantor default"
-                  className="mt-1 h-10 w-full sm:max-w-[280px]"
+                  className="mt-1 h-9 w-full sm:max-w-[280px]"
                   options={locations.map((l) => ({
                     value: String(l.id),
                     label: l.name,
@@ -358,12 +358,7 @@ export function SettingsForm({
             value={`${initial.baseLeaveQuota} hari`}
           />
         </div>
-        <Button
-          type="submit"
-          size="lg"
-          className="mt-4 w-full"
-          disabled={save.isPending}
-        >
+        <Button type="submit" className="mt-4 w-full" disabled={save.isPending}>
           <Save aria-hidden />
           {save.isPending ? "Menyimpan…" : "Simpan perubahan"}
         </Button>

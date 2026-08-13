@@ -12,7 +12,13 @@ import { ClockDialog } from "./clock-dialog";
 
 /** Mirrors mobile/src/api.ts Bootstrap — the same endpoint feeds both. */
 export type Bootstrap = {
-  profile: { id: number; nik: string; name: string; initials: string; division: string };
+  profile: {
+    id: number;
+    nik: string;
+    name: string;
+    initials: string;
+    division: string;
+  };
   today: {
     date: string;
     clockIn: string | null;
@@ -22,16 +28,35 @@ export type Bootstrap = {
     officeId: number | null;
   };
   shift: { start: string; end: string; toleranceMinutes: number };
-  offices: { id: number; name: string; lat: number; lng: number; radiusM: number }[];
+  offices: {
+    id: number;
+    name: string;
+    lat: number;
+    lng: number;
+    radiusM: number;
+  }[];
   defaultOfficeId: number | null;
   leave: { remaining: number; quota: number; used: number; expiresAt: string };
   overtime: { minutes: number; capHours: number };
-  announcements: { id: number; title: string; category: string; date: string }[];
-  team: { total: number; present: number; avatars: { id: number; initials: string }[] };
+  announcements: {
+    id: number;
+    title: string;
+    category: string;
+    date: string;
+  }[];
+  team: {
+    total: number;
+    present: number;
+    avatars: { id: number; initials: string }[];
+  };
 };
 
 const QUICK = [
-  { href: "/saya/pengajuan?tab=cuti", label: "Ajukan cuti", icon: CalendarDays },
+  {
+    href: "/saya/pengajuan?tab=cuti",
+    label: "Ajukan cuti",
+    icon: CalendarDays,
+  },
   { href: "/saya/pengajuan?tab=lembur", label: "Ajukan lembur", icon: Timer },
   { href: "/saya/kehadiran", label: "Riwayat absen", icon: Clock },
   { href: "/saya/berkas", label: "Berkas saya", icon: FolderClosed },
@@ -109,7 +134,11 @@ export function Beranda() {
           sub={tanggalPanjang(d.today.date)}
           tone={done ? "neutral" : clockedIn ? "success" : "warning"}
         />
-        <Stat label="Sisa cuti" value={d.leave.remaining} sub={`dari ${d.leave.quota} hari`} />
+        <Stat
+          label="Sisa cuti"
+          value={d.leave.remaining}
+          sub={`dari ${d.leave.quota} hari`}
+        />
         <Stat
           label="Lembur bulan ini"
           value={durasi(d.overtime.minutes)}
@@ -121,14 +150,19 @@ export function Beranda() {
         <Panel title="Absensi" className="min-w-0 flex-1 basis-[380px]">
           <div className="flex flex-col items-center px-5 py-6">
             <p className="text-subtle text-[12px]">
-              Shift {d.shift.start}–{d.shift.end} · toleransi {d.shift.toleranceMinutes} menit
+              Shift {d.shift.start}–{d.shift.end} · toleransi{" "}
+              {d.shift.toleranceMinutes} menit
             </p>
-            <p className="tnum my-1.5 text-[34px] leading-none font-semibold">{clock}</p>
+            <p className="tnum my-1.5 text-[34px] leading-none font-semibold">
+              {clock}
+            </p>
 
             <p
               className={cn(
                 "mb-5 text-center text-[12.5px]",
-                clockedIn ? "text-success font-medium" : "text-muted-foreground",
+                clockedIn
+                  ? "text-success font-medium"
+                  : "text-muted-foreground",
               )}
             >
               {done
@@ -180,7 +214,9 @@ export function Beranda() {
             </div>
           </Panel>
 
-          <Panel title={`Rekan hadir hari ini (${d.team.present}/${d.team.total})`}>
+          <Panel
+            title={`Rekan hadir hari ini (${d.team.present}/${d.team.total})`}
+          >
             <div className="flex flex-wrap gap-1.5 p-4">
               {d.team.avatars.length === 0 ? (
                 <p className="text-muted-foreground text-[12.5px]">

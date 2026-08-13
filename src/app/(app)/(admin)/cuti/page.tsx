@@ -27,10 +27,7 @@ export default async function CutiPage({
 }) {
   const sp = await searchParams;
   const tab = (TABS.find((t) => t.v === sp.tab)?.v ?? "menunggu") as
-    | "menunggu"
-    | "revisi"
-    | "disetujui"
-    | "ditolak";
+    "menunggu" | "revisi" | "disetujui" | "ditolak";
   const today = todayWib();
   const year = Number(today.slice(0, 4));
 
@@ -71,7 +68,9 @@ export default async function CutiPage({
                 )}
               >
                 {t.label}
-                <span className="tnum text-subtle text-[11px]">{countOf(t.v)}</span>
+                <span className="tnum text-subtle text-[11px]">
+                  {countOf(t.v)}
+                </span>
               </Link>
             ))}
           </div>
@@ -95,7 +94,10 @@ export default async function CutiPage({
   );
 }
 
-async function fetchLeavePage(status: string, year: number): Promise<LeaveRow[]> {
+async function fetchLeavePage(
+  status: string,
+  year: number,
+): Promise<LeaveRow[]> {
   const delegate = alias(employees, "delegate");
   const rows = await db
     .select({

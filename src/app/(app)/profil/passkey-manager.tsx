@@ -36,8 +36,8 @@ export function PasskeyManager({ passkeys }: { passkeys: Passkey[] }) {
       const optRes = await fetch("/api/webauthn/register");
       if (!optRes.ok) {
         throw new Error(
-          ((await optRes.json().catch(() => ({}))) as { error?: string }).error ??
-            "Tidak bisa memulai pendaftaran",
+          ((await optRes.json().catch(() => ({}))) as { error?: string })
+            .error ?? "Tidak bisa memulai pendaftaran",
         );
       }
       const { options, challengeId } = await optRes.json();
@@ -62,7 +62,9 @@ export function PasskeyManager({ passkeys }: { passkeys: Passkey[] }) {
     },
     onError: (e: Error) => {
       if (/abort|NotAllowed|timed out/i.test(e.message)) return; // user dismissed
-      if (/already registered|excludeCredentials|InvalidState/i.test(e.message)) {
+      if (
+        /already registered|excludeCredentials|InvalidState/i.test(e.message)
+      ) {
         toast.error("Perangkat ini sudah terdaftar");
         return;
       }

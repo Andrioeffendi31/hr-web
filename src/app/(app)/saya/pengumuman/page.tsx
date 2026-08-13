@@ -54,7 +54,10 @@ export default async function PengumumanSayaPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {rows.map((a) => (
-            <Panel key={a.id} className={a.pinned ? "border-primary/40" : undefined}>
+            <Panel
+              key={a.id}
+              className={a.pinned ? "border-primary/40" : undefined}
+            >
               <article className="p-4">
                 <div className="mb-1.5 flex flex-wrap items-center gap-2">
                   {a.pinned && (
@@ -63,7 +66,9 @@ export default async function PengumumanSayaPage() {
                       Disematkan
                     </span>
                   )}
-                  <Pill tone={CATEGORY_TONE[a.category] ?? "neutral"}>{a.category}</Pill>
+                  <Pill tone={CATEGORY_TONE[a.category] ?? "neutral"}>
+                    {a.category}
+                  </Pill>
                 </div>
                 <h2 className="text-[14.5px] font-semibold">{a.title}</h2>
                 <p className="text-muted-foreground mt-1.5 text-[13px] leading-relaxed whitespace-pre-line">

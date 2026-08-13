@@ -66,8 +66,8 @@ export default async function ProfilPage() {
         >
           <p className="text-muted-foreground border-b px-4 py-3 text-[12.5px] leading-relaxed">
             Passkey menggantikan kata sandi dengan Touch ID, Face ID, atau
-            Windows Hello. Kunci privat tidak pernah meninggalkan perangkat Anda,
-            sehingga tidak bisa dicuri lewat phishing.
+            Windows Hello. Kunci privat tidak pernah meninggalkan perangkat
+            Anda, sehingga tidak bisa dicuri lewat phishing.
           </p>
           <PasskeyManager
             passkeys={keys.map((k) => ({
@@ -78,7 +78,10 @@ export default async function ProfilPage() {
           />
         </Panel>
 
-        <Panel title="Data kepegawaian" className="w-full shrink-0 lg:w-[320px]">
+        <Panel
+          title="Data kepegawaian"
+          className="w-full shrink-0 lg:w-[320px]"
+        >
           <dl className="px-4 py-1">
             {info.map(([label, value]) => (
               <div

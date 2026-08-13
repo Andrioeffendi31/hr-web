@@ -102,7 +102,10 @@ export default async function KaryawanPage({
       .from(employees)
       .leftJoin(
         attendance,
-        and(eq(attendance.employeeId, employees.id), eq(attendance.date, today)),
+        and(
+          eq(attendance.employeeId, employees.id),
+          eq(attendance.date, today),
+        ),
       )
       .where(where)
       .orderBy(sorting.dir === "desc" ? desc(orderColumn) : asc(orderColumn))
@@ -141,8 +144,14 @@ export default async function KaryawanPage({
       const [[stats], log, [otAgg], [balance], [todayRow]] = await Promise.all([
         db
           .select({
-            hadir: sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(Number),
-            telat: sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(Number),
+            hadir:
+              sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(
+                Number,
+              ),
+            telat:
+              sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(
+                Number,
+              ),
           })
           .from(attendance)
           .where(
@@ -164,7 +173,10 @@ export default async function KaryawanPage({
           .limit(5),
         db
           .select({
-            minutes: sql<number>`coalesce(sum(${overtimeRequests.minutes}), 0)`.mapWith(Number),
+            minutes:
+              sql<number>`coalesce(sum(${overtimeRequests.minutes}), 0)`.mapWith(
+                Number,
+              ),
           })
           .from(overtimeRequests)
           .where(
@@ -178,7 +190,9 @@ export default async function KaryawanPage({
         db
           .select({ status: attendance.status })
           .from(attendance)
-          .where(and(eq(attendance.employeeId, openId), eq(attendance.date, today)))
+          .where(
+            and(eq(attendance.employeeId, openId), eq(attendance.date, today)),
+          )
           .limit(1),
       ]);
 
@@ -267,7 +281,9 @@ export default async function KaryawanPage({
     {
       key: "hariini",
       header: "Hari ini",
-      cell: (r) => <AttBadge status={(r.status ?? "belum_absen") as AttStatus} />,
+      cell: (r) => (
+        <AttBadge status={(r.status ?? "belum_absen") as AttStatus} />
+      ),
     },
     {
       key: "aksi",
@@ -341,7 +357,10 @@ export default async function KaryawanPage({
               autoSubmit
               options={[
                 { value: "all", label: "Semua divisi" },
-                ...divisions.map((d) => ({ value: d.division, label: d.division })),
+                ...divisions.map((d) => ({
+                  value: d.division,
+                  label: d.division,
+                })),
               ]}
             />
           </div>
@@ -376,7 +395,7 @@ export default async function KaryawanPage({
         <EmployeeForm
           divisions={divisionNames}
           managers={allEmployees}
-          trigger={<Button className="h-9">Tambah karyawan</Button>}
+          trigger={<Button>Tambah karyawan</Button>}
         />
       </PageHead>
 

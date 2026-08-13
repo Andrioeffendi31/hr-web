@@ -44,7 +44,11 @@ export default async function LokasiPage() {
       </PageHead>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <Stat label="Lokasi aktif" value={active.length} sub="bisa dipilih karyawan" />
+        <Stat
+          label="Lokasi aktif"
+          value={active.length}
+          sub="bisa dipilih karyawan"
+        />
         <Stat
           label="Nonaktif"
           value={rows.length - active.length}
@@ -54,7 +58,9 @@ export default async function LokasiPage() {
           label="Radius rata-rata"
           value={
             active.length
-              ? Math.round(active.reduce((s, r) => s + r.radiusM, 0) / active.length)
+              ? Math.round(
+                  active.reduce((s, r) => s + r.radiusM, 0) / active.length,
+                )
               : 0
           }
           sub="meter"
@@ -63,7 +69,8 @@ export default async function LokasiPage() {
 
       {active.length === 0 && rows.length > 0 && (
         <p className="border-warning/40 bg-warning/10 text-warning mb-4 rounded-[11px] border px-4 py-2.5 text-[12.5px]">
-          Tidak ada lokasi aktif — karyawan hanya bisa absen dengan menandai WFH.
+          Tidak ada lokasi aktif — karyawan hanya bisa absen dengan menandai
+          WFH.
         </p>
       )}
 
@@ -89,16 +96,20 @@ export default async function LokasiPage() {
 
       <Panel title="Daftar lokasi">
         {rows.length === 0 ? (
-          <Empty>Belum ada lokasi absen. Tambahkan minimal satu titik kantor.</Empty>
+          <Empty>
+            Belum ada lokasi absen. Tambahkan minimal satu titik kantor.
+          </Empty>
         ) : (
           <ul className="divide-y">
             {rows.map((r) => (
               <li key={r.id} className="flex items-center gap-3 px-4 py-2.5">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-medium">{r.name}</span>
+                  <span className="block truncate text-[13px] font-medium">
+                    {r.name}
+                  </span>
                   <span className="text-subtle tnum text-[11.5px]">
-                    {Number(r.lat).toFixed(6)}, {Number(r.lng).toFixed(6)} · radius{" "}
-                    {r.radiusM} m
+                    {Number(r.lat).toFixed(6)}, {Number(r.lng).toFixed(6)} ·
+                    radius {r.radiusM} m
                   </span>
                 </span>
                 <a

@@ -107,7 +107,12 @@ export function AttendanceDetail({
   const masuk = d.events.find((e) => e.kind === "masuk");
   const jarak =
     d.office && masuk?.lat && masuk.lng
-      ? jarakMeter(d.office.lat, d.office.lng, Number(masuk.lat), Number(masuk.lng))
+      ? jarakMeter(
+          d.office.lat,
+          d.office.lng,
+          Number(masuk.lat),
+          Number(masuk.lng),
+        )
       : null;
   const cocok = jarak !== null && jarak <= d.office!.radius;
 
@@ -120,8 +125,12 @@ export function AttendanceDetail({
         (e) =>
           e.lat &&
           e.lng &&
-          jarakMeter(d.office!.lat, d.office!.lng, Number(e.lat), Number(e.lng)) >
-            d.office!.radius,
+          jarakMeter(
+            d.office!.lat,
+            d.office!.lng,
+            Number(e.lat),
+            Number(e.lng),
+          ) > d.office!.radius,
       ).length
     : 0;
   const sedangBekerja = Boolean(d.clockIn && !d.clockOut);
@@ -132,7 +141,11 @@ export function AttendanceDetail({
       <DialogContent className="flex max-h-[88vh] flex-col gap-0 p-0 sm:max-w-[720px]">
         {/* pr-14 keeps the badge clear of the dialog's close button */}
         <div className="flex items-center gap-3 border-b py-4 pr-14 pl-5">
-          <Avatar name={d.name} photoKey={d.photoUrl} className="size-10 text-[13px]" />
+          <Avatar
+            name={d.name}
+            photoKey={d.photoUrl}
+            className="size-10 text-[13px]"
+          />
           <div className="min-w-0 flex-1">
             <DialogTitle className="truncate text-[15px] font-semibold">
               {d.name}
@@ -159,10 +172,17 @@ export function AttendanceDetail({
                 sub: d.clockIn && !d.clockOut ? "sedang bekerja" : undefined,
               },
             ].map((s) => (
-              <div key={s.label} className="bg-surface-2 rounded-[11px] border p-3">
+              <div
+                key={s.label}
+                className="bg-surface-2 rounded-[11px] border p-3"
+              >
                 <div className="text-subtle text-[11px]">{s.label}</div>
-                <div className="tnum mt-0.5 text-[15px] font-semibold">{s.value}</div>
-                {s.sub && <div className="text-subtle text-[11px]">{s.sub}</div>}
+                <div className="tnum mt-0.5 text-[15px] font-semibold">
+                  {s.value}
+                </div>
+                {s.sub && (
+                  <div className="text-subtle text-[11px]">{s.sub}</div>
+                )}
               </div>
             ))}
           </div>
@@ -181,7 +201,11 @@ export function AttendanceDetail({
             <span
               className={cn(
                 "mt-0.5 shrink-0",
-                jarak === null ? "text-subtle" : cocok ? "text-success" : "text-warning",
+                jarak === null
+                  ? "text-subtle"
+                  : cocok
+                    ? "text-success"
+                    : "text-warning",
               )}
             >
               <MapPin className="size-4" aria-hidden />
@@ -198,7 +222,8 @@ export function AttendanceDetail({
                 ) : (
                   <>
                     {cocok ? "Lokasi cocok" : "Di luar radius"} ·{" "}
-                    <span className="tnum">{formatJarak(jarak)}</span> dari {d.office.name}
+                    <span className="tnum">{formatJarak(jarak)}</span> dari{" "}
+                    {d.office.name}
                     {!cocok && ` (radius ${d.office.radius} m)`}
                   </>
                 )}
@@ -253,7 +278,13 @@ export function AttendanceDetail({
               }
               circles={
                 d.office
-                  ? [{ lat: d.office.lat, lng: d.office.lng, radiusM: d.office.radius }]
+                  ? [
+                      {
+                        lat: d.office.lat,
+                        lng: d.office.lng,
+                        radiusM: d.office.radius,
+                      },
+                    ]
                   : []
               }
               note={
@@ -397,45 +428,47 @@ function TimelineEntry({
           )}
         </div>
 
-        {/* an automatic ping has no photographer, so no uploader is offered —
+        {
+          /* an automatic ping has no photographer, so no uploader is offered —
             api/files rejects kind:"lokasi" too, so the two cannot drift apart */
-        e.kind === "lokasi" ? null : src ? (
-          <FilePreview
-            name={label}
-            src={src}
-            // event photo keys carry no extension, and only images land there
-            ext={ekstensi(e.photoUrl!) || "jpg"}
-            trigger={
-              <button
-                type="button"
-                aria-label={`Lihat foto ${label}`}
-                className="focus-visible:ring-ring shrink-0 rounded-md focus-visible:ring-2 focus-visible:outline-none"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={src}
-                  alt={`Foto ${label}`}
-                  className="bg-muted size-10 rounded-md border object-cover"
-                />
-              </button>
-            }
-          />
-        ) : (
-          <FileDrop
-            accept=".jpg,.jpeg,.png,.webp"
-            maxBytes={1.5 * 1024 * 1024}
-            disabled={up.isPending}
-            onFile={(f) => f && up.mutate(f)}
-          >
-            <span
-              title={`Unggah foto ${label} — bisa juga ditarik ke sini`}
-              className="text-subtle hover:text-primary hover:bg-accent flex size-10 items-center justify-center rounded-md border transition-colors"
+          e.kind === "lokasi" ? null : src ? (
+            <FilePreview
+              name={label}
+              src={src}
+              // event photo keys carry no extension, and only images land there
+              ext={ekstensi(e.photoUrl!) || "jpg"}
+              trigger={
+                <button
+                  type="button"
+                  aria-label={`Lihat foto ${label}`}
+                  className="focus-visible:ring-ring shrink-0 rounded-md focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt={`Foto ${label}`}
+                    className="bg-muted size-10 rounded-md border object-cover"
+                  />
+                </button>
+              }
+            />
+          ) : (
+            <FileDrop
+              accept=".jpg,.jpeg,.png,.webp"
+              maxBytes={1.5 * 1024 * 1024}
+              disabled={up.isPending}
+              onFile={(f) => f && up.mutate(f)}
             >
-              <Camera className="size-4" aria-hidden />
-              <span className="sr-only">Unggah foto {label}</span>
-            </span>
-          </FileDrop>
-        )}
+              <span
+                title={`Unggah foto ${label} — bisa juga ditarik ke sini`}
+                className="text-subtle hover:text-primary hover:bg-accent flex size-10 items-center justify-center rounded-md border transition-colors"
+              >
+                <Camera className="size-4" aria-hidden />
+                <span className="sr-only">Unggah foto {label}</span>
+              </span>
+            </FileDrop>
+          )
+        }
       </div>
     </li>
   );

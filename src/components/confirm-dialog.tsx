@@ -61,7 +61,9 @@ export function ConfirmDialog({
             onClick={onConfirm}
             // the button's own `destructive` variant is tinted; the mockup asks
             // for solid danger on the confirming action
-            className={cn(destructive && "bg-danger text-white hover:bg-danger/90")}
+            className={cn(
+              destructive && "bg-danger text-white hover:bg-danger/90",
+            )}
           >
             {confirmLabel}
           </AlertDialogAction>

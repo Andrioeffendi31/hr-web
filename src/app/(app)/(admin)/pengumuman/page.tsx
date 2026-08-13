@@ -18,7 +18,10 @@ export default async function PengumumanPage() {
         pinned: announcements.pinned,
         createdAt: announcements.createdAt,
         author: employees.name,
-        reads: sql<number>`(select count(*) from ${announcementReads} where ${announcementReads.announcementId} = ${announcements.id})`.mapWith(Number),
+        reads:
+          sql<number>`(select count(*) from ${announcementReads} where ${announcementReads.announcementId} = ${announcements.id})`.mapWith(
+            Number,
+          ),
       })
       .from(announcements)
       .leftJoin(employees, eq(employees.id, announcements.authorId))
@@ -37,7 +40,10 @@ export default async function PengumumanPage() {
       />
 
       <AnnouncementFeed
-        initial={rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }))}
+        initial={rows.map((r) => ({
+          ...r,
+          createdAt: r.createdAt.toISOString(),
+        }))}
         initialHasMore={total.n > rows.length}
       />
     </>

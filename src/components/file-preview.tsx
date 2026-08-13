@@ -46,7 +46,9 @@ export function FilePreview({
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-[860px]">
         <DialogHeader>
-          <DialogTitle className="truncate pr-8 text-[15px]">{name}</DialogTitle>
+          <DialogTitle className="truncate pr-8 text-[15px]">
+            {name}
+          </DialogTitle>
         </DialogHeader>
 
         {kind === "image" ? (

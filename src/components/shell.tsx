@@ -22,7 +22,12 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { SearchDialog } from "@/components/search-dialog";
 import { type Role } from "@/lib/access";
 import { initials } from "@/lib/hr";
@@ -39,8 +44,18 @@ const GROUPS = [
   {
     label: "Operasional Harian",
     items: [
-      { href: "/kehadiran", label: "Kehadiran", icon: Clock, badge: "belumAbsen" },
-      { href: "/cuti", label: "Cuti", icon: CalendarDays, badge: "cutiPending" },
+      {
+        href: "/kehadiran",
+        label: "Kehadiran",
+        icon: Clock,
+        badge: "belumAbsen",
+      },
+      {
+        href: "/cuti",
+        label: "Cuti",
+        icon: CalendarDays,
+        badge: "cutiPending",
+      },
       { href: "/lembur", label: "Lembur", icon: Timer, badge: "lemburPending" },
     ],
   },
@@ -103,7 +118,10 @@ const TITLES: Record<string, [string, string]> = {
   "/saya/pengajuan": ["Pengajuan", "cuti, lembur, dan riwayatnya"],
   "/saya/berkas": ["Berkas Saya", "dokumen pribadi & perusahaan"],
   "/saya/pengumuman": ["Pengumuman", "informasi internal dari HR"],
-  "/pengaturan": ["Pengaturan", "identitas, jadwal kerja & kebijakan perusahaan"],
+  "/pengaturan": [
+    "Pengaturan",
+    "identitas, jadwal kerja & kebijakan perusahaan",
+  ],
 };
 
 function NavList({
@@ -129,7 +147,9 @@ function NavList({
           {group.items.map((item) => {
             const active = pathname === item.href;
             const count =
-              badges && "badge" in item ? badges[item.badge as keyof NavBadges] : 0;
+              badges && "badge" in item
+                ? badges[item.badge as keyof NavBadges]
+                : 0;
             return (
               <Link
                 key={item.href}
@@ -206,7 +226,13 @@ export function Shell({
         />
       ) : (
         <div className="bg-primary shadow-sm flex size-[30px] shrink-0 items-center justify-center rounded-lg">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden
+          >
             <path
               d="M5 20V5.5A1.5 1.5 0 0 1 6.5 4H13a5 5 0 0 1 1.4 9.8L19 20h-3.4l-4-6H8v6H5Z"
               fill="#fff"
@@ -263,7 +289,10 @@ export function Shell({
             >
               <Menu className="size-5" aria-hidden />
             </SheetTrigger>
-            <SheetContent side="left" className="flex w-[262px] flex-col px-3 py-4">
+            <SheetContent
+              side="left"
+              className="flex w-[262px] flex-col px-3 py-4"
+            >
               <SheetTitle className="sr-only">Navigasi</SheetTitle>
               {brand}
               <NavList
@@ -291,7 +320,9 @@ export function Shell({
 
           <button
             onClick={toggleTheme}
-            aria-label={theme === "light" ? "Aktifkan mode gelap" : "Aktifkan mode terang"}
+            aria-label={
+              theme === "light" ? "Aktifkan mode gelap" : "Aktifkan mode terang"
+            }
             className="bg-surface-2 text-muted-foreground hover:text-foreground flex size-[34px] shrink-0 items-center justify-center rounded-[9px] border transition-colors"
           >
             {theme === "light" ? (

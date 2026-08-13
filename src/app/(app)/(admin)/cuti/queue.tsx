@@ -63,7 +63,10 @@ export function LeaveQueue({
     <>
       <div className="flex flex-col gap-3">
         {items.map((r) => (
-          <article key={r.id} className="bg-card rounded-[13px] border p-4 shadow-sm">
+          <article
+            key={r.id}
+            className="bg-card rounded-[13px] border p-4 shadow-sm"
+          >
             <div className="flex flex-wrap items-start gap-3">
               <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold">
                 {initials(r.name)}
@@ -99,7 +102,9 @@ export function LeaveQueue({
               </div>
               <div>
                 <dt className="text-subtle text-[11px]">Durasi</dt>
-                <dd className="tnum text-[12.5px] font-medium">{r.days} hari kerja</dd>
+                <dd className="tnum text-[12.5px] font-medium">
+                  {r.days} hari kerja
+                </dd>
               </div>
               <div>
                 <dt className="text-subtle text-[11px]">Sisa saldo</dt>
@@ -128,7 +133,9 @@ export function LeaveQueue({
               >
                 <Paperclip className="size-3.5" />
                 {r.attachmentName}
-                <span className="text-subtle font-normal">{ukuranFile(r.attachmentSize ?? 0)}</span>
+                <span className="text-subtle font-normal">
+                  {ukuranFile(r.attachmentSize ?? 0)}
+                </span>
               </a>
             )}
 
@@ -142,7 +149,12 @@ export function LeaveQueue({
                 original as it stands — the note is a request, not a lock */}
             {(r.status === "menunggu" || r.status === "revisi") && (
               <div className="mt-3">
-                <DecideButtons kind="cuti" id={r.id} name={r.name} allowRevision />
+                <DecideButtons
+                  kind="cuti"
+                  id={r.id}
+                  name={r.name}
+                  allowRevision
+                />
               </div>
             )}
           </article>

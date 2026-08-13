@@ -73,7 +73,9 @@ function loadAdminStats(today: string) {
     db
       .select({ n: count() })
       .from(attendance)
-      .where(and(eq(attendance.date, today), eq(attendance.status, "belum_absen"))),
+      .where(
+        and(eq(attendance.date, today), eq(attendance.status, "belum_absen")),
+      ),
     db
       .select({ n: count() })
       .from(leaveRequests)

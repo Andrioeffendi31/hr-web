@@ -35,15 +35,23 @@ export function BalancePanel({
     });
 
   return (
-    <Panel title={`Saldo cuti tahunan ${year}`} className="w-full shrink-0 lg:w-[320px]">
+    <Panel
+      title={`Saldo cuti tahunan ${year}`}
+      className="w-full shrink-0 lg:w-[320px]"
+    >
       <ul className="divide-y">
         {items.map((b) => {
           const quota = b.quota + b.adjustment;
-          const pct = Math.min(100, Math.round((b.used / Math.max(quota, 1)) * 100));
+          const pct = Math.min(
+            100,
+            Math.round((b.used / Math.max(quota, 1)) * 100),
+          );
           return (
             <li key={b.id} className="px-4 py-2.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-[12.5px] font-medium">{b.name}</span>
+                <span className="truncate text-[12.5px] font-medium">
+                  {b.name}
+                </span>
                 <span className="tnum text-subtle text-[11.5px]">
                   {b.used}/{quota}
                 </span>
@@ -62,7 +70,11 @@ export function BalancePanel({
                 <div
                   className={cn(
                     "h-full rounded-full",
-                    pct >= 90 ? "bg-danger" : pct >= 60 ? "bg-warning" : "bg-primary",
+                    pct >= 90
+                      ? "bg-danger"
+                      : pct >= 60
+                        ? "bg-warning"
+                        : "bg-primary",
                   )}
                   style={{ width: `${pct}%` }}
                 />
@@ -72,8 +84,9 @@ export function BalancePanel({
                 {b.adjustment !== 0 &&
                   ` ${b.adjustment > 0 ? "+" : "−"} koreksi ${Math.abs(b.adjustment)}`}{" "}
                 · pengajuan {b.usedRequests}
-                {b.usedCollective > 0 && ` · cuti bersama ${b.usedCollective}`} · sisa{" "}
-                {b.remaining}
+                {b.usedCollective > 0 &&
+                  ` · cuti bersama ${b.usedCollective}`}{" "}
+                · sisa {b.remaining}
               </p>
             </li>
           );

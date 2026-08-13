@@ -27,7 +27,11 @@ type Division = {
   lateToleranceMinutes: number | null;
 };
 
-type Fallback = { shiftStart: string; shiftEnd: string; lateToleranceMinutes: number };
+type Fallback = {
+  shiftStart: string;
+  shiftEnd: string;
+  lateToleranceMinutes: number;
+};
 
 async function send(method: string, body: unknown) {
   const res = await fetch("/api/divisions", {
@@ -80,12 +84,12 @@ export function DivisiDialog({
         {initial ? (
           <button
             aria-label={`Ubah ${initial.name}`}
-            className="text-subtle hover:text-foreground hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-md transition-colors"
+            className="text-subtle hover:text-foreground hover:bg-accent flex size-8 shrink-0 items-center justify-center rounded-md transition-colors"
           >
             <Pencil className="size-3.5" aria-hidden />
           </button>
         ) : (
-          <Button size="sm">
+          <Button>
             <Plus className="size-3.5" aria-hidden />
             Tambah divisi
           </Button>
@@ -98,8 +102,8 @@ export function DivisiDialog({
             {initial ? `Ubah ${initial.name}` : "Divisi baru"}
           </DialogTitle>
           <DialogDescription className="text-[12.5px]">
-            Kosongkan jam kerja untuk mengikuti jadwal default perusahaan ({def.start}–
-            {def.end}, toleransi {def.tol} menit).
+            Kosongkan jam kerja untuk mengikuti jadwal default perusahaan (
+            {def.start}–{def.end}, toleransi {def.tol} menit).
           </DialogDescription>
         </DialogHeader>
 
@@ -171,7 +175,7 @@ export function DivisiDialog({
         </form>
 
         <DialogFooter>
-          <Button type="submit" form="divisi-form" size="sm" disabled={save.isPending}>
+          <Button type="submit" form="divisi-form" disabled={save.isPending}>
             {save.isPending ? "Menyimpan…" : "Simpan"}
           </Button>
         </DialogFooter>
@@ -180,7 +184,13 @@ export function DivisiDialog({
   );
 }
 
-export function DeleteDivisi({ name, headcount }: { name: string; headcount: number }) {
+export function DeleteDivisi({
+  name,
+  headcount,
+}: {
+  name: string;
+  headcount: number;
+}) {
   const router = useRouter();
   const m = useMutation({
     mutationFn: () => send("DELETE", { name }),
@@ -197,7 +207,7 @@ export function DeleteDivisi({ name, headcount }: { name: string; headcount: num
         <button
           aria-label={`Hapus ${name}`}
           disabled={m.isPending}
-          className="text-subtle hover:text-danger hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-md transition-colors"
+          className="text-subtle hover:text-danger hover:bg-accent flex size-8 shrink-0 items-center justify-center rounded-md transition-colors"
         >
           <Trash2 className="size-3.5" aria-hidden />
         </button>

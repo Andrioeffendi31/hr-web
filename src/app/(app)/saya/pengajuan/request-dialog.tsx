@@ -53,7 +53,8 @@ export function RequestDialog({
   // the employee cleared the existing attachment without picking a new one
   const [dropped, setDropped] = useState(false);
 
-  const editable = !request || request.status === "menunggu" || request.status === "revisi";
+  const editable =
+    !request || request.status === "menunggu" || request.status === "revisi";
   const isEdit = Boolean(request) && editable;
   // overtime has no PUT endpoint: revising it would mean re-counting the weekly
   // cap while excluding the row being edited. Cancel and refile, same as mobile.
@@ -186,12 +187,17 @@ export function RequestDialog({
                   Pengganti selama cuti (opsional)
                   <SelectField
                     name="delegateId"
-                    defaultValue={request?.delegateId ? String(request.delegateId) : ""}
+                    defaultValue={
+                      request?.delegateId ? String(request.delegateId) : ""
+                    }
                     ariaLabel="Pengganti"
                     className="mt-1 h-9 w-full"
                     options={[
                       { value: "", label: "Tidak ada" },
-                      ...delegates.map((d) => ({ value: String(d.id), label: d.name })),
+                      ...delegates.map((d) => ({
+                        value: String(d.id),
+                        label: d.name,
+                      })),
                     ]}
                   />
                 </label>
@@ -246,7 +252,8 @@ export function RequestDialog({
 
           {kind === "cuti" && (
             <div className={LABEL}>
-              Lampiran {request?.type === "Cuti Sakit" ? "(surat dokter)" : "(opsional)"}
+              Lampiran{" "}
+              {request?.type === "Cuti Sakit" ? "(surat dokter)" : "(opsional)"}
               {request?.attachment && !dropped && !file ? (
                 <div className="bg-surface-2 mt-1 flex items-center gap-2 rounded-[9px] border p-2.5 text-[12.5px]">
                   <a
@@ -292,7 +299,7 @@ export function RequestDialog({
           {request && editable && (
             <ConfirmDialog
               trigger={
-                <Button variant="destructive" size="sm" disabled={batal.isPending}>
+                <Button variant="destructive" disabled={batal.isPending}>
                   Batalkan
                 </Button>
               }
@@ -304,11 +311,15 @@ export function RequestDialog({
             />
           )}
           {canSubmit ? (
-            <Button type="submit" form="request-form" size="sm" disabled={send.isPending}>
-              {send.isPending ? "Mengirim…" : isEdit ? "Kirim revisi" : "Kirim pengajuan"}
+            <Button type="submit" form="request-form" disabled={send.isPending}>
+              {send.isPending
+                ? "Mengirim…"
+                : isEdit
+                  ? "Kirim revisi"
+                  : "Kirim pengajuan"}
             </Button>
           ) : (
-            <Button variant="outline" size="sm" onClick={onClose}>
+            <Button variant="outline" onClick={onClose}>
               Tutup
             </Button>
           )}

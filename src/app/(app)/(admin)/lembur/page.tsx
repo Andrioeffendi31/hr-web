@@ -67,8 +67,14 @@ export default async function LemburPage({
 
     db
       .select({
-        minutes: sql<number>`coalesce(sum(${overtimeRequests.minutes}), 0)`.mapWith(Number),
-        people: sql<number>`count(distinct ${overtimeRequests.employeeId})`.mapWith(Number),
+        minutes:
+          sql<number>`coalesce(sum(${overtimeRequests.minutes}), 0)`.mapWith(
+            Number,
+          ),
+        people:
+          sql<number>`count(distinct ${overtimeRequests.employeeId})`.mapWith(
+            Number,
+          ),
       })
       .from(overtimeRequests)
       .where(
@@ -97,8 +103,12 @@ export default async function LemburPage({
               {initials(r.name)}
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-[13px] font-medium">{r.name}</span>
-              <span className="text-subtle block text-[11px]">{r.division}</span>
+              <span className="block truncate text-[13px] font-medium">
+                {r.name}
+              </span>
+              <span className="text-subtle block text-[11px]">
+                {r.division}
+              </span>
             </span>
           </div>
           <p className="text-muted-foreground mt-1.5 max-w-[220px] text-[11.5px] leading-snug">
@@ -137,7 +147,9 @@ export default async function LemburPage({
       header: "Tipe",
       className: "align-top py-3",
       cell: (r) => (
-        <Pill tone={r.kind === "Hari libur" ? "info" : "neutral"}>{r.kind}</Pill>
+        <Pill tone={r.kind === "Hari libur" ? "info" : "neutral"}>
+          {r.kind}
+        </Pill>
       ),
     },
     {

@@ -28,7 +28,7 @@ export function FeedFooter({
       ) : (
         // fallback for when IntersectionObserver never fires (short viewport,
         // reduced-motion scroll containers, tests)
-        <Button variant="outline" size="sm" onClick={onLoadMore}>
+        <Button variant="outline" onClick={onLoadMore}>
           Muat lebih banyak
         </Button>
       )}

@@ -20,7 +20,9 @@ async function decide(input: {
     body: JSON.stringify(input),
   });
   if (!res.ok) {
-    const { error } = (await res.json().catch(() => ({}))) as { error?: string };
+    const { error } = (await res.json().catch(() => ({}))) as {
+      error?: string;
+    };
     throw new Error(error ?? "Gagal memproses pengajuan");
   }
   return res.json();
@@ -61,7 +63,6 @@ export function DecideButtons({
   return (
     <div className="flex flex-wrap gap-2">
       <Button
-        size="sm"
         disabled={m.isPending}
         onClick={() => run("disetujui")}
         className="h-8 text-[12.5px]"
@@ -71,7 +72,6 @@ export function DecideButtons({
       <ReasonDialog
         trigger={
           <Button
-            size="sm"
             variant="outline"
             disabled={m.isPending}
             className="text-danger hover:text-danger h-8 text-[12.5px]"
@@ -91,7 +91,6 @@ export function DecideButtons({
         <ReasonDialog
           trigger={
             <Button
-              size="sm"
               variant="ghost"
               disabled={m.isPending}
               className="text-muted-foreground h-8 text-[12.5px]"

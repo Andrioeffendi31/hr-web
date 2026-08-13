@@ -21,7 +21,11 @@ import { canAccess, type Role } from "@/lib/access";
  * same subtree. Harmless here — the role is fixed in the JWT for the life of the
  * session, and the proxy re-checks every document request.
  */
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (!canAccess("/kehadiran", session.user.role as Role)) redirect("/saya");

@@ -46,7 +46,13 @@ type Fix = { lat: number; lng: number };
  * to whatever clock-in picked. Everything below is only about not offering to
  * send something that will be refused.
  */
-export function ClockDialog({ data, onClose }: { data: Bootstrap; onClose: () => void }) {
+export function ClockDialog({
+  data,
+  onClose,
+}: {
+  data: Bootstrap;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const qc = useQueryClient();
 
@@ -127,7 +133,8 @@ export function ClockDialog({ data, onClose }: { data: Bootstrap; onClose: () =>
       ? data.offices.find((o) => o.id === data.today.officeId)
       : data.offices.find((o) => o.id === activeId);
 
-  const meter = fix && chosen ? jarakMeter(fix.lat, fix.lng, chosen.lat, chosen.lng) : null;
+  const meter =
+    fix && chosen ? jarakMeter(fix.lat, fix.lng, chosen.lat, chosen.lng) : null;
   // a day clocked in as WFH has no office to measure against, and the server
   // checks nothing on the way out — so neither does this
   const noGeofence = action === "out" && data.today.officeId === null;
@@ -137,7 +144,9 @@ export function ClockDialog({ data, onClose }: { data: Bootstrap; onClose: () =>
     if (!file) return setSelfie(null);
     setPreparing(true);
     try {
-      setSelfie(await toWebp(file, { ratio: SELFIE_RATIO, width: SELFIE_WIDTH }));
+      setSelfie(
+        await toWebp(file, { ratio: SELFIE_RATIO, width: SELFIE_WIDTH }),
+      );
     } catch {
       toast.error("Foto gagal diproses. Coba ambil ulang.");
     } finally {
@@ -154,7 +163,8 @@ export function ClockDialog({ data, onClose }: { data: Bootstrap; onClose: () =>
       fd.append("lng", String(fix.lng));
       if (wfh) fd.append("wfh", "1");
       // only on the way in — the server reads clock-out's office off the row
-      else if (action === "in" && chosen) fd.append("locationId", String(chosen.id));
+      else if (action === "in" && chosen)
+        fd.append("locationId", String(chosen.id));
       // no `location` part: the browser has no reverse-geocoder, and the server
       // already falls back to the office name
       fd.append("selfie", selfie);
@@ -184,7 +194,12 @@ export function ClockDialog({ data, onClose }: { data: Bootstrap; onClose: () =>
   });
 
   const blocked =
-    !secure || !fix || !selfie || (!inside && !wfh) || preparing || submit.isPending;
+    !secure ||
+    !fix ||
+    !selfie ||
+    (!inside && !wfh) ||
+    preparing ||
+    submit.isPending;
 
   // one reason at a time, in the order they have to be resolved
   const hint = !secure
@@ -317,7 +332,13 @@ export function ClockDialog({ data, onClose }: { data: Bootstrap; onClose: () =>
                 ]}
                 circles={
                   chosen && !noGeofence
-                    ? [{ lat: chosen.lat, lng: chosen.lng, radiusM: chosen.radiusM }]
+                    ? [
+                        {
+                          lat: chosen.lat,
+                          lng: chosen.lng,
+                          radiusM: chosen.radiusM,
+                        },
+                      ]
                     : []
                 }
               />
@@ -378,7 +399,9 @@ export function ClockDialog({ data, onClose }: { data: Bootstrap; onClose: () =>
             ) : (
               <>
                 <Check aria-hidden />
-                {action === "in" ? "Konfirmasi absen masuk" : "Konfirmasi absen keluar"}
+                {action === "in"
+                  ? "Konfirmasi absen masuk"
+                  : "Konfirmasi absen keluar"}
               </>
             )}
           </Button>

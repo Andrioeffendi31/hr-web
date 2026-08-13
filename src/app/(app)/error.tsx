@@ -26,7 +26,7 @@ export default function AppError({
           Kode kesalahan: {error.digest}
         </p>
       )}
-      <Button onClick={reset} className="mt-5 h-9">
+      <Button onClick={reset} className="mt-5">
         Coba lagi
       </Button>
     </div>

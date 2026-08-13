@@ -109,7 +109,9 @@ export function LoginForm({
             ) : (
               <Fingerprint className="size-[18px]" aria-hidden />
             )}
-            {mode === "passkey" ? "Menunggu perangkat…" : "Masuk dengan passkey"}
+            {mode === "passkey"
+              ? "Menunggu perangkat…"
+              : "Masuk dengan passkey"}
           </Button>
 
           <div className="flex items-center gap-3">

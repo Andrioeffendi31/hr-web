@@ -142,7 +142,7 @@ export function SearchDialog() {
                     onSelect={() => go(`/karyawan?open=${h.id}`)}
                     className="gap-3"
                   >
-                    <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold">
+                    <span className="bg-muted text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold">
                       {initials(h.name)}
                     </span>
                     <span className="min-w-0 flex-1">

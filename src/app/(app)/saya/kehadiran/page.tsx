@@ -14,7 +14,9 @@ export const metadata = { title: "Kehadiran Saya — Ruang HR" };
 function lastMonths(n: number) {
   const now = new Date(`${todayWib()}T00:00:00Z`);
   return Array.from({ length: n }, (_, i) => {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const d = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1),
+    );
     const value = d.toISOString().slice(0, 7);
     return {
       value,
@@ -73,7 +75,8 @@ export default async function KehadiranSayaPage({
     )
     .orderBy(desc(attendance.date));
 
-  const count = (...s: string[]) => rows.filter((r) => s.includes(r.status)).length;
+  const count = (...s: string[]) =>
+    rows.filter((r) => s.includes(r.status)).length;
 
   return (
     <>
@@ -90,9 +93,23 @@ export default async function KehadiranSayaPage({
       </PageHead>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <Stat label="Hadir" value={count("hadir", "wfh")} sub="hari" tone="success" />
-        <Stat label="Terlambat" value={count("telat")} sub="hari" tone="warning" />
-        <Stat label="Cuti / izin / sakit" value={count("cuti", "izin", "sakit")} sub="hari" />
+        <Stat
+          label="Hadir"
+          value={count("hadir", "wfh")}
+          sub="hari"
+          tone="success"
+        />
+        <Stat
+          label="Terlambat"
+          value={count("telat")}
+          sub="hari"
+          tone="warning"
+        />
+        <Stat
+          label="Cuti / izin / sakit"
+          value={count("cuti", "izin", "sakit")}
+          sub="hari"
+        />
       </div>
 
       <Panel title={months.find((mm) => mm.value === month)?.label}>
@@ -111,7 +128,9 @@ export default async function KehadiranSayaPage({
                       {tanggalPanjang(r.date)}
                     </span>
                     <span className="text-subtle tnum text-[11.5px]">
-                      {r.clockIn ? `${jam(r.clockIn)} – ${jam(r.clockOut)}` : "—"}
+                      {r.clockIn
+                        ? `${jam(r.clockIn)} – ${jam(r.clockOut)}`
+                        : "—"}
                       {(r.note ?? r.location) && ` · ${r.note ?? r.location}`}
                     </span>
                   </span>

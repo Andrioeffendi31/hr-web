@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ChevronsUpDown, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsUpDown,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Empty, Panel } from "@/components/bits";
 import { TableTools } from "@/components/table-tools";
 import {
@@ -75,10 +81,15 @@ export function DataTable<T>({
                   key={c.key}
                   className={cn(
                     "px-3 py-2.5 font-semibold first:pl-4 last:pr-4",
-                    c.sticky && "bg-surface-2 sticky right-0 border-l text-center",
+                    c.sticky &&
+                      "bg-surface-2 sticky right-0 border-l text-center",
                   )}
                   aria-sort={
-                    sort === c.key ? (dir === "asc" ? "ascending" : "descending") : undefined
+                    sort === c.key
+                      ? dir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : undefined
                   }
                 >
                   {c.sortable ? (
@@ -92,7 +103,10 @@ export function DataTable<T>({
                     >
                       {c.header}
                       {sort !== c.key ? (
-                        <ChevronsUpDown className="size-3 opacity-40" aria-hidden />
+                        <ChevronsUpDown
+                          className="size-3 opacity-40"
+                          aria-hidden
+                        />
                       ) : dir === "asc" ? (
                         <ChevronUp className="size-3" aria-hidden />
                       ) : (
@@ -142,9 +156,18 @@ export function DataTable<T>({
           </span>
 
           <div className="ml-auto flex flex-wrap items-center gap-3">
-            <TableTools path={path} sp={sp} perPage={perPage} pages={pages} page={shownPage} />
+            <TableTools
+              path={path}
+              sp={sp}
+              perPage={perPage}
+              pages={pages}
+              page={shownPage}
+            />
 
-            <nav className="flex items-center gap-1" aria-label="Navigasi halaman">
+            <nav
+              className="flex items-center gap-1"
+              aria-label="Navigasi halaman"
+            >
               <PageLink
                 path={path}
                 sp={sp}
@@ -207,7 +230,7 @@ function PageLink({
   children: React.ReactNode;
 }) {
   const cls = cn(
-    "tnum flex h-7 min-w-7 items-center justify-center rounded-md border px-1.5 text-[12px] font-medium transition-colors",
+    "tnum flex h-8 min-w-8 items-center justify-center rounded-md border px-1.5 text-[12px] font-medium transition-colors",
     current
       ? "bg-primary text-primary-foreground border-transparent"
       : "bg-card hover:bg-accent",

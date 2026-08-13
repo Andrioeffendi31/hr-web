@@ -83,7 +83,10 @@ export default async function DetailKehadiranPage({
     // scoped to the session's own employee id, the same rule withMe enforces on
     // /api/me/attendance/[date] — a date in the URL can never reach anyone else
     .where(
-      and(eq(attendance.employeeId, Number(session.user.id)), eq(attendance.date, date)),
+      and(
+        eq(attendance.employeeId, Number(session.user.id)),
+        eq(attendance.date, date),
+      ),
     )
     .limit(1);
 
@@ -105,7 +108,9 @@ export default async function DetailKehadiranPage({
     .orderBy(asc(attendanceEvents.at));
 
   const minutes =
-    day.clockIn && day.clockOut ? overtimeMinutes(day.clockIn, day.clockOut) : null;
+    day.clockIn && day.clockOut
+      ? overtimeMinutes(day.clockIn, day.clockOut)
+      : null;
 
   const kantor = day.officeLat
     ? {
@@ -118,12 +123,20 @@ export default async function DetailKehadiranPage({
 
   const jarakDari = (lat: string | null, lng: string | null) =>
     day.officeLat && lat && lng
-      ? jarakMeter(Number(day.officeLat), Number(day.officeLng), Number(lat), Number(lng))
+      ? jarakMeter(
+          Number(day.officeLat),
+          Number(day.officeLng),
+          Number(lat),
+          Number(lng),
+        )
       : null;
 
   return (
     <>
-      <PageHead title={tanggalPanjang(day.date)} desc="Detail kehadiran Anda hari ini.">
+      <PageHead
+        title={tanggalPanjang(day.date)}
+        desc="Detail kehadiran Anda hari ini."
+      >
         <Link
           href="/saya/kehadiran"
           className="bg-card border-border-strong hover:bg-accent flex h-9 items-center gap-1.5 rounded-[9px] border px-3 text-[13px] font-medium transition-colors"
@@ -149,13 +162,21 @@ export default async function DetailKehadiranPage({
                 {
                   label: "Total kerja",
                   value: minutes !== null ? durasi(minutes) : "—",
-                  sub: day.clockIn && !day.clockOut ? "sedang bekerja" : undefined,
+                  sub:
+                    day.clockIn && !day.clockOut ? "sedang bekerja" : undefined,
                 },
               ].map((s) => (
-                <div key={s.label} className="bg-surface-2 rounded-[11px] border p-3">
+                <div
+                  key={s.label}
+                  className="bg-surface-2 rounded-[11px] border p-3"
+                >
                   <div className="text-subtle text-[11px]">{s.label}</div>
-                  <div className="tnum mt-0.5 text-[15px] font-semibold">{s.value}</div>
-                  {s.sub && <div className="text-subtle text-[11px]">{s.sub}</div>}
+                  <div className="tnum mt-0.5 text-[15px] font-semibold">
+                    {s.value}
+                  </div>
+                  {s.sub && (
+                    <div className="text-subtle text-[11px]">{s.sub}</div>
+                  )}
                 </div>
               ))}
             </div>
@@ -185,7 +206,13 @@ export default async function DetailKehadiranPage({
               }
               circles={
                 kantor
-                  ? [{ lat: kantor.lat, lng: kantor.lng, radiusM: kantor.radius }]
+                  ? [
+                      {
+                        lat: kantor.lat,
+                        lng: kantor.lng,
+                        radiusM: kantor.radius,
+                      },
+                    ]
                   : []
               }
               note={
@@ -227,7 +254,8 @@ export default async function DetailKehadiranPage({
                       </div>
                       <div className="text-subtle tnum mt-0.5 text-[11.5px]">
                         {waktu(e.at)}
-                        {jarak !== null && ` · ${formatJarak(jarak)} dari ${day.officeName}`}
+                        {jarak !== null &&
+                          ` · ${formatJarak(jarak)} dari ${day.officeName}`}
                       </div>
                       {e.note && (
                         <div

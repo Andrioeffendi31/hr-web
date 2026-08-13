@@ -74,7 +74,8 @@ export function SelfieCell({
   }
 
   // no attendance row means there is nothing to attach the photo to
-  if (!hasAttendance) return <span className="text-subtle text-[12.5px]">—</span>;
+  if (!hasAttendance)
+    return <span className="text-subtle text-[12.5px]">—</span>;
 
   // children mode: a 32 px cell cannot hold a dropzone, so FileDrop only lends
   // the drag & drop behaviour to the button that is already here

@@ -18,7 +18,11 @@ const FOLDER_LABEL: Record<string, string> = {
   legal: "Dokumen Perusahaan",
 };
 
-const EXT_TONE: Record<string, Tone> = { PDF: "danger", XLSX: "success", JPG: "info" };
+const EXT_TONE: Record<string, Tone> = {
+  PDF: "danger",
+  XLSX: "success",
+  JPG: "info",
+};
 
 /**
  * The employee's own documents, plus the company-wide ones.
@@ -36,7 +40,10 @@ export default async function BerkasSayaPage() {
     .select()
     .from(documents)
     .where(
-      or(eq(documents.ownerId, Number(session.user.id)), isNull(documents.ownerId)),
+      or(
+        eq(documents.ownerId, Number(session.user.id)),
+        isNull(documents.ownerId),
+      ),
     )
     .orderBy(desc(documents.uploadedAt))
     .limit(100);
@@ -59,7 +66,9 @@ export default async function BerkasSayaPage() {
               <li key={r.id} className="flex items-center gap-3 px-4 py-2.5">
                 <Pill tone={EXT_TONE[r.ext] ?? "neutral"}>{r.ext}</Pill>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-medium">{r.name}</span>
+                  <span className="block truncate text-[13px] font-medium">
+                    {r.name}
+                  </span>
                   <span className="text-subtle text-[11.5px]">
                     {FOLDER_LABEL[r.folder] ?? r.folder} ·{" "}
                     {r.ownerId ? "berkas pribadi" : "dokumen perusahaan"} ·{" "}

@@ -49,7 +49,11 @@ export function FileDrop({
     if (!file) return;
     if (files.length > 1) toast.info("Hanya file pertama yang dipakai");
     if (!acceptsFile(file.name, accept)) {
-      toast.error(hint ? `Tipe file tidak didukung — ${hint}` : "Tipe file tidak didukung");
+      toast.error(
+        hint
+          ? `Tipe file tidak didukung — ${hint}`
+          : "Tipe file tidak didukung",
+      );
       return;
     }
     if (file.size > maxBytes) {
@@ -98,7 +102,11 @@ export function FileDrop({
     return (
       <label
         {...dropHandlers}
-        className={cn("relative block cursor-pointer", dragging && "ring-primary ring-2 rounded-md", className)}
+        className={cn(
+          "relative block cursor-pointer",
+          dragging && "ring-primary ring-2 rounded-md",
+          className,
+        )}
       >
         {children}
         {input}
@@ -122,12 +130,17 @@ export function FileDrop({
         <span className="text-[12.5px] font-medium">
           Tarik berkas ke sini atau klik untuk pilih
         </span>
-        {hint && <span className="text-subtle text-[11px] font-normal">{hint}</span>}
+        {hint && (
+          <span className="text-subtle text-[11px] font-normal">{hint}</span>
+        )}
         {input}
       </label>
 
       {value && (
-        <SelectedFile file={value} onClear={disabled ? undefined : () => onFile(null)} />
+        <SelectedFile
+          file={value}
+          onClear={disabled ? undefined : () => onFile(null)}
+        />
       )}
     </div>
   );
@@ -143,7 +156,10 @@ function SelectedFile({ file, onClear }: { file: File; onClear?: () => void }) {
   // The cleanup is keyed on the url it actually saw, so a recomputed memo
   // revokes the previous one — a 100 MB blob left behind sits in memory until
   // the tab reloads.
-  const url = useMemo(() => (kind ? URL.createObjectURL(file) : null), [file, kind]);
+  const url = useMemo(
+    () => (kind ? URL.createObjectURL(file) : null),
+    [file, kind],
+  );
   useEffect(() => () => void (url && URL.revokeObjectURL(url)), [url]);
 
   const thumb =
@@ -182,7 +198,9 @@ function SelectedFile({ file, onClear }: { file: File; onClear?: () => void }) {
       )}
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[12.5px] font-medium">{file.name}</span>
+        <span className="block truncate text-[12.5px] font-medium">
+          {file.name}
+        </span>
         <span className="text-subtle tnum block text-[11px]">
           {ukuranFile(file.size)}
           {kind && " · klik gambar untuk pratinjau"}
@@ -194,7 +212,7 @@ function SelectedFile({ file, onClear }: { file: File; onClear?: () => void }) {
           type="button"
           onClick={onClear}
           aria-label={`Batalkan pilihan ${file.name}`}
-          className="text-subtle hover:text-danger hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-md transition-colors"
+          className="text-subtle hover:text-danger hover:bg-accent flex size-8 shrink-0 items-center justify-center rounded-md transition-colors"
         >
           <X className="size-3.5" aria-hidden />
         </button>
