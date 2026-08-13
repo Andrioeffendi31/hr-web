@@ -89,19 +89,7 @@ export default async function LoginPage({
 
       <main className="flex items-center justify-center px-5 py-12">
         <div className="w-full max-w-[380px]">
-          <div className="mb-8 lg:hidden">
-            <div className="relative mb-6 aspect-[2/1] overflow-hidden rounded-2xl border shadow-sm">
-              <Image
-                src={loginBanner}
-                alt="Tim Nanum berkolaborasi di ruang kerja"
-                fill
-                priority
-                sizes="(max-width: 1023px) 380px, 0px"
-                className="object-cover object-[center_62%]"
-              />
-            </div>
-            {brand}
-          </div>
+          <div className="mb-8 lg:hidden">{brand}</div>
 
           <h2 className="font-heading text-xl font-semibold tracking-tight">
             Masuk ke NanumHR

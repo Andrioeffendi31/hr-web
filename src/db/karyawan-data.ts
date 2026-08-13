@@ -19,9 +19,9 @@ export type Karyawan = {
   birthPlace: string | null;
   birthDate: string | null;
   address: string | null;
-  gender: "Laki-laki" | "Perempuan";
-  religion: string;
-  phone: string;
+  gender: "Laki-laki" | "Perempuan" | null;
+  religion: string | null;
+  phone: string | null;
   emergencyName: string | null;
   emergencyPhone: string | null;
 };
@@ -364,5 +364,26 @@ export const KARYAWAN: Karyawan[] = [
     phone: "089525031482",
     emergencyName: "Prily",
     emergencyPhone: "085966527004",
+  },
+  /**
+   * Ditambahkan manual, bukan dari sheet — akun administrator sistem.
+   *
+   * Data pribadinya dibiarkan null, tidak diisi nilai acak: kolom-kolom itu memang
+   * boleh kosong, dan mengarang tanggal lahir atau alamat untuk orang sungguhan di
+   * sistem HR lebih buruk daripada membiarkannya kosong. Isi sendiri lewat
+   * /karyawan atau /profil.
+   */
+  {
+    name: "Andrio Effendi",
+    email: "andrioeffendi31@gmail.com",
+    role: "hr_admin",
+    birthPlace: null,
+    birthDate: null,
+    address: null,
+    gender: "Laki-laki",
+    religion: "Islam",
+    phone: "",
+    emergencyName: null,
+    emergencyPhone: null,
   },
 ];

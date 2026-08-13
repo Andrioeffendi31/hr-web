@@ -95,11 +95,15 @@ async function main() {
 
   // A transcription that dropped or doubled a row is otherwise silent: the insert
   // succeeds and somebody notices in a month.
-  assert.equal(rows.length, 26, "expected 26 employees");
+  // 26 baris dari Data-Karyawan.xlsx + 1 akun administrator yang ditambahkan
+  // manual = 27. Angkanya ditulis eksplisit, bukan KARYAWAN.length: gunanya justru
+  // sebagai tripwire kalau transkripsi sheet menggeser atau menghilangkan baris,
+  // dan membandingkan data dengan dirinya sendiri tidak membuktikan apa pun.
+  assert.equal(rows.length, 27, "expected 26 from the sheet + 1 admin");
   assert.equal(
     rows.filter((r) => r.role === "hr_admin").length,
-    2,
-    "expected 2 HR admins",
+    3,
+    "expected 3 HR admins",
   );
   assert.equal(
     new Set(KARYAWAN.map((k) => k.email.toLowerCase())).size,
