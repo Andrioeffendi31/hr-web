@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -34,6 +35,7 @@ import { type Role } from "@/lib/access";
 import { initials } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 import { useUi } from "@/store/ui";
+import nanumLogo from "../../public/images/nanumhr-logo.png";
 
 export type NavBadges = {
   belumAbsen: number;
@@ -226,10 +228,11 @@ export function Shell({
           className="bg-card size-[30px] shrink-0 rounded-lg border object-contain p-0.5 shadow-sm"
         />
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src="/images/nanumhr-logo.png"
+        <Image
+          src={nanumLogo}
           alt="Logo NanumHR"
+          width={30}
+          height={30}
           className="size-[30px] shrink-0 rounded-lg shadow-sm"
         />
       )}

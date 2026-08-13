@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { canAccess, homeFor, type Role } from "@/lib/access";
 import { LoginForm } from "./login-form";
 import loginBanner from "../../../public/images/nanumhr-login-banner.png";
+import nanumLogo from "../../../public/images/nanumhr-logo.png";
 
 export const metadata = { title: "Masuk — NanumHR" };
 
@@ -39,7 +40,7 @@ export default async function LoginPage({
   const brand = (
     <div className="flex items-center gap-2.5">
       <Image
-        src="/images/nanumhr-logo.png"
+        src={nanumLogo}
         alt="Logo NanumHR"
         width={36}
         height={36}
