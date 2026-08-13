@@ -43,7 +43,11 @@ async function cariAlamat(q: string): Promise<Hit[]> {
     { headers: { Accept: "application/json" } },
   );
   if (!res.ok) throw new Error("Pencarian lokasi gagal");
-  const data = (await res.json()) as { display_name: string; lat: string; lon: string }[];
+  const data = (await res.json()) as {
+    display_name: string;
+    lat: string;
+    lon: string;
+  }[];
   return data.map((d) => ({
     nama: d.display_name,
     lat: Number(d.lat),
@@ -153,7 +157,7 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
         )}
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[420px]">
+      <DialogContent className="sm:max-w-[820px]">
         <DialogHeader>
           <DialogTitle className="text-[15px]">
             {initial ? `Ubah ${initial.name}` : "Lokasi absen baru"}
@@ -166,7 +170,9 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
 
         <form
           id="lokasi-form"
-          className="flex flex-col gap-3"
+          // map left, everything you type right — the map is the big control here
+          // and stacking it kept both halves cramped
+          className="grid gap-4 md:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault();
             const f = new FormData(e.currentTarget);
@@ -180,163 +186,172 @@ export function LokasiDialog({ initial }: { initial?: Location }) {
             });
           }}
         >
-          <label className="text-[12px] font-medium">
-            Nama lokasi
-            <input
-              name="name"
-              required
-              minLength={2}
-              maxLength={80}
-              placeholder="Kantor Pusat"
-              defaultValue={initial?.name ?? ""}
-              className={FIELD}
-            />
-          </label>
-
-          <div className="relative">
-            <div className="flex gap-2">
-              <input
-                value={q}
-                onChange={(e) => setQ(e.currentTarget.value)}
-                // Enter inside a form submits it; here it means "search"
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter") return;
-                  e.preventDefault();
-                  if (q.trim().length > 2) cari.mutate(q.trim());
-                }}
-                placeholder="Cari alamat atau nama tempat…"
-                className={`${FIELD} mt-0`}
+          <div className="flex flex-col gap-2">
+            <div className="min-h-[240px] flex-1 overflow-hidden rounded-[11px] border">
+              <Peta
+                points={titik ? [{ ...titik, tone: "kantor" }] : []}
+                circles={titik ? [{ ...titik, radiusM }] : []}
+                onPick={pakai}
               />
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="h-9 shrink-0"
-                disabled={cari.isPending || q.trim().length < 3}
-                onClick={() => cari.mutate(q.trim())}
-              >
-                <Search className="size-3.5" aria-hidden />
-                {cari.isPending ? "Mencari…" : "Cari"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="h-9 shrink-0"
-                title="Pakai lokasi saya sekarang"
-                onClick={() =>
-                  navigator.geolocation.getCurrentPosition(
-                    (p) => pakai(p.coords.latitude, p.coords.longitude),
-                    // denied permission is the common case and the browser gives
-                    // no second chance, so say what to do about it
-                    (e) =>
-                      toast.error(
-                        e.code === e.PERMISSION_DENIED
-                          ? "Izin lokasi ditolak — aktifkan di pengaturan browser."
-                          : "Tidak bisa membaca lokasi perangkat.",
-                      ),
-                    { enableHighAccuracy: true, timeout: 10_000 },
-                  )
-                }
-              >
-                <Crosshair className="size-3.5" aria-hidden />
-                <span className="sr-only">Lokasi saya</span>
-              </Button>
             </div>
-            {hits.length > 0 && (
-              <ul className="bg-card absolute inset-x-0 top-10 z-20 max-h-44 overflow-auto rounded-[9px] border shadow-lg">
-                {hits.map((h) => (
-                  <li key={`${h.lat},${h.lng}`}>
-                    <button
-                      type="button"
-                      onClick={() => pakai(h.lat, h.lng)}
-                      className="hover:bg-accent block w-full px-2.5 py-2 text-left text-[12px] leading-snug"
-                    >
-                      {h.nama}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+            {!titik && (
+              <p className="text-subtle text-[11px]">
+                {f.lat === "" && f.lng === ""
+                  ? "Belum ada titik — cari alamat atau ketuk peta untuk menandai kantor."
+                  : "Koordinat di luar jangkauan (lat −90…90, lng −180…180), jadi belum bisa ditampilkan."}
+              </p>
             )}
           </div>
 
-          <div className="h-[220px] overflow-hidden rounded-[11px] border">
-            <Peta
-              points={titik ? [{ ...titik, tone: "kantor" }] : []}
-              circles={titik ? [{ ...titik, radiusM }] : []}
-              onPick={pakai}
-            />
-          </div>
-          {!titik && (
-            <p className="text-subtle -mt-1 text-[11px]">
-              {f.lat === "" && f.lng === ""
-                ? "Belum ada titik — cari alamat atau ketuk peta untuk menandai kantor."
-                : "Koordinat di luar jangkauan (lat −90…90, lng −180…180), jadi belum bisa ditampilkan."}
-            </p>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
             <label className="text-[12px] font-medium">
-              Latitude
+              Nama lokasi
               <input
-                name="lat"
-                type="number"
-                step="0.000001"
-                min={-90}
-                max={90}
+                name="name"
                 required
-                value={f.lat}
-                onChange={ubah("lat")}
+                minLength={2}
+                maxLength={80}
+                placeholder="Kantor Pusat"
+                defaultValue={initial?.name ?? ""}
                 className={FIELD}
               />
             </label>
+
+            <div className="relative">
+              <div className="flex gap-2">
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.currentTarget.value)}
+                  // Enter inside a form submits it; here it means "search"
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    if (q.trim().length > 2) cari.mutate(q.trim());
+                  }}
+                  placeholder="Cari alamat atau nama tempat…"
+                  className={`${FIELD} mt-0`}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-9 shrink-0"
+                  disabled={cari.isPending || q.trim().length < 3}
+                  onClick={() => cari.mutate(q.trim())}
+                >
+                  <Search className="size-3.5" aria-hidden />
+                  {cari.isPending ? "Mencari…" : "Cari"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-9 shrink-0"
+                  title="Pakai lokasi saya sekarang"
+                  onClick={() =>
+                    navigator.geolocation.getCurrentPosition(
+                      (p) => pakai(p.coords.latitude, p.coords.longitude),
+                      // denied permission is the common case and the browser gives
+                      // no second chance, so say what to do about it
+                      (e) =>
+                        toast.error(
+                          e.code === e.PERMISSION_DENIED
+                            ? "Izin lokasi ditolak — aktifkan di pengaturan browser."
+                            : "Tidak bisa membaca lokasi perangkat.",
+                        ),
+                      { enableHighAccuracy: true, timeout: 10_000 },
+                    )
+                  }
+                >
+                  <Crosshair className="size-3.5" aria-hidden />
+                  <span className="sr-only">Lokasi saya</span>
+                </Button>
+              </div>
+              {hits.length > 0 && (
+                <ul className="bg-card absolute inset-x-0 top-10 z-20 max-h-44 overflow-auto rounded-[9px] border shadow-lg">
+                  {hits.map((h) => (
+                    <li key={`${h.lat},${h.lng}`}>
+                      <button
+                        type="button"
+                        onClick={() => pakai(h.lat, h.lng)}
+                        className="hover:bg-accent block w-full px-2.5 py-2 text-left text-[12px] leading-snug"
+                      >
+                        {h.nama}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-[12px] font-medium">
+                Latitude
+                <input
+                  name="lat"
+                  type="number"
+                  step="0.000001"
+                  min={-90}
+                  max={90}
+                  required
+                  value={f.lat}
+                  onChange={ubah("lat")}
+                  className={FIELD}
+                />
+              </label>
+              <label className="text-[12px] font-medium">
+                Longitude
+                <input
+                  name="lng"
+                  type="number"
+                  step="0.000001"
+                  min={-180}
+                  max={180}
+                  required
+                  value={f.lng}
+                  onChange={ubah("lng")}
+                  className={FIELD}
+                />
+              </label>
+            </div>
+
             <label className="text-[12px] font-medium">
-              Longitude
+              Radius geofence (meter)
               <input
-                name="lng"
+                name="radiusM"
                 type="number"
-                step="0.000001"
-                min={-180}
-                max={180}
+                min={25}
+                max={5000}
                 required
-                value={f.lng}
-                onChange={ubah("lng")}
+                value={f.radiusM}
+                onChange={ubah("radiusM")}
                 className={FIELD}
               />
+              <span className="text-subtle mt-1 block text-[11px] font-normal">
+                Terlalu kecil dan pergeseran GPS biasa akan menolak absen yang
+                sah. Lingkaran di peta adalah radius sebenarnya.
+              </span>
+            </label>
+
+            <label className="flex items-center gap-2 text-[12.5px]">
+              <input
+                name="active"
+                type="checkbox"
+                defaultChecked={initial?.active ?? true}
+                className="size-4"
+              />
+              Aktif — muncul sebagai pilihan di aplikasi karyawan
             </label>
           </div>
-
-          <label className="text-[12px] font-medium">
-            Radius geofence (meter)
-            <input
-              name="radiusM"
-              type="number"
-              min={25}
-              max={5000}
-              required
-              value={f.radiusM}
-              onChange={ubah("radiusM")}
-              className={FIELD}
-            />
-            <span className="text-subtle mt-1 block text-[11px] font-normal">
-              Terlalu kecil dan pergeseran GPS biasa akan menolak absen yang sah.
-              Lingkaran di peta adalah radius sebenarnya.
-            </span>
-          </label>
-
-          <label className="flex items-center gap-2 text-[12.5px]">
-            <input
-              name="active"
-              type="checkbox"
-              defaultChecked={initial?.active ?? true}
-              className="size-4"
-            />
-            Aktif — muncul sebagai pilihan di aplikasi karyawan
-          </label>
         </form>
 
         <DialogFooter>
-          <Button type="submit" form="lokasi-form" size="sm" disabled={save.isPending}>
+          <Button
+            type="submit"
+            form="lokasi-form"
+            size="sm"
+            disabled={save.isPending}
+          >
             {save.isPending ? "Menyimpan…" : "Simpan"}
           </Button>
         </DialogFooter>
