@@ -302,7 +302,11 @@ export function Shell({
           </button>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-4 pt-5 pb-14 md:px-6 md:pt-6">
+        {/* `relative` is load-bearing: Radix Select ships a visually-hidden native
+            <select> at position:absolute, and without a positioned ancestor its
+            containing block is the document — so it escaped this overflow box and
+            stretched <html>, putting a second scrollbar next to this one. */}
+        <main className="relative flex-1 overflow-y-auto px-4 pt-5 pb-14 md:px-6 md:pt-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}
