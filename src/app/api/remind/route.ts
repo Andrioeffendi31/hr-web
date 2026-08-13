@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   await sendPush({
     to: parsed.data.ids,
     title: "Anda belum absen masuk",
-    body: "Buka Ruang HR untuk absen sekarang.",
+    body: "Buka NanumHR untuk absen sekarang.",
     route: "/",
   });
 

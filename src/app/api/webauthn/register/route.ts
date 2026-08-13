@@ -11,7 +11,8 @@ import { auditLog, authenticators } from "@/db/schema";
 import {
   labelFromUserAgent,
   putChallenge,
-  rpFrom, userHandle,
+  rpFrom,
+  userHandle,
   takeChallenge,
 } from "@/lib/webauthn";
 
@@ -110,7 +111,10 @@ export async function POST(req: Request) {
   }
 
   if (!verification.verified || !verification.registrationInfo) {
-    return Response.json({ error: "Passkey gagal diverifikasi" }, { status: 400 });
+    return Response.json(
+      { error: "Passkey gagal diverifikasi" },
+      { status: 400 },
+    );
   }
 
   const info = verification.registrationInfo;
@@ -126,9 +130,12 @@ export async function POST(req: Request) {
       deviceType: info.credentialDeviceType,
       backedUp: info.credentialBackedUp,
       transports:
-        (parsed.data.response as RegistrationResponseJSON).response
-          ?.transports?.join(",") ?? null,
-      label: parsed.data.label?.trim() || labelFromUserAgent(req.headers.get("user-agent")),
+        (
+          parsed.data.response as RegistrationResponseJSON
+        ).response?.transports?.join(",") ?? null,
+      label:
+        parsed.data.label?.trim() ||
+        labelFromUserAgent(req.headers.get("user-agent")),
     })
     .onConflictDoNothing({ target: authenticators.credentialId });
 

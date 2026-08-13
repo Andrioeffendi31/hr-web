@@ -18,7 +18,10 @@ import { ekstensi, previewKind } from "@/lib/hr";
  *
  * Anything else is a 404 — including a key that tries to climb out of its prefix.
  */
-export async function GET(req: Request, ctx: { params: Promise<{ key: string[] }> }) {
+export async function GET(
+  req: Request,
+  ctx: { params: Promise<{ key: string[] }> },
+) {
   let user;
   try {
     user = await requireUser();
@@ -64,7 +67,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ key: string[] }
       .where(eq(leaveRequests.id, Number(segments[1])))
       .limit(1);
     // key equality matters: an id alone must not unlock a sibling's attachment
-    if (!row || row.key !== key) return new Response("Tidak ditemukan", { status: 404 });
+    if (!row || row.key !== key)
+      return new Response("Tidak ditemukan", { status: 404 });
     if (!isAdmin && String(row.employeeId) !== me) {
       return new Response("Tidak boleh diakses", { status: 403 });
     }
@@ -107,7 +111,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ key: string[] }
     return new Response(null, {
       status: 302,
       headers: {
-        location: await presignGet(key, filename, inline ? "inline" : "attachment"),
+        location: await presignGet(
+          key,
+          filename,
+          inline ? "inline" : "attachment",
+        ),
         // the signed URL is a bearer token for its lifetime, so nothing caches it
         "cache-control": "private, no-store",
       },
@@ -116,11 +124,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ key: string[] }
 
   const res = await getObject(key);
   if (!res.ok || !res.body) {
-    return new Response("Tidak ditemukan", { status: res.status === 404 ? 404 : 502 });
+    return new Response("Tidak ditemukan", {
+      status: res.status === 404 ? 404 : 502,
+    });
   }
 
   const headers = new Headers({
-    "content-type": res.headers.get("content-type") ?? "application/octet-stream",
+    "content-type":
+      res.headers.get("content-type") ?? "application/octet-stream",
     "cache-control": "private, max-age=300",
   });
   const length = res.headers.get("content-length");

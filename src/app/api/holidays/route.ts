@@ -6,7 +6,9 @@ import { db } from "@/db";
 import { auditLog, holidays } from "@/db/schema";
 import { isIsoDate } from "@/lib/hr";
 
-const isoDate = z.string().refine(isIsoDate, "Tanggal harus YYYY-MM-DD dan tanggal nyata");
+const isoDate = z
+  .string()
+  .refine(isIsoDate, "Tanggal harus YYYY-MM-DD dan tanggal nyata");
 
 const upsertBody = z.object({
   date: isoDate,
@@ -69,7 +71,10 @@ export async function DELETE(req: Request) {
     .returning({ date: holidays.date, name: holidays.name });
 
   if (!removed) {
-    return Response.json({ error: "Hari libur tidak ditemukan" }, { status: 404 });
+    return Response.json(
+      { error: "Hari libur tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   await db.insert(auditLog).values({

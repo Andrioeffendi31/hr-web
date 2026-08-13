@@ -11,6 +11,7 @@ import {
   Clock,
   FolderClosed,
   Home,
+  KeyRound,
   LogOut,
   MapPin,
   Megaphone,
@@ -211,7 +212,7 @@ export function Shell({
   const pathname = usePathname();
   const { theme, toggleTheme } = useUi();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [title, sub] = TITLES[pathname] ?? ["Ruang HR", ""];
+  const [title, sub] = TITLES[pathname] ?? ["NanumHR", ""];
   const isAdmin = user.role === "hr_admin";
   const groups = isAdmin ? GROUPS : SAYA_GROUPS;
 
@@ -242,7 +243,7 @@ export function Shell({
       )}
       <div className="min-w-0 leading-tight">
         <div className="font-heading text-[14.5px] font-bold tracking-tight">
-          Ruang<span className="text-subtle font-semibold"> HR</span>
+          Nanum<span className="text-subtle font-semibold">HR</span>
         </div>
         <div className="text-subtle truncate font-mono text-[10px]">
           {companyName}
@@ -261,6 +262,14 @@ export function Shell({
           {user.name}
         </div>
         <div className="text-subtle text-[11px]">{user.position}</div>
+      </Link>
+      <Link
+        href="/ganti-sandi"
+        aria-label="Ganti kata sandi"
+        title="Ganti kata sandi"
+        className="text-subtle hover:text-foreground hover:bg-accent flex size-9 items-center justify-center rounded-lg transition-colors"
+      >
+        <KeyRound className="size-4" aria-hidden />
       </Link>
       <Link
         href="/api/auth/signout"

@@ -17,6 +17,15 @@ declare module "next-auth" {
       role: "hr_admin" | "manager" | "employee";
       division: string;
       position: string;
+      /**
+       * The value of employees.passwordChangedAt at sign-in, in epoch ms (0 for
+       * never). Compared against the live column wherever a DB read already
+       * happens, so a token minted before the last password change stops working.
+       *
+       * NOT `iat`: Auth.js re-issues the JWT on every request, so `iat` is always
+       * "now" and a spent session would silently renew itself past the check.
+       */
+      pwdAt: number;
     } & DefaultSession["user"];
   }
 }
@@ -48,7 +57,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .limit(1);
         if (!user || !user.active) return null;
 
-        const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
+        const ok = await bcrypt.compare(
+          parsed.data.password,
+          user.passwordHash,
+        );
         if (!ok) return null;
 
         return {
@@ -58,6 +70,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           division: user.division,
           position: user.position,
+          pwdAt: user.passwordChangedAt?.getTime() ?? 0,
         };
       },
     }),
@@ -140,6 +153,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: u.role,
           division: u.division,
           position: u.position,
+          pwdAt: u.passwordChangedAt?.getTime() ?? 0,
         };
       },
     }),
@@ -151,10 +165,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = (user as { role: string }).role;
         token.division = (user as { division: string }).division;
         token.position = (user as { position: string }).position;
+        token.pwdAt = (user as { pwdAt: number }).pwdAt;
       }
       return token;
     },
     session({ session, token }) {
+      // No database call here on purpose: this callback also runs inside the Edge
+      // proxy, where `pg` cannot go, and it runs on every navigation. The staleness
+      // comparison happens in the three places that already load the row —
+      // lib/me.ts, (app)/layout.tsx and requireAdmin().
+      session.user.pwdAt = (token.pwdAt as number) ?? 0;
       session.user.id = token.uid as string;
       session.user.role = token.role as "hr_admin" | "manager" | "employee";
       session.user.division = token.division as string;
@@ -178,7 +198,49 @@ export async function requireUser() {
 export async function requireAdmin() {
   const session = await auth();
   if (!session?.user) throw new Error("Belum masuk");
-  if (session.user.role !== "hr_admin")
+
+  /**
+   * Re-read the row rather than trust the token.
+   *
+   * The JWT is a 30-day snapshot of what was true at sign-in, so without this an
+   * admin who has been deactivated or demoted keeps full rights on every admin
+   * route for the rest of the month — and a password change cannot evict a stolen
+   * session. One indexed lookup by primary key, and only on admin actions, which
+   * are the rarest and most consequential requests in the app.
+   */
+  const [row] = await db
+    .select({
+      role: employees.role,
+      active: employees.active,
+      changedAt: employees.passwordChangedAt,
+      must: employees.mustChangePassword,
+    })
+    .from(employees)
+    .where(eq(employees.id, Number(session.user.id)))
+    .limit(1);
+
+  if (!row?.active || row.role !== "hr_admin")
     throw new Error("Hanya HR Admin yang boleh melakukan aksi ini");
+  if (row.must) throw new Error("Buat kata sandi baru dulu untuk melanjutkan");
+  if (stale(row.changedAt, session.user.pwdAt))
+    throw new Error("Sesi berakhir, silakan masuk lagi");
+
   return session.user;
+}
+
+/**
+ * Does this session still match the account's current password epoch?
+ *
+ * Exact equality against the value captured at sign-in, not a "was it issued
+ * before" comparison. Two earlier attempts failed for instructive reasons:
+ * `iat` in milliseconds called a token minted 200 ms after the change stale, and
+ * rounding to seconds then let a stale token through — because Auth.js re-issues
+ * the JWT on every request, so `iat` is perpetually current and cannot witness
+ * when the session began.
+ *
+ * A claim written once at sign-in has no such problem, and a mismatch is exactly
+ * the question being asked: the password changed since this session started.
+ */
+export function stale(changedAt: Date | null, pwdAt: number | undefined) {
+  return (changedAt?.getTime() ?? 0) !== (pwdAt ?? 0);
 }

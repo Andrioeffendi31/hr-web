@@ -5,23 +5,89 @@ import { z } from "zod";
 import { requireAdmin } from "@/auth";
 import { db } from "@/db";
 import { auditLog, employees } from "@/db/schema";
-import { isIsoDate } from "@/lib/hr";
+import { cekSandi, isIsoDate } from "@/lib/hr";
 import { duplicate, fkViolation } from "@/lib/pg";
+
+/**
+ * An unfilled field arrives as "" from the form and has to reach the column as
+ * NULL — "" would read as "answered, with nothing" in every display and sort.
+ */
+const opsional = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullish()
+    .transform((v) => v || null);
+
+const tanggalOpsional = z
+  .string()
+  .trim()
+  .nullish()
+  .transform((v) => v || null)
+  .refine((v) => v === null || isIsoDate(v), "Tanggal tidak valid");
+
+/** Stored digits-only; the source data mixes "0858 8182 0410" and "085881820410"
+ *  and a phone number that differs only by spacing is the same phone number. */
+const teleponOpsional = z
+  .string()
+  .trim()
+  .nullish()
+  .transform((v) => (v ? v.replace(/\D/g, "") : null))
+  .refine(
+    (v) => v === null || /^0\d{8,14}$/.test(v),
+    "Nomor telepon tidak valid (mulai 0, 9–15 digit)",
+  );
+
+/** A `<select>` with nothing chosen submits "", which is not a member of any
+ *  enum — without this the whole body fails to parse over one blank dropdown. */
+const enumOpsional = <T extends readonly [string, ...string[]]>(values: T) =>
+  z
+    .union([z.enum(values), z.literal("")])
+    .nullish()
+    .transform((v) => (v ? (v as T[number]) : null));
 
 const base = {
   nik: z.string().trim().min(3).max(32),
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(160),
   role: z.enum(["hr_admin", "manager", "employee"]),
-  division: z.string().trim().min(2).max(80),
-  position: z.string().trim().min(2).max(80),
-  contractType: z.enum(["Tetap", "Kontrak"]),
-  joinedAt: z.string().refine(isIsoDate, "Tanggal mulai kerja tidak valid"),
+  /**
+   * Employment data is optional, matching the columns.
+   *
+   * Requiring it here would mean an imported employee could not have their
+   * address corrected without HR first inventing a division for them — the save
+   * would fail on a field the edit never touched.
+   */
+  division: opsional(80),
+  position: opsional(80),
+  contractType: enumOpsional(["Tetap", "Kontrak"] as const),
+  joinedAt: tanggalOpsional,
   workLocation: z.string().trim().min(2).max(80),
   managerId: z.coerce.number().int().positive().nullable().optional(),
+
+  // personal data
+  birthPlace: opsional(80),
+  birthDate: tanggalOpsional,
+  address: opsional(300),
+  gender: enumOpsional(["Laki-laki", "Perempuan"] as const),
+  religion: opsional(40),
+  phone: teleponOpsional,
+  emergencyName: opsional(120),
+  emergencyPhone: teleponOpsional,
 };
 
-const createBody = z.object({ ...base, password: z.string().min(8).max(72) });
+const createBody = z.object({
+  ...base,
+  // same rule as every other password path (lib/hr.ts) — an account HR creates
+  // must not start weaker than one the employee sets themselves
+  password: z
+    .string()
+    .max(200)
+    .refine((v) => cekSandi(v) === null, {
+      error: (iss) => cekSandi(String(iss.input)) ?? "Kata sandi tidak valid",
+    }),
+});
 const updateBody = z.object({
   ...base,
   id: z.coerce.number().int().positive(),
@@ -89,7 +155,7 @@ export async function POST(req: Request) {
     action: "employee.create",
     entity: "employees",
     entityId: created.id,
-    detail: `${data.name} (${data.nik}) · ${data.division}`,
+    detail: `${data.name} (${data.nik}) · ${data.division ?? "tanpa divisi"}`,
   });
 
   revalidatePath("/karyawan");
@@ -105,18 +171,23 @@ export async function PATCH(req: Request) {
   }
 
   const raw = await req.json();
-  const full = updateBody.safeParse(raw);
-  const toggle = full.success ? null : toggleBody.safeParse(raw);
-  if (!full.success && !toggle?.success) {
+  // Which body this is has to be decided by shape, not by "did the full one
+  // parse". Falling back on failure meant an invalid edit quietly parsed as a
+  // toggle — 200, a success toast, and not one field written.
+  const isToggle = raw !== null && typeof raw === "object" && !("nik" in raw);
+  const full = isToggle ? null : updateBody.safeParse(raw);
+  const toggle = isToggle ? toggleBody.safeParse(raw) : null;
+  if (!full?.success && !toggle?.success) {
+    const err = full?.error ?? toggle?.error;
     return Response.json(
-      { error: full.error.issues[0]?.message ?? "Permintaan tidak valid" },
+      { error: err?.issues[0]?.message ?? "Permintaan tidak valid" },
       { status: 400 },
     );
   }
 
   let id: number;
   let set: Partial<typeof employees.$inferInsert>;
-  if (full.success) {
+  if (full?.success) {
     const { id: fullId, managerId, email, ...rest } = full.data;
     id = fullId;
     set = { ...rest, email: email.toLowerCase(), managerId: managerId ?? null };
@@ -139,7 +210,11 @@ export async function PATCH(req: Request) {
       .update(employees)
       .set(set)
       .where(eq(employees.id, id))
-      .returning({ id: employees.id, name: employees.name, active: employees.active });
+      .returning({
+        id: employees.id,
+        name: employees.name,
+        active: employees.active,
+      });
   } catch (e) {
     const dup = constraintMessage(e);
     if (dup) return Response.json({ error: dup }, { status: 409 });
@@ -147,12 +222,17 @@ export async function PATCH(req: Request) {
   }
 
   if (!updated) {
-    return Response.json({ error: "Karyawan tidak ditemukan" }, { status: 404 });
+    return Response.json(
+      { error: "Karyawan tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   await db.insert(auditLog).values({
     actorId: Number(admin.id),
-    action: full.success ? "employee.update" : `employee.${set.active ? "activate" : "deactivate"}`,
+    action: full?.success
+      ? "employee.update"
+      : `employee.${set.active ? "activate" : "deactivate"}`,
     entity: "employees",
     entityId: id,
     detail: updated.name,

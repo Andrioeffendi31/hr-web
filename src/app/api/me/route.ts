@@ -20,8 +20,18 @@ export const GET = withMe(async (me) => {
   const month = today.slice(0, 7);
   const year = Number(today.slice(0, 4));
 
-  const [cfg, [att], balances, [ot], anns, team, [pendLeave], [pendOt], passkeys, offices] =
-    await Promise.all([
+  const [
+    cfg,
+    [att],
+    balances,
+    [ot],
+    anns,
+    team,
+    [pendLeave],
+    [pendOt],
+    passkeys,
+    offices,
+  ] = await Promise.all([
     config(),
     db
       .select()
@@ -31,7 +41,10 @@ export const GET = withMe(async (me) => {
     leaveBalances(year, me.id),
     db
       .select({
-        minutes: sql<number>`coalesce(sum(${overtimeRequests.minutes}), 0)`.mapWith(Number),
+        minutes:
+          sql<number>`coalesce(sum(${overtimeRequests.minutes}), 0)`.mapWith(
+            Number,
+          ),
       })
       .from(overtimeRequests)
       .where(
@@ -63,7 +76,10 @@ export const GET = withMe(async (me) => {
       .from(employees)
       .leftJoin(
         attendance,
-        and(eq(attendance.employeeId, employees.id), eq(attendance.date, today)),
+        and(
+          eq(attendance.employeeId, employees.id),
+          eq(attendance.date, today),
+        ),
       )
       .where(eq(employees.active, true)),
     db
@@ -114,10 +130,25 @@ export const GET = withMe(async (me) => {
       nik: me.nik,
       name: me.name,
       initials: initials(me.name),
-      division: me.division,
-      position: me.position,
+      division: me.division ?? "Tanpa divisi",
+      position: me.position ?? "",
       role: me.role,
       photoKey: me.photoUrl,
+      // the rest of the record, so the phone's Profil screen is a read of one
+      // payload rather than a second round trip
+      email: me.email,
+      birthPlace: me.birthPlace,
+      birthDate: me.birthDate,
+      gender: me.gender,
+      religion: me.religion,
+      address: me.address,
+      phone: me.phone,
+      emergencyName: me.emergencyName,
+      emergencyPhone: me.emergencyPhone,
+      contractType: me.contractType,
+      joinedAt: me.joinedAt,
+      workLocation: me.workLocation,
+      mustChangePassword: me.mustChangePassword,
     },
     today: {
       date: today,

@@ -58,16 +58,20 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const { name, original, shiftStart, shiftEnd, lateToleranceMinutes } = parsed.data;
+  const { name, original, shiftStart, shiftEnd, lateToleranceMinutes } =
+    parsed.data;
 
   const values = {
     name,
     // "" means inherit — stored as NULL so resolveShift() falls through to settings
     shiftStart: shiftStart ? `${shiftStart}:00` : null,
     shiftEnd: shiftEnd ? `${shiftEnd}:00` : null,
-    lateToleranceMinutes: lateToleranceMinutes === "" ? null : lateToleranceMinutes,
+    lateToleranceMinutes:
+      lateToleranceMinutes === "" ? null : lateToleranceMinutes,
   };
-  const shiftLabel = shiftStart ? `${shiftStart}–${shiftEnd}` : "ikut jam default";
+  const shiftLabel = shiftStart
+    ? `${shiftStart}–${shiftEnd}`
+    : "ikut jam default";
 
   try {
     if (original) {
@@ -76,13 +80,20 @@ export async function POST(req: Request) {
         .set(values)
         .where(eq(divisions.name, original))
         .returning({ name: divisions.name });
-      if (!row) return Response.json({ error: "Divisi tidak ditemukan" }, { status: 404 });
+      if (!row)
+        return Response.json(
+          { error: "Divisi tidak ditemukan" },
+          { status: 404 },
+        );
     } else {
       await db.insert(divisions).values(values);
     }
   } catch (e) {
     if (duplicate(e)) {
-      return Response.json({ error: `Divisi "${name}" sudah ada` }, { status: 409 });
+      return Response.json(
+        { error: `Divisi "${name}" sudah ada` },
+        { status: 409 },
+      );
     }
     throw e;
   }
@@ -135,7 +146,8 @@ export async function DELETE(req: Request) {
     throw e;
   }
 
-  if (!removed) return Response.json({ error: "Divisi tidak ditemukan" }, { status: 404 });
+  if (!removed)
+    return Response.json({ error: "Divisi tidak ditemukan" }, { status: 404 });
 
   await db.insert(auditLog).values({
     actorId: Number(admin.id),

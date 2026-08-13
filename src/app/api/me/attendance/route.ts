@@ -7,8 +7,10 @@ import { Bad, withMe } from "@/lib/me";
 /** "Kehadiran Saya" (PRD-Mobile §6.2): own log for one month, plus the counts
  *  the three stat cards show. */
 export const GET = withMe(async (me, req) => {
-  const month = new URL(req.url).searchParams.get("month") ?? todayWib().slice(0, 7);
-  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Bad("Bulan harus YYYY-MM");
+  const month =
+    new URL(req.url).searchParams.get("month") ?? todayWib().slice(0, 7);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    throw new Bad("Bulan harus YYYY-MM");
 
   // last day of the month without a calendar table: day 0 of the next month
   const [y, m] = month.split("-").map(Number);
@@ -34,7 +36,8 @@ export const GET = withMe(async (me, req) => {
     )
     .orderBy(desc(attendance.date));
 
-  const count = (...s: string[]) => rows.filter((r) => s.includes(r.status)).length;
+  const count = (...s: string[]) =>
+    rows.filter((r) => s.includes(r.status)).length;
 
   return Response.json({
     month,

@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 import { CalendarCheck, Fingerprint, ShieldCheck } from "lucide-react";
 import { auth } from "@/auth";
 import { canAccess, homeFor, type Role } from "@/lib/access";
+import { PERUSAHAAN } from "@/lib/hr";
 import { LoginForm } from "./login-form";
 
-export const metadata = { title: "Masuk — Ruang HR" };
+export const metadata = { title: "Masuk — NanumHR" };
 
 const HIGHLIGHTS = [
   {
@@ -27,9 +28,9 @@ const HIGHLIGHTS = [
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; stale?: string }>;
 }) {
-  const { next, error } = await searchParams;
+  const { next, error, stale } = await searchParams;
   const session = await auth();
 
   // only allow same-origin paths back, so ?next= can't be used for redirects off-site
@@ -38,7 +39,10 @@ export default async function LoginPage({
 
   // every signed-in role is sent away, not just admins — an employee used to be
   // left sitting on the login page, and signing in again just bounced them back
-  if (session?.user) {
+  // `stale` means the (app) layout just refused this very cookie. Bouncing a
+  // signed-in user away from /login is right in every other case; here it would
+  // send them back to the page that rejected them, forever.
+  if (session?.user && !stale) {
     const role = session.user.role as Role;
     redirect(safeNext && canAccess(safeNext, role) ? safeNext : homeFor(role));
   }
@@ -62,11 +66,9 @@ export default async function LoginPage({
       </div>
       <div>
         <div className="font-heading text-base font-bold tracking-tight">
-          Ruang<span className="text-subtle font-semibold"> HR</span>
+          Nanum<span className="text-subtle font-semibold">HR</span>
         </div>
-        <div className="text-subtle font-mono text-[10.5px]">
-          PT Nusantara Digital
-        </div>
+        <div className="text-subtle font-mono text-[10.5px]">{PERUSAHAAN}</div>
       </div>
     </div>
   );
@@ -106,7 +108,7 @@ export default async function LoginPage({
         </div>
 
         <p className="text-subtle text-[11.5px]">
-          Absensi dan pengajuan juga tersedia di aplikasi Ruang HR Mobile.
+          Absensi dan pengajuan juga tersedia di aplikasi NanumHR Mobile.
         </p>
       </aside>
 
@@ -115,7 +117,7 @@ export default async function LoginPage({
           <div className="mb-8 lg:hidden">{brand}</div>
 
           <h2 className="font-heading text-xl font-semibold tracking-tight">
-            Masuk ke Ruang HR
+            Masuk ke NanumHR
           </h2>
           <p className="text-muted-foreground mt-1.5 text-[13px]">
             Gunakan passkey perangkat Anda, atau email dan kata sandi kantor.
@@ -129,7 +131,7 @@ export default async function LoginPage({
             <p className="text-subtle mt-6 border-t pt-4 text-[11.5px] leading-relaxed">
               Demo (non-produksi):{" "}
               <span className="font-mono">
-                andini.rahmawati@nusantaradigital.co.id
+                andini.rahmawati@nanumindahsejati.co.id
               </span>{" "}
               / <span className="font-mono">securePass123</span>
             </p>

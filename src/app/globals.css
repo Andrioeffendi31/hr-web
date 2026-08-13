@@ -77,7 +77,7 @@
   }
 }
 
-/* Tokens ported 1:1 from the "Ruang HR Lite" mockup, mapped onto shadcn's
+/* Tokens ported 1:1 from the "NanumHR Lite" mockup, mapped onto shadcn's
    token names so shadcn components inherit the design without restyling.
    Note: the mockup's --accent (brand indigo) is shadcn's --primary;
    shadcn's --accent is the neutral hover surface. */

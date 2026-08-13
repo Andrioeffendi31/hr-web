@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter, Poppins } from "next/font/google";
 import "./globals.css";
+import { PERUSAHAAN } from "@/lib/hr";
 import { Providers } from "./providers";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ruang HR — PT Nusantara Digital",
+  title: `NanumHR — ${PERUSAHAAN}`,
   description:
     "Kelola kehadiran, cuti, lembur, dan data karyawan dalam satu tempat.",
 };

@@ -52,7 +52,10 @@ export async function POST(req: Request) {
     .returning({ id: table.id, employeeId: table.employeeId });
 
   if (!updated) {
-    return Response.json({ error: "Pengajuan tidak ditemukan" }, { status: 404 });
+    return Response.json(
+      { error: "Pengajuan tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   await db.insert(auditLog).values({

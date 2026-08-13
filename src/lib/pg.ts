@@ -7,7 +7,12 @@
  * The cost is that the useful part is buried: drizzle wraps the pg error, so the
  * code and constraint name live somewhere down the `.cause` chain.
  */
-type PgError = { code?: string; constraint?: string; detail?: string; cause?: unknown };
+type PgError = {
+  code?: string;
+  constraint?: string;
+  detail?: string;
+  cause?: unknown;
+};
 
 /** The pg error with this SQLSTATE somewhere in the cause chain, or null. */
 export function pgError(e: unknown, code: string): PgError | null {

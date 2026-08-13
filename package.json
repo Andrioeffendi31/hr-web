@@ -1,5 +1,5 @@
 {
-  "name": "ruang-hr-web",
+  "name": "nanumhr-web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,6 +10,9 @@
     "check": "tsx src/lib/hr.check.ts && tsx src/lib/r2.check.ts && tsx src/lib/webauthn.check.ts && tsx src/lib/access.check.ts && tsx src/lib/image.check.ts",
     "db:push": "dotenv -e .env.local -- drizzle-kit push",
     "db:seed": "dotenv -e .env.local -- tsx src/db/seed.ts",
+    "db:import": "dotenv -e .env.local -- tsx src/db/import-karyawan.ts",
+    "db:push:neon": "dotenv -e .env.neon -- drizzle-kit push",
+    "db:import:neon": "dotenv -e .env.neon -- tsx src/db/import-karyawan.ts",
     "db:up": "podman start hr-pg || podman run -d --name hr-pg -e POSTGRES_PASSWORD=hrpass -e POSTGRES_DB=hrapp -p 55432:5432 postgres:16-alpine",
     "smoke": "./scripts/smoke.sh"
   },
@@ -30,6 +33,7 @@
     "next": "16.2.12",
     "next-auth": "^5.0.0-beta.32",
     "next-themes": "^0.4.6",
+    "nodemailer": "^8.0.11",
     "pg": "^8.22.0",
     "radix-ui": "^1.6.7",
     "react": "19.2.4",
@@ -46,6 +50,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",

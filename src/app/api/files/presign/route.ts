@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { requireAdmin } from "@/auth";
-import { MAX_DOC, allowed, extOf, keyFor, presignPut, r2Configured } from "@/lib/r2";
+import {
+  MAX_DOC,
+  allowed,
+  extOf,
+  keyFor,
+  presignPut,
+  r2Configured,
+} from "@/lib/r2";
 
 const body = z.object({
   folder: z.enum(["personal", "kontrak", "sertif", "legal"]),

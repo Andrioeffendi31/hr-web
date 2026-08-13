@@ -24,7 +24,11 @@ type Message = {
 };
 
 type TicketResponse = {
-  data?: { status: "ok" | "error"; id?: string; details?: { error?: string } }[];
+  data?: {
+    status: "ok" | "error";
+    id?: string;
+    details?: { error?: string };
+  }[];
   errors?: { message: string }[];
 };
 
@@ -65,20 +69,29 @@ export async function sendPush({
   try {
     const res = await fetch(ENDPOINT, {
       method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json" },
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+      },
       body: JSON.stringify(message),
     });
     const json = (await res.json().catch(() => ({}))) as TicketResponse;
 
     if (!res.ok || json.errors?.length) {
-      console.warn("[push] gagal:", res.status, json.errors?.[0]?.message ?? "");
+      console.warn(
+        "[push] gagal:",
+        res.status,
+        json.errors?.[0]?.message ?? "",
+      );
       return { sent: 0 };
     }
 
     // a DeviceNotRegistered ticket means the app was uninstalled; the row is dead
     // weight that would be retried on every future notification
     const dead = (json.data ?? [])
-      .map((t, i) => (t.details?.error === "DeviceNotRegistered" ? message.to[i] : null))
+      .map((t, i) =>
+        t.details?.error === "DeviceNotRegistered" ? message.to[i] : null,
+      )
       .filter((t): t is string => t !== null);
     if (dead.length) {
       await db.delete(pushTokens).where(inArray(pushTokens.token, dead));
@@ -111,5 +124,7 @@ export async function registerPushToken(
 export async function unregisterPushToken(employeeId: number, token: string) {
   await db
     .delete(pushTokens)
-    .where(and(eq(pushTokens.token, token), eq(pushTokens.employeeId, employeeId)));
+    .where(
+      and(eq(pushTokens.token, token), eq(pushTokens.employeeId, employeeId)),
+    );
 }

@@ -22,7 +22,7 @@ export function rpFrom(headers: Headers) {
       : "https");
   const origin = `${proto}://${host}`;
   return {
-    rpName: "Ruang HR",
+    rpName: "NanumHR",
     rpID: host.split(":")[0],
     origin,
     /**
@@ -58,7 +58,10 @@ export function androidOrigins(): string[] {
     .split(",")
     .map((f) => f.replace(/[^0-9a-fA-F]/g, ""))
     .filter((hex) => hex.length === 64)
-    .map((hex) => `android:apk-key-hash:${Buffer.from(hex, "hex").toString("base64url")}`);
+    .map(
+      (hex) =>
+        `android:apk-key-hash:${Buffer.from(hex, "hex").toString("base64url")}`,
+    );
 }
 
 /**

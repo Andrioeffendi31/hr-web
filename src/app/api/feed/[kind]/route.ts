@@ -22,8 +22,13 @@ import { FEED_PAGE } from "@/lib/paging";
  */
 const query = z.object({
   page: z.coerce.number().int().min(1).max(10_000).default(1),
-  status: z.enum(["menunggu", "revisi", "disetujui", "ditolak", "dibatalkan"]).optional(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  status: z
+    .enum(["menunggu", "revisi", "disetujui", "ditolak", "dibatalkan"])
+    .optional(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   div: z.string().max(80).optional(),
   year: z.coerce.number().int().min(2000).max(2100).optional(),
 });
@@ -42,7 +47,10 @@ const FEEDS = {
         pinned: announcements.pinned,
         createdAt: announcements.createdAt,
         author: employees.name,
-        reads: sql<number>`(select count(*) from ${announcementReads} where ${announcementReads.announcementId} = ${announcements.id})`.mapWith(Number),
+        reads:
+          sql<number>`(select count(*) from ${announcementReads} where ${announcementReads.announcementId} = ${announcements.id})`.mapWith(
+            Number,
+          ),
       })
       .from(announcements)
       .leftJoin(employees, eq(employees.id, announcements.authorId))
@@ -84,7 +92,10 @@ const FEEDS = {
   },
 
   saldo: async ({ limit, offset, year }: Params) =>
-    leaveBalances(year ?? Number(todayWib().slice(0, 4)), undefined, { limit, offset }),
+    leaveBalances(year ?? Number(todayWib().slice(0, 4)), undefined, {
+      limit,
+      offset,
+    }),
 
   "belum-absen": async ({ limit, offset, date, div }: Params) =>
     db
@@ -113,7 +124,10 @@ const FEEDS = {
       .offset(offset),
 } as const;
 
-export async function GET(req: Request, ctx: { params: Promise<{ kind: string }> }) {
+export async function GET(
+  req: Request,
+  ctx: { params: Promise<{ kind: string }> },
+) {
   try {
     await requireAdmin();
   } catch (e) {
@@ -124,7 +138,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ kind: string }>
   const feed = Object.prototype.hasOwnProperty.call(FEEDS, kind)
     ? FEEDS[kind as keyof typeof FEEDS]
     : null;
-  if (!feed) return Response.json({ error: "Feed tidak dikenal" }, { status: 404 });
+  if (!feed)
+    return Response.json({ error: "Feed tidak dikenal" }, { status: 404 });
 
   const url = new URL(req.url);
   const parsed = query.safeParse(Object.fromEntries(url.searchParams));

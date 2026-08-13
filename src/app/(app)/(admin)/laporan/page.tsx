@@ -135,10 +135,10 @@ export default async function LaporanPage({
               const total = d.hari || 1;
               const pct = (n: number) => (n / total) * 100;
               return (
-                <li key={d.division}>
+                <li key={d.division ?? "-"}>
                   <div className="mb-1 flex items-baseline justify-between gap-2">
                     <span className="text-[12.5px] font-medium">
-                      {d.division}
+                      {d.division ?? "Tanpa divisi"}
                     </span>
                     <span className="tnum text-muted-foreground text-[11.5px]">
                       {Math.round(pct(d.hadir + d.telat))}% hadir
@@ -198,8 +198,10 @@ export default async function LaporanPage({
             </thead>
             <tbody>
               {byDivision.map((d) => (
-                <tr key={d.division} className="border-b last:border-0">
-                  <td className="py-2 text-[12.5px]">{d.division}</td>
+                <tr key={d.division ?? "-"} className="border-b last:border-0">
+                  <td className="py-2 text-[12.5px]">
+                    {d.division ?? "Tanpa divisi"}
+                  </td>
                   <td className="tnum text-success py-2 text-[12.5px]">
                     {d.hadir}
                   </td>

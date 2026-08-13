@@ -43,7 +43,8 @@ export async function GET(
   const from = url.searchParams.get("from") ?? `${today.slice(0, 7)}-01`;
   const to = url.searchParams.get("to") ?? today;
   const div = url.searchParams.get("div");
-  const divWhere = div && div !== "all" ? eq(employees.division, div) : undefined;
+  const divWhere =
+    div && div !== "all" ? eq(employees.division, div) : undefined;
 
   let headers: string[] = [];
   let rows: (string | number | null)[][] = [];
@@ -70,7 +71,16 @@ export async function GET(
       .where(and(eq(employees.active, true), divWhere))
       .orderBy(asc(employees.name));
 
-    headers = ["NIK", "Nama", "Divisi", "Jabatan", "Masuk", "Keluar", "Status", "Lokasi"];
+    headers = [
+      "NIK",
+      "Nama",
+      "Divisi",
+      "Jabatan",
+      "Masuk",
+      "Keluar",
+      "Status",
+      "Lokasi",
+    ];
     rows = data.map((r) => [
       r.nik,
       r.name,
@@ -89,7 +99,10 @@ export async function GET(
         nik: employees.nik,
         name: employees.name,
         division: employees.division,
-        telat: sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(Number),
+        telat:
+          sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(
+            Number,
+          ),
         hari: sql<number>`count(${attendance.id})`.mapWith(Number),
       })
       .from(employees)
@@ -137,12 +150,28 @@ export async function GET(
       .orderBy(asc(leaveRequests.startDate));
 
     headers = [
-      "NIK", "Nama", "Divisi", "Jenis", "Mulai", "Selesai",
-      "Hari kerja", "Status", "Pengganti", "Alasan",
+      "NIK",
+      "Nama",
+      "Divisi",
+      "Jenis",
+      "Mulai",
+      "Selesai",
+      "Hari kerja",
+      "Status",
+      "Pengganti",
+      "Alasan",
     ];
     rows = data.map((r) => [
-      r.nik, r.name, r.division, r.type, r.startDate, r.endDate,
-      r.days, r.status, r.delegateName ?? "", r.reason,
+      r.nik,
+      r.name,
+      r.division,
+      r.type,
+      r.startDate,
+      r.endDate,
+      r.days,
+      r.status,
+      r.delegateName ?? "",
+      r.reason,
     ]);
   }
 
@@ -162,17 +191,35 @@ export async function GET(
       .from(overtimeRequests)
       .innerJoin(employees, eq(employees.id, overtimeRequests.employeeId))
       .where(
-        and(gte(overtimeRequests.date, from), lte(overtimeRequests.date, to), divWhere),
+        and(
+          gte(overtimeRequests.date, from),
+          lte(overtimeRequests.date, to),
+          divWhere,
+        ),
       )
       .orderBy(asc(overtimeRequests.date));
 
     headers = [
-      "NIK", "Nama", "Divisi", "Tanggal", "Mulai", "Selesai",
-      "Durasi", "Tipe", "Status",
+      "NIK",
+      "Nama",
+      "Divisi",
+      "Tanggal",
+      "Mulai",
+      "Selesai",
+      "Durasi",
+      "Tipe",
+      "Status",
     ];
     rows = data.map((r) => [
-      r.nik, r.name, r.division, r.date, jam(r.startTime), jam(r.endTime),
-      durasi(r.minutes), r.kind, r.status,
+      r.nik,
+      r.name,
+      r.division,
+      r.date,
+      jam(r.startTime),
+      jam(r.endTime),
+      durasi(r.minutes),
+      r.kind,
+      r.status,
     ]);
   }
 
@@ -180,10 +227,21 @@ export async function GET(
     const data = await db
       .select({
         division: employees.division,
-        hadir: sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(Number),
-        telat: sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(Number),
-        cuti: sql<number>`count(*) filter (where ${attendance.status} in ('cuti','izin','sakit'))`.mapWith(Number),
-        absen: sql<number>`count(*) filter (where ${attendance.status} = 'belum_absen')`.mapWith(Number),
+        hadir:
+          sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(
+            Number,
+          ),
+        telat:
+          sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(
+            Number,
+          ),
+        cuti: sql<number>`count(*) filter (where ${attendance.status} in ('cuti','izin','sakit'))`.mapWith(
+          Number,
+        ),
+        absen:
+          sql<number>`count(*) filter (where ${attendance.status} = 'belum_absen')`.mapWith(
+            Number,
+          ),
         hari: sql<number>`count(${attendance.id})`.mapWith(Number),
       })
       .from(employees)
@@ -199,9 +257,16 @@ export async function GET(
       .groupBy(employees.division)
       .orderBy(asc(employees.division));
 
-    headers = ["Divisi", "Hadir", "Terlambat", "Cuti/izin/sakit", "Tidak absen", "Tingkat kehadiran (%)"];
+    headers = [
+      "Divisi",
+      "Hadir",
+      "Terlambat",
+      "Cuti/izin/sakit",
+      "Tidak absen",
+      "Tingkat kehadiran (%)",
+    ];
     rows = data.map((r) => [
-      r.division,
+      r.division ?? "Tanpa divisi",
       r.hadir,
       r.telat,
       r.cuti,
@@ -231,12 +296,28 @@ export async function GET(
       .orderBy(asc(employees.name));
 
     headers = [
-      "NIK", "Nama", "Email", "Divisi", "Jabatan", "Tipe kontrak",
-      "Mulai kerja", "Lokasi kerja", "Atasan langsung", "Status",
+      "NIK",
+      "Nama",
+      "Email",
+      "Divisi",
+      "Jabatan",
+      "Tipe kontrak",
+      "Mulai kerja",
+      "Lokasi kerja",
+      "Atasan langsung",
+      "Status",
     ];
     rows = data.map((r) => [
-      r.nik, r.name, r.email, r.division, r.position, r.contractType,
-      r.joinedAt, r.workLocation, r.managerName ?? "", r.active ? "Aktif" : "Tidak aktif",
+      r.nik,
+      r.name,
+      r.email,
+      r.division,
+      r.position,
+      r.contractType,
+      r.joinedAt,
+      r.workLocation,
+      r.managerName ?? "",
+      r.active ? "Aktif" : "Tidak aktif",
     ]);
   }
 

@@ -1,6 +1,6 @@
 /**
  * Apple App Site Association — the iOS half of what makes a passkey created in
- * the Ruang HR app usable for this domain (PRD-Mobile §7).
+ * the NanumHR app usable for this domain (PRD-Mobile §7).
  *
  * `webcredentials` is the part passkeys need; `applinks` makes the notification
  * deep links open the app rather than Safari. Both key off the same appID, so
@@ -14,7 +14,7 @@
  * iOS fetches this over HTTPS with no redirects allowed, so it must stay outside
  * the auth guard (see proxy.ts).
  */
-const BUNDLE_ID = "co.id.nusantaradigital.ruanghr";
+const BUNDLE_ID = "app.nanumhr";
 
 export async function GET() {
   const teamId = process.env.APPLE_TEAM_ID;
@@ -32,7 +32,12 @@ export async function GET() {
     {
       webcredentials: { apps: [appID] },
       applinks: {
-        details: [{ appIDs: [appID], components: [{ "/": "/*", comment: "semua rute" }] }],
+        details: [
+          {
+            appIDs: [appID],
+            components: [{ "/": "/*", comment: "semua rute" }],
+          },
+        ],
       },
     },
     {

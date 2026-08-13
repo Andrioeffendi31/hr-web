@@ -8,7 +8,7 @@
  * the app's WebAuthn origin in lib/webauthn.ts — so a mismatch between what we
  * publish here and what we accept there is impossible.
  */
-const PACKAGE_NAME = "co.id.nusantaradigital.ruanghr";
+const PACKAGE_NAME = "app.nanumhr";
 
 /** Google requires the colon-separated uppercase hex form. */
 function fingerprints(): string[] {

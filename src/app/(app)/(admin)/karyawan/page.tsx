@@ -1,4 +1,14 @@
-import { and, asc, count, desc, eq, gte, ilike, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  isNull,
+  sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import Link from "next/link";
 import { db } from "@/db";
@@ -15,7 +25,7 @@ import { EmployeeForm } from "./employee-form";
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { SelectField } from "@/components/select-field";
-import { type AttStatus, tanggalPendek, todayWib } from "@/lib/hr";
+import { type AttStatus, tanggalTahun, todayWib } from "@/lib/hr";
 import { leaveBalances } from "@/lib/leave";
 import { parsePaging, parseSort } from "@/lib/paging";
 
@@ -70,7 +80,14 @@ export default async function KaryawanPage({
   ]);
 
   const where = and(
-    divFilter === "all" ? undefined : eq(employees.division, divFilter),
+    // "kosong" is how the 26 imported rows are found: they match no division by
+    // definition, so without it the only way to reach them is to page through
+    // everyone and notice the empty cell
+    divFilter === "all"
+      ? undefined
+      : divFilter === "kosong"
+        ? isNull(employees.division)
+        : eq(employees.division, divFilter),
     q ? ilike(employees.name, `%${q}%`) : undefined,
     statusFilter === "semua"
       ? undefined
@@ -97,6 +114,14 @@ export default async function KaryawanPage({
         managerId: employees.managerId,
         active: employees.active,
         photoUrl: employees.photoUrl,
+        birthPlace: employees.birthPlace,
+        birthDate: employees.birthDate,
+        address: employees.address,
+        gender: employees.gender,
+        religion: employees.religion,
+        phone: employees.phone,
+        emergencyName: employees.emergencyName,
+        emergencyPhone: employees.emergencyPhone,
         status: attendance.status,
       })
       .from(employees)
@@ -133,6 +158,14 @@ export default async function KaryawanPage({
         role: employees.role,
         managerId: employees.managerId,
         photoUrl: employees.photoUrl,
+        birthPlace: employees.birthPlace,
+        birthDate: employees.birthDate,
+        address: employees.address,
+        gender: employees.gender,
+        religion: employees.religion,
+        phone: employees.phone,
+        emergencyName: employees.emergencyName,
+        emergencyPhone: employees.emergencyPhone,
         managerName: manager.name,
       })
       .from(employees)
@@ -253,21 +286,21 @@ export default async function KaryawanPage({
       header: "Divisi",
       sortable: true,
       className: "text-muted-foreground text-[12.5px]",
-      cell: (r) => r.division,
+      cell: (r) => r.division ?? "—",
     },
     {
       key: "jabatan",
       header: "Jabatan",
       sortable: true,
       className: "text-[12.5px]",
-      cell: (r) => r.position,
+      cell: (r) => r.position ?? "—",
     },
     {
       key: "tipe",
       header: "Tipe",
       cell: (r) => (
         <Pill tone={r.contractType === "Tetap" ? "success" : "neutral"}>
-          {r.contractType}
+          {r.contractType ?? "—"}
         </Pill>
       ),
     },
@@ -276,7 +309,7 @@ export default async function KaryawanPage({
       header: "Mulai kerja",
       sortable: true,
       className: "tnum text-muted-foreground text-[12.5px]",
-      cell: (r) => `${tanggalPendek(r.joinedAt)} ${r.joinedAt.slice(0, 4)}`,
+      cell: (r) => tanggalTahun(r.joinedAt),
     },
     {
       key: "hariini",
@@ -307,6 +340,14 @@ export default async function KaryawanPage({
             managerId: r.managerId,
             active: r.active,
             photoUrl: r.photoUrl,
+            birthPlace: r.birthPlace,
+            birthDate: r.birthDate,
+            address: r.address,
+            gender: r.gender,
+            religion: r.religion,
+            phone: r.phone,
+            emergencyName: r.emergencyName,
+            emergencyPhone: r.emergencyPhone,
           }}
           trigger={
             <Button
@@ -357,6 +398,7 @@ export default async function KaryawanPage({
               autoSubmit
               options={[
                 { value: "all", label: "Semua divisi" },
+                { value: "kosong", label: "Belum diisi" },
                 ...divisions.map((d) => ({
                   value: d.division,
                   label: d.division,

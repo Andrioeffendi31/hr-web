@@ -16,6 +16,6 @@ export const useUi = create<UiState>()(
       toggleTheme: () =>
         set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
     }),
-    { name: "ruang-hr-ui" },
+    { name: "nanumhr-ui" },
   ),
 );

@@ -9,12 +9,17 @@ import {
   leaveRequests,
   settings,
 } from "@/db/schema";
-import { collectiveLeaveDays, leaveQuota, remainingLeave, todayWib } from "./hr";
+import {
+  collectiveLeaveDays,
+  leaveQuota,
+  remainingLeave,
+  todayWib,
+} from "./hr";
 
 export type LeaveBalance = {
   id: number;
   name: string;
-  joinedAt: string;
+  joinedAt: string | null;
   quota: number;
   adjustment: number;
   usedRequests: number;
@@ -28,7 +33,12 @@ export async function holidaySet(year: number): Promise<Set<string>> {
   const rows = await db
     .select({ date: holidays.date })
     .from(holidays)
-    .where(and(gte(holidays.date, `${year}-01-01`), lte(holidays.date, `${year}-12-31`)));
+    .where(
+      and(
+        gte(holidays.date, `${year}-01-01`),
+        lte(holidays.date, `${year}-12-31`),
+      ),
+    );
   return new Set(rows.map((r) => r.date));
 }
 
@@ -56,8 +66,12 @@ export async function leaveBalances(
         id: employees.id,
         name: employees.name,
         joinedAt: employees.joinedAt,
-        usedRequests: sql<number>`coalesce(sum(${leaveRequests.days}), 0)`.mapWith(Number),
-        adjustment: sql<number>`coalesce(max(${leaveAdjustments.days}), 0)`.mapWith(Number),
+        usedRequests:
+          sql<number>`coalesce(sum(${leaveRequests.days}), 0)`.mapWith(Number),
+        adjustment:
+          sql<number>`coalesce(max(${leaveAdjustments.days}), 0)`.mapWith(
+            Number,
+          ),
       })
       .from(employees)
       .leftJoin(
@@ -100,7 +114,10 @@ export async function leaveBalances(
         ),
       ),
 
-    db.select({ baseLeaveQuota: settings.baseLeaveQuota }).from(settings).limit(1),
+    db
+      .select({ baseLeaveQuota: settings.baseLeaveQuota })
+      .from(settings)
+      .limit(1),
   ]);
 
   const collectiveDates = collective.map((c) => c.date);
@@ -109,14 +126,24 @@ export async function leaveBalances(
   const asOf = now.slice(0, 4) === String(year) ? now : yearEnd;
 
   return rows.map((r) => {
-    const quota = leaveQuota(r.joinedAt, asOf, cfg?.baseLeaveQuota ?? 12);
-    const usedCollective = collectiveLeaveDays(r.joinedAt, collectiveDates);
+    // No start date on file yet (imported employee, HR fills it in later): treat
+    // them as present since the start of the year — base quota, and cuti bersama
+    // charged in full, the same as anyone hired before January. Guarding here and
+    // not inside leaveQuota keeps hr.ts's pure functions total on their input.
+    const joined = r.joinedAt ?? yearStart;
+    const quota = leaveQuota(joined, asOf, cfg?.baseLeaveQuota ?? 12);
+    const usedCollective = collectiveLeaveDays(joined, collectiveDates);
     return {
       ...r,
       quota,
       usedCollective,
       used: r.usedRequests + usedCollective,
-      remaining: remainingLeave(quota, r.adjustment, r.usedRequests, usedCollective),
+      remaining: remainingLeave(
+        quota,
+        r.adjustment,
+        r.usedRequests,
+        usedCollective,
+      ),
     };
   });
 }

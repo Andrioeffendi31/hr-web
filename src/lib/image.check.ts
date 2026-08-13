@@ -22,11 +22,20 @@ for (const [w, h] of [
   [3, 5],
 ] as const) {
   const c = cropRect(w, h, R);
-  assert.ok(Math.abs(c.x * 2 + c.w - w) <= 1, `${w}x${h} not horizontally centred`);
-  assert.ok(Math.abs(c.y * 2 + c.h - h) <= 1, `${w}x${h} not vertically centred`);
+  assert.ok(
+    Math.abs(c.x * 2 + c.w - w) <= 1,
+    `${w}x${h} not horizontally centred`,
+  );
+  assert.ok(
+    Math.abs(c.y * 2 + c.h - h) <= 1,
+    `${w}x${h} not vertically centred`,
+  );
   // must never sample outside the source, or drawImage silently pads with black
   assert.ok(c.x >= 0 && c.y >= 0, `${w}x${h} crop starts off-image`);
-  assert.ok(c.x + c.w <= w && c.y + c.h <= h, `${w}x${h} crop escapes the source`);
+  assert.ok(
+    c.x + c.w <= w && c.y + c.h <= h,
+    `${w}x${h} crop escapes the source`,
+  );
 }
 
 // a square source is wider than 3:4, so it loses width, not height

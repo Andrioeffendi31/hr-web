@@ -177,7 +177,7 @@ export function SettingsForm({
                   <ConfirmDialog
                     destructive
                     title="Hapus logo perusahaan?"
-                    description="Navigasi akan kembali memakai ikon bawaan Ruang HR."
+                    description="Navigasi akan kembali memakai ikon bawaan NanumHR."
                     confirmLabel="Hapus logo"
                     onConfirm={() => removeLogo.mutate()}
                     trigger={

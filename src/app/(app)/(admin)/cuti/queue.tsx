@@ -19,7 +19,7 @@ export type LeaveRow = {
   decisionNote: string | null;
   createdAt: string;
   name: string;
-  division: string;
+  division: string | null;
   employeeId: number;
   delegateName: string | null;
   remaining: number | null;
@@ -83,7 +83,7 @@ export function LeaveQueue({
                   <ReqBadge status={r.status} />
                 </div>
                 <p className="text-subtle mt-0.5 text-[11.5px]">
-                  {r.division} · diajukan{" "}
+                  {r.division ?? "Tanpa divisi"} · diajukan{" "}
                   {new Date(r.createdAt).toLocaleDateString("id-ID", {
                     day: "numeric",
                     month: "short",

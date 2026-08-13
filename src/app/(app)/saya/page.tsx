@@ -1,6 +1,6 @@
 import { Beranda } from "./beranda";
 
-export const metadata = { title: "Beranda — Ruang HR" };
+export const metadata = { title: "Beranda — NanumHR" };
 
 /**
  * The employee's front door.

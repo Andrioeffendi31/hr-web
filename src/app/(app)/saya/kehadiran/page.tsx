@@ -8,7 +8,7 @@ import { AttBadge, Empty, PageHead, Panel, Stat } from "@/components/bits";
 import { SelectField } from "@/components/select-field";
 import { type AttStatus, jam, tanggalPanjang, todayWib } from "@/lib/hr";
 
-export const metadata = { title: "Kehadiran Saya — Ruang HR" };
+export const metadata = { title: "Kehadiran Saya — NanumHR" };
 
 /** The last 12 months, newest first — the same window the mobile picker offers. */
 function lastMonths(n: number) {

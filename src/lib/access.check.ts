@@ -28,6 +28,9 @@ const SAYA = [
   "/saya/berkas",
   "/saya/pengumuman",
   "/profil",
+  // reachable by every role on purpose: it is where an account still carrying the
+  // shared import password is sent, so denying it would strand that account
+  "/ganti-sandi",
 ];
 
 for (const p of ADMIN) {
@@ -38,19 +41,35 @@ for (const p of ADMIN) {
 }
 
 for (const p of SAYA) {
-  for (const role of ROLES) assert.ok(canAccess(p, role), `${p} must allow ${role}`);
+  for (const role of ROLES)
+    assert.ok(canAccess(p, role), `${p} must allow ${role}`);
 }
 
 // a page nobody thought about is admin-only, not public
-assert.equal(canAccess("/halaman-baru", "employee"), false, "unknown path denies");
+assert.equal(
+  canAccess("/halaman-baru", "employee"),
+  false,
+  "unknown path denies",
+);
 // the prefix is segment-exact: a route merely starting with those letters is not /saya
-assert.equal(canAccess("/sayanganku", "employee"), false, "prefix must be segment-exact");
+assert.equal(
+  canAccess("/sayanganku", "employee"),
+  false,
+  "prefix must be segment-exact",
+);
 // and there is no escape by appending the magic word to an admin path
-assert.equal(canAccess("/kehadiran/saya", "employee"), false, "no /saya suffix escape");
+assert.equal(
+  canAccess("/kehadiran/saya", "employee"),
+  false,
+  "no /saya suffix escape",
+);
 
 // homeFor must land somewhere its own role may go, or proxy.ts redirect-loops
 for (const role of ROLES) {
-  assert.ok(canAccess(homeFor(role), role), `${role} cannot reach its own home`);
+  assert.ok(
+    canAccess(homeFor(role), role),
+    `${role} cannot reach its own home`,
+  );
 }
 
 console.log("access.check.ts ok");

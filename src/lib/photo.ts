@@ -33,10 +33,14 @@ export async function replacePhoto({
   actorId: number;
 }): Promise<{ key: string }> {
   if (!r2Configured()) {
-    throw Object.assign(new Error("Object storage belum dikonfigurasi"), { status: 503 });
+    throw Object.assign(new Error("Object storage belum dikonfigurasi"), {
+      status: 503,
+    });
   }
   if (!allowed(extOf(file.name), "photo")) {
-    throw Object.assign(new Error("Foto harus JPG, PNG atau WEBP"), { status: 400 });
+    throw Object.assign(new Error("Foto harus JPG, PNG atau WEBP"), {
+      status: 400,
+    });
   }
   if (file.size > MAX_IMAGE) {
     throw Object.assign(
@@ -57,7 +61,10 @@ export async function replacePhoto({
   const key = keyFor("photo", String(employeeId));
   const bytes = await file.arrayBuffer();
   await putObject(key, bytes, file.type);
-  await db.update(employees).set({ photoUrl: key }).where(eq(employees.id, employeeId));
+  await db
+    .update(employees)
+    .set({ photoUrl: key })
+    .where(eq(employees.id, employeeId));
 
   /**
    * Last, and never fatal. The row already points at the new object, so a failure

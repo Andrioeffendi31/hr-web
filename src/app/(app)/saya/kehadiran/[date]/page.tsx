@@ -20,7 +20,7 @@ import {
 } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Detail Kehadiran — Ruang HR" };
+export const metadata = { title: "Detail Kehadiran — NanumHR" };
 
 const KIND_LABEL = {
   masuk: "Absen masuk",

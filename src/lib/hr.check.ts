@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   acceptsFile,
   attendanceStatus,
+  cekSandi,
   collectiveLeaveDays,
   dateFromIso,
   ekstensi,
@@ -18,10 +19,19 @@ import {
   rentangTanggal,
   resolveShift,
   statusGroup,
+  telepon,
+  tooMany,
   ukuranFile,
+  umur,
   workingDays,
 } from "./hr";
-import { pageHref, parsePaging, parseSort, rangeLabel, totalPages } from "./paging";
+import {
+  pageHref,
+  parsePaging,
+  parseSort,
+  rangeLabel,
+  totalPages,
+} from "./paging";
 
 // working days: 3 Aug 2026 (Mon) – 5 Aug 2026 (Wed) = 3
 assert.equal(workingDays("2026-08-03", "2026-08-05"), 3);
@@ -29,7 +39,11 @@ assert.equal(workingDays("2026-08-03", "2026-08-05"), 3);
 assert.equal(workingDays("2026-07-31", "2026-08-03"), 2);
 // holidays are excluded too (17–18 Aug libur bersama)
 assert.equal(
-  workingDays("2026-08-17", "2026-08-21", new Set(["2026-08-17", "2026-08-18"])),
+  workingDays(
+    "2026-08-17",
+    "2026-08-21",
+    new Set(["2026-08-17", "2026-08-18"]),
+  ),
   3,
 );
 assert.equal(workingDays("2026-08-05", "2026-08-03"), 0, "reversed range");
@@ -48,13 +62,21 @@ for (const iso of ["2026-01-01", "2026-08-17", "2026-12-31", "2026-02-28"]) {
   assert.equal(isoFromDate(dateFromIso(iso)), iso, `round-trip ${iso}`);
 }
 assert.equal(isoFromDate(new Date(2026, 0, 1)), "2026-01-01", "midnight 1 Jan");
-assert.equal(isoFromDate(new Date(2026, 11, 31, 23, 59)), "2026-12-31", "late 31 Dec");
+assert.equal(
+  isoFromDate(new Date(2026, 11, 31, 23, 59)),
+  "2026-12-31",
+  "late 31 Dec",
+);
 assert.equal(dateFromIso("2026-08-17").getDate(), 17, "no off-by-one");
 
 // quota: 12 base + 1 per completed 2 years
 assert.equal(leaveQuota("2021-02-01", "2026-07-30"), 14, "5y tenure → +2");
 assert.equal(leaveQuota("2025-06-02", "2026-07-30"), 12, "1y tenure → +0");
-assert.equal(leaveQuota("2024-08-19", "2026-07-30"), 12, "anniversary not yet passed");
+assert.equal(
+  leaveQuota("2024-08-19", "2026-07-30"),
+  12,
+  "anniversary not yet passed",
+);
 assert.equal(leaveQuota("2024-07-19", "2026-07-30"), 13, "2y just passed");
 
 // balance: quota + carry-over − pengajuan − cuti bersama
@@ -74,13 +96,21 @@ assert.equal(overtimeMinutes("22:00", "01:00"), 180, "crosses midnight");
 
 // attendance status vs 08:00 shift + 15m tolerance
 assert.equal(attendanceStatus("07:52", "08:00:00", 15), "hadir");
-assert.equal(attendanceStatus("08:15", "08:00:00", 15), "hadir", "tolerance edge");
+assert.equal(
+  attendanceStatus("08:15", "08:00:00", 15),
+  "hadir",
+  "tolerance edge",
+);
 assert.equal(attendanceStatus("08:26", "08:00:00", 15), "telat");
 assert.equal(attendanceStatus(null, "08:00:00", 15), "belum_absen");
 assert.equal(attendanceStatus("09:00", "08:00:00", 15, true), "wfh");
 
 // per-division shift resolution, against the company default
-const defaultShift = { shiftStart: "08:00:00", shiftEnd: "17:00:00", lateToleranceMinutes: 15 };
+const defaultShift = {
+  shiftStart: "08:00:00",
+  shiftEnd: "17:00:00",
+  lateToleranceMinutes: 15,
+};
 assert.deepEqual(
   resolveShift(null, defaultShift),
   { start: "08:00", end: "17:00", toleranceMinutes: 15 },
@@ -88,7 +118,11 @@ assert.deepEqual(
 );
 assert.deepEqual(
   resolveShift(
-    { shiftStart: "09:30:00", shiftEnd: "18:30:00", lateToleranceMinutes: null },
+    {
+      shiftStart: "09:30:00",
+      shiftEnd: "18:30:00",
+      lateToleranceMinutes: null,
+    },
     defaultShift,
   ),
   { start: "09:30", end: "18:30", toleranceMinutes: 15 },
@@ -101,8 +135,14 @@ const strict = resolveShift(
 );
 assert.equal(strict.toleranceMinutes, 0);
 assert.equal(strict.end, "17:00");
-assert.equal(attendanceStatus("09:30", strict.start, strict.toleranceMinutes), "hadir");
-assert.equal(attendanceStatus("09:31", strict.start, strict.toleranceMinutes), "telat");
+assert.equal(
+  attendanceStatus("09:30", strict.start, strict.toleranceMinutes),
+  "hadir",
+);
+assert.equal(
+  attendanceStatus("09:31", strict.start, strict.toleranceMinutes),
+  "telat",
+);
 
 // stat-card buckets
 assert.equal(statusGroup("wfh"), "hadir");
@@ -114,7 +154,11 @@ assert.equal(rentangTanggal("2026-07-31", "2026-07-31"), "31 Jul");
 
 // paging: hostile query strings must degrade, never crash or reach SQL
 assert.deepEqual(parsePaging({}), { page: 1, perPage: 20, offset: 0 });
-assert.deepEqual(parsePaging({ page: "3" }), { page: 3, perPage: 20, offset: 40 });
+assert.deepEqual(parsePaging({ page: "3" }), {
+  page: 3,
+  perPage: 20,
+  offset: 40,
+});
 assert.equal(parsePaging({ page: "-5" }).page, 1, "negative page");
 assert.equal(parsePaging({ page: "abc" }).page, 1, "non-numeric page");
 assert.equal(parsePaging({ page: "2.7" }).page, 2, "fractional page floors");
@@ -124,14 +168,41 @@ assert.equal(parsePaging({ perPage: "1" }).perPage, 5, "perPage floored");
 const COLS = { nama: "employees.name", divisi: "employees.division" };
 assert.equal(parseSort({ sort: "divisi" }, COLS).column, "employees.division");
 assert.equal(parseSort({ sort: "nama", dir: "desc" }, COLS).dir, "desc");
-assert.equal(parseSort({ dir: "sideways" }, COLS).dir, "asc", "unknown dir → asc");
-assert.equal(parseSort({ sort: "name;drop table" }, COLS).column, undefined, "not whitelisted");
-assert.equal(parseSort({ sort: "toString" }, COLS).column, undefined, "prototype key");
-assert.equal(parseSort({ sort: "zzz" }, COLS, "nama").key, "nama", "falls back");
+assert.equal(
+  parseSort({ dir: "sideways" }, COLS).dir,
+  "asc",
+  "unknown dir → asc",
+);
+assert.equal(
+  parseSort({ sort: "name;drop table" }, COLS).column,
+  undefined,
+  "not whitelisted",
+);
+assert.equal(
+  parseSort({ sort: "toString" }, COLS).column,
+  undefined,
+  "prototype key",
+);
+assert.equal(
+  parseSort({ sort: "zzz" }, COLS, "nama").key,
+  "nama",
+  "falls back",
+);
 
-assert.equal(pageHref("/karyawan", { div: "Engineering" }, { page: "2" }), "/karyawan?div=Engineering&page=2");
-assert.equal(pageHref("/karyawan", { div: "Engineering", page: "5" }, { sort: "nama" }), "/karyawan?div=Engineering&sort=nama", "sorting resets page");
-assert.equal(pageHref("/karyawan", { page: "5" }, { page: "1" }), "/karyawan", "page 1 is implicit");
+assert.equal(
+  pageHref("/karyawan", { div: "Engineering" }, { page: "2" }),
+  "/karyawan?div=Engineering&page=2",
+);
+assert.equal(
+  pageHref("/karyawan", { div: "Engineering", page: "5" }, { sort: "nama" }),
+  "/karyawan?div=Engineering&sort=nama",
+  "sorting resets page",
+);
+assert.equal(
+  pageHref("/karyawan", { page: "5" }, { page: "1" }),
+  "/karyawan",
+  "page 1 is implicit",
+);
 assert.equal(pageHref("/karyawan", {}, {}), "/karyawan");
 
 assert.equal(totalPages(0, 20), 1, "empty still has one page");
@@ -143,14 +214,34 @@ assert.equal(rangeLabel(9, 20, 137), "0 dari 137", "page past the end");
 
 // drag & drop bypasses the browser's own accept filtering, so acceptsFile has
 // to redo it — a hole here means an .exe reaches the upload endpoint
-assert.equal(acceptsFile("Kontrak.PDF", ".pdf,.jpg"), true, "extension is case-insensitive");
+assert.equal(
+  acceptsFile("Kontrak.PDF", ".pdf,.jpg"),
+  true,
+  "extension is case-insensitive",
+);
 assert.equal(acceptsFile("virus.exe", ".pdf,.jpg"), false);
-assert.equal(acceptsFile("laporan.2026.xlsx", ".xlsx"), true, "dots in the stem are fine");
-assert.equal(acceptsFile("tanpa-ekstensi", ".pdf"), false, "no extension, no guess");
-assert.equal(acceptsFile("shell.php.pdf", ".pdf"), true, "only the last segment counts");
+assert.equal(
+  acceptsFile("laporan.2026.xlsx", ".xlsx"),
+  true,
+  "dots in the stem are fine",
+);
+assert.equal(
+  acceptsFile("tanpa-ekstensi", ".pdf"),
+  false,
+  "no extension, no guess",
+);
+assert.equal(
+  acceptsFile("shell.php.pdf", ".pdf"),
+  true,
+  "only the last segment counts",
+);
 assert.equal(acceptsFile("foto.png", "image/*"), true, "mime wildcard");
 assert.equal(acceptsFile("kontrak.pdf", "image/*"), false);
-assert.equal(acceptsFile("foto.png", "  .PNG , .jpg "), true, "padded, upper-case list");
+assert.equal(
+  acceptsFile("foto.png", "  .PNG , .jpg "),
+  true,
+  "padded, upper-case list",
+);
 assert.equal(acceptsFile("data.csv", ".csv,text/csv"), true);
 
 // what the preview dialog may render in-page
@@ -195,7 +286,11 @@ assert.equal(ekstensi("tanpa-ekstensi"), "");
 assert.equal(ekstensi("arsip.tar.gz"), "gz");
 assert.equal(acceptsFile("foto.JPG", ".jpg,.png"), true, "case-insensitive");
 assert.equal(acceptsFile("virus.exe", ".jpg,.png"), false);
-assert.equal(acceptsFile("tanpa-ekstensi", ".jpg"), false, "no extension, no guess");
+assert.equal(
+  acceptsFile("tanpa-ekstensi", ".jpg"),
+  false,
+  "no extension, no guess",
+);
 assert.equal(acceptsFile("laporan.2026.xlsx", ".xlsx"), true, "double dots");
 assert.equal(acceptsFile("foto.webp", "image/*"), true, "mime wildcard");
 assert.equal(acceptsFile("kontrak.pdf", "image/*"), false);
@@ -221,16 +316,105 @@ assert.equal(ukuranFile(1.5 * 1024 * 1024), "1,5 MB");
     ],
     kantor,
   );
-  assert.equal(t.length, 3, "an event without coordinates is dropped, not pinned at 0,0");
+  assert.equal(
+    t.length,
+    3,
+    "an event without coordinates is dropped, not pinned at 0,0",
+  );
   assert.equal(t[0].tone, "masuk");
   assert.equal(t[1].tone, "ping", "11 m away is inside a 150 m fence");
   assert.equal(t[2].tone, "peringatan", "5,5 km away is outside it");
-  assert.match(t[0].label, /^Absen masuk 08\.00 · 0 m dari kantor$/, "WIB, not UTC");
+  assert.match(
+    t[0].label,
+    /^Absen masuk 08\.00 · 0 m dari kantor$/,
+    "WIB, not UTC",
+  );
   // WFH: no fence, so nothing can be outside one
   assert.equal(
-    jejakAbsen([{ kind: "lokasi", at, lat: "-6.25", lng: "106.8" }], null)[0].tone,
+    jejakAbsen([{ kind: "lokasi", at, lat: "-6.25", lng: "106.8" }], null)[0]
+      .tone,
     "ping",
   );
+}
+
+// telepon / umur — the two formatters the employee record added
+{
+  assert.equal(
+    telepon("0858 8182 0410"),
+    "0858-8182-0410",
+    "spacing in the source data is ignored",
+  );
+  assert.equal(
+    telepon("085881820410"),
+    "0858-8182-0410",
+    "same number, same output",
+  );
+  assert.equal(
+    telepon("08123456789"),
+    "0812-3456-789",
+    "a short last group is not padded",
+  );
+  assert.equal(telepon(null), "—", "no number is not an empty string");
+  assert.equal(telepon(""), "—");
+
+  assert.equal(
+    umur("1991-10-04", "2026-08-13"),
+    34,
+    "birthday not yet reached this year",
+  );
+  assert.equal(
+    umur("1991-08-13", "2026-08-13"),
+    35,
+    "the birthday itself counts",
+  );
+  assert.equal(umur("1991-08-14", "2026-08-13"), 34, "one day short");
+  assert.equal(umur(null), null, "no birth date is null, not 0 or NaN");
+  assert.equal(umur("bukan-tanggal"), null);
+}
+
+// cekSandi — every rule fails on its own, and the shared import password fails
+{
+  assert.equal(cekSandi("Rahasia1!"), null, "meets every rule");
+  assert.match(cekSandi("Rhs1!")!, /8 karakter/);
+  assert.match(cekSandi("rahasia1!")!, /kapital/);
+  assert.match(cekSandi("Rahasiaa!")!, /angka/);
+  assert.match(cekSandi("Rahasia12")!, /simbol/);
+  // the whole point of the flag on 26 accounts: the shared password cannot be kept
+  assert.match(
+    cekSandi("nanum2026")!,
+    /kapital/,
+    "the import password is rejected",
+  );
+  assert.equal(
+    cekSandi("Rahasia1é"),
+    null,
+    "a non-ASCII character counts as a symbol",
+  );
+  assert.equal(cekSandi("A1!" + "a".repeat(69)), null, "72 bytes is allowed");
+  assert.match(cekSandi("A1!" + "a".repeat(70))!, /panjang/, "73 is not");
+  // é is two bytes, so 71 characters can still be over the byte limit
+  assert.match(
+    cekSandi("A1!" + "é".repeat(35))!,
+    /panjang/,
+    "measured in bytes, not characters",
+  );
+}
+
+// tooMany — the window slides rather than resetting on a fixed boundary
+{
+  for (let i = 0; i < 5; i++)
+    assert.equal(
+      tooMany("uji", 5, 1000, 1_000),
+      false,
+      `attempt ${i + 1} of 5`,
+    );
+  assert.equal(
+    tooMany("uji", 5, 1000, 1_000),
+    true,
+    "the sixth in-window attempt",
+  );
+  assert.equal(tooMany("uji", 5, 1000, 3_000), false, "and the window slides");
+  assert.equal(tooMany("lain", 5, 1000, 1_000), false, "keys are independent");
 }
 
 console.log("hr.ts self-check OK");

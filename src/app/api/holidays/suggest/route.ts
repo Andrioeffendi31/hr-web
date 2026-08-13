@@ -24,7 +24,11 @@ function parseIcs(text: string): Event[] {
     if (line === "BEGIN:VEVENT") cur = {};
     else if (line === "END:VEVENT") {
       if (cur.date && cur.name) {
-        out.push({ date: cur.date, name: cur.name, description: cur.description ?? "" });
+        out.push({
+          date: cur.date,
+          name: cur.name,
+          description: cur.description ?? "",
+        });
       }
     } else if (line.startsWith("DTSTART;VALUE=DATE:")) {
       const d = line.slice("DTSTART;VALUE=DATE:".length).trim();
@@ -66,7 +70,10 @@ export async function GET(req: Request) {
     if (events.length === 0) throw new Error("kalender kosong");
   } catch {
     return Response.json(
-      { error: "Gagal mengambil kalender libur, silakan input manual atau import CSV" },
+      {
+        error:
+          "Gagal mengambil kalender libur, silakan input manual atau import CSV",
+      },
       { status: 502 },
     );
   }
@@ -77,7 +84,10 @@ export async function GET(req: Request) {
         .select({ date: holidays.date })
         .from(holidays)
         .where(
-          and(gte(holidays.date, `${year}-01-01`), lte(holidays.date, `${year}-12-31`)),
+          and(
+            gte(holidays.date, `${year}-01-01`),
+            lte(holidays.date, `${year}-12-31`),
+          ),
         )
     ).map((r) => r.date),
   );

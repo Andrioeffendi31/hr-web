@@ -45,7 +45,7 @@ export type DayDetail = {
   employeeId: number;
   name: string;
   nik: string;
-  division: string;
+  division: string | null;
   photoUrl: string | null;
   date: string;
   clockIn: string | null;
@@ -151,7 +151,8 @@ export function AttendanceDetail({
               {d.name}
             </DialogTitle>
             <p className="text-subtle text-[11.5px]">
-              {d.nik} · {d.division}
+              {d.nik}
+              {d.division ? ` · ${d.division}` : ""}
             </p>
           </div>
           <AttBadge status={d.status} />
@@ -340,12 +341,14 @@ export function AttendanceDetail({
           >
             Profil karyawan
           </Link>
-          <Link
-            href={`/kehadiran?div=${encodeURIComponent(d.division)}&date=${d.date}`}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-10 items-center justify-center rounded-[9px] text-[13px] font-medium transition-colors"
-          >
-            Kehadiran divisi
-          </Link>
+          {d.division && (
+            <Link
+              href={`/kehadiran?div=${encodeURIComponent(d.division)}&date=${d.date}`}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-10 items-center justify-center rounded-[9px] text-[13px] font-medium transition-colors"
+            >
+              Kehadiran divisi
+            </Link>
+          )}
         </div>
       </DialogContent>
     </Dialog>

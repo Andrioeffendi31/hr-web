@@ -12,9 +12,14 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { PERUSAHAAN } from "@/lib/hr";
 
 export const roleEnum = pgEnum("role", ["hr_admin", "manager", "employee"]);
 export const contractEnum = pgEnum("contract_type", ["Tetap", "Kontrak"]);
+/** Closed at two, so the column can reject the source data's spelling variants
+ *  ("Laki - Laki") instead of storing them. Values are display-ready on purpose —
+ *  a label map for two words is a lookup nobody needs. */
+export const genderEnum = pgEnum("gender", ["Laki-laki", "Perempuan"]);
 export const attendanceStatusEnum = pgEnum("attendance_status", [
   "hadir",
   "telat",
@@ -112,18 +117,56 @@ export const employees = pgTable("employees", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   role: roleEnum("role").notNull().default("employee"),
-  division: text("division")
-    .notNull()
-    .references(() => divisions.name, { onUpdate: "cascade" }),
-  position: text("position").notNull(),
-  contractType: contractEnum("contract_type").notNull(),
-  joinedAt: date("joined_at").notNull(),
+  /**
+   * Employment data, all nullable since the import.
+   *
+   * The employee master data arrives from HR without any of these four, and
+   * inventing a division or a start date would put a wrong value in the columns
+   * the shift and the leave quota are computed from. Empty is the honest state;
+   * HR fills each one in through /karyawan. NULL satisfies the FK, so a division
+   * row keeps its shift override either way.
+   */
+  division: text("division").references(() => divisions.name, {
+    onUpdate: "cascade",
+  }),
+  position: text("position"),
+  contractType: contractEnum("contract_type"),
+  joinedAt: date("joined_at"),
   workLocation: text("work_location").notNull().default("Kantor Pusat"),
   /** direct supervisor — approver in a later phase, reference only in v1 (PRD §4) */
   managerId: integer("manager_id"),
   active: boolean("active").notNull().default(true),
   /** R2 object key of the profile photo (see src/lib/r2.ts), null = no photo */
   photoUrl: text("photo_url"),
+
+  /**
+   * Personal data (PRD §6.4 "data pribadi"). Nullable throughout: the source
+   * sheet itself has gaps, and a blank cell must not become a fabricated value.
+   */
+  birthPlace: text("birth_place"),
+  birthDate: date("birth_date"),
+  address: text("address"),
+  gender: genderEnum("gender"),
+  /**
+   * Free text, not an enum. The official list has changed before (Konghucu
+   * re-recognised in 2006) and the source data already disagrees with it —
+   * "Protestan" where the official spelling is "Kristen". A closed type here buys
+   * nothing the form's own option list doesn't, and costs an ALTER TYPE the first
+   * time a KTP says something else.
+   */
+  religion: text("religion"),
+  phone: text("phone"),
+  /** next of kin — the person to call, not a user of the app */
+  emergencyName: text("emergency_name"),
+  emergencyPhone: text("emergency_phone"),
+  /** set by the import: the shared temporary password must not stay usable */
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
+  /**
+   * Session epoch. Every JWT carries an `iat`; a token issued before this stamp
+   * is refused by the checks in lib/me.ts, (app)/layout.tsx and requireAdmin().
+   * NULL means "never rotated", which no token can be older than.
+   */
+  passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }),
 });
 
 export const attendance = pgTable(
@@ -338,7 +381,9 @@ export const pushTokens = pgTable(
       .notNull()
       .references(() => employees.id, { onDelete: "cascade" }),
     platform: text("platform").notNull().default("unknown"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   },
   (t) => [index("push_tokens_employee").on(t.employeeId)],
@@ -360,7 +405,9 @@ export const authenticators = pgTable("authenticators", {
   transports: text("transports"),
   /** user-facing label, e.g. "MacBook Pro (Touch ID)" */
   label: text("label").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
 });
 
@@ -376,11 +423,30 @@ export const webauthnChallenges = pgTable("webauthn_challenges", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 
+/**
+ * Single-use tokens for the "lupa kata sandi" link.
+ *
+ * Shape and lifecycle copied from webauthnChallenges above, including the
+ * DELETE ... RETURNING consumption in lib/reset.ts. `id` holds sha256(token), not
+ * the token: the link is the secret, and a database read must not be redeemable.
+ */
+export const passwordResets = pgTable(
+  "password_resets",
+  {
+    id: text("id").primaryKey(),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [index("password_resets_employee_idx").on(t.employeeId)],
+);
+
 /** single-row config table; avoids hardcoding quotas/shifts in app code.
  *  No pay rates here — this app records presence, not payroll (PRD §3). */
 export const settings = pgTable("settings", {
   id: integer("id").primaryKey().default(1),
-  companyName: text("company_name").notNull().default("PT Nusantara Digital"),
+  companyName: text("company_name").notNull().default(PERUSAHAAN),
   /** R2 object key for the company mark shown in the admin shell. */
   companyLogoUrl: text("company_logo_url"),
   weeklyOvertimeCapHours: integer("weekly_ot_cap_hours").notNull().default(14),

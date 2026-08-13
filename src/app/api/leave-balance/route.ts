@@ -35,7 +35,10 @@ export async function PATCH(req: Request) {
         set: { days, note: note || null },
       });
   } catch {
-    return Response.json({ error: "Karyawan tidak ditemukan" }, { status: 404 });
+    return Response.json(
+      { error: "Karyawan tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   await db.insert(auditLog).values({

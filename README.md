@@ -1,16 +1,22 @@
-# Ruang HR — konsol web HR Admin
+# NanumHR — konsol web HR Admin
 
 Implementasi [`../PRD.md`](../PRD.md). Next.js 16 (App Router) · Tailwind v4 · shadcn/ui ·
 Zustand · TanStack Query · Framer Motion · Drizzle + Postgres (Neon) · NextAuth.
 
 Token warna, tipografi, dan layout diambil langsung dari mockup
-`../Ruang HR Lite.dc.html`, dipetakan ke nama token shadcn agar komponen bawaan
+`../NanumHR Lite.dc.html`, dipetakan ke nama token shadcn agar komponen bawaan
 ikut bergaya tanpa restyling.
 
 ## Production
 
 Live di **https://web-khaki-eight-38.vercel.app**, database di Neon project
-`ruang-hr` (`small-union-33863299`, region `aws-us-west-2`).
+`nanumhr` (`noisy-credit-14515162`, region `aws-ap-southeast-1`, Postgres 16 — sama
+dengan Postgres lokal).
+
+Proyek Neon lama `ruang-hr` (`small-union-33863299`, `aws-us-west-2`) **sengaja masih
+hidup** sebagai jalan pulang; hapus setelah yang baru terbukti jalan beberapa hari.
+Region pindah ke Singapura: yang lama di `us-west-2` berarti setiap query dari
+Indonesia menyeberangi Pasifik.
 
 - `DATABASE_URL` dan `AUTH_SECRET` sudah diset sebagai Vercel env var
   (Production + Preview). `AUTH_URL` sengaja tidak diset — Auth.js otomatis
@@ -39,7 +45,53 @@ npm run db:seed              # data demo dari mockup (16 karyawan, ~700 baris ab
 npm run dev
 ```
 
-Login: `andini.rahmawati@nusantaradigital.co.id` / `securePass123`
+Login: `andini.rahmawati@nanumindahsejati.co.id` / `securePass123`
+
+### Kata sandi
+
+Aturan kata sandi ada di satu tempat, `cekSandi()` di `src/lib/hr.ts` (minimal 8
+karakter, ada huruf kapital, angka, dan simbol) — dipakai oleh ganti sandi mandiri,
+reset oleh HR, dan tautan lupa sandi.
+
+- **Login pertama**: akun hasil `db:import` ditandai `must_change_password`, jadi
+  setiap halaman dan setiap endpoint `/api/me/*` (selain `/api/me` dan
+  `/api/me/password`) menolak sampai kata sandinya diganti.
+- **Ganti sandi**: `/ganti-sandi`, dari panel Kata sandi di `/profil`, ikon kunci di
+  sidebar, atau baris di Pengaturan aplikasi ponsel.
+- **Reset oleh HR**: tombol di drawer karyawan `/karyawan`. Kata sandi sementara
+  digenerate dan ditampilkan **sekali**; tidak tersimpan di audit log.
+- **Lupa sandi**: `/lupa-sandi` mengirim tautan sekali pakai (berlaku 1 jam) ke
+  email karyawan. Tanpa kredensial SMTP, tautannya tercetak di log server.
+
+Mengganti atau mereset kata sandi **mengeluarkan sesi di perangkat lain**: setiap
+sesi menyimpan `password_changed_at` saat login, dan yang tidak cocok lagi ditolak
+(`stale()` di `src/auth.ts`).
+
+### Data karyawan sungguhan
+
+```bash
+npm run db:import            # 26 karyawan ke DB lokal (src/db/karyawan-data.ts)
+npm run db:import:neon       # ke Neon — butuh .env.neon berisi connection string DIRECT
+```
+
+`.env.neon` sengaja terpisah dari `.env.local`: ketiga skrip `db:*` dipasak ke satu
+berkas env, jadi mengarahkan `.env.local` ke produksi lalu lupa mengembalikannya berarti
+`db:import` berikutnya menghapus data produksi. DDL (`db:push:neon`) harus lewat endpoint
+**direct**, sedangkan yang dipasang di Vercel adalah yang **pooled**.
+
+Merusak: seluruh tabel turunan karyawan dikosongkan (absensi, cuti, lembur,
+berkas, pengumuman, audit log, push token, passkey). Yang **dipertahankan**:
+`office_locations`, `settings`, `divisions`, dan `holidays` — semuanya
+konfigurasi yang diisi manual, bukan data contoh.
+
+Setiap akun dapat sandi awal yang sama (`nanum2026`, ubah lewat
+`IMPORT_PASSWORD`) dan ditandai wajib ganti sandi saat login pertama. Divisi,
+jabatan, tipe kontrak, dan tanggal mulai kerja sengaja dibiarkan kosong — tidak
+ada di data sumber, dan menebaknya akan salah menghitung shift serta kuota cuti.
+HR mengisinya lewat `/karyawan`.
+
+`db:seed` tetap fixture demo untuk dev dan `scripts/smoke.sh`; keduanya tidak
+saling menimpa selain sama-sama menulis tabel `employees`.
 
 Untuk Neon, cukup ganti `DATABASE_URL` — driver `node-postgres` yang sama dipakai
 untuk lokal dan Neon, tidak ada perubahan kode.

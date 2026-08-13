@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -9,23 +10,38 @@ import { Button } from "@/components/ui/button";
 import { AttBadge, Avatar, Pill } from "@/components/bits";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmployeeForm } from "./employee-form";
-import { type AttStatus, jam, tanggalPendek } from "@/lib/hr";
+import {
+  type AttStatus,
+  jam,
+  tanggalPendek,
+  tanggalTahun,
+  telepon,
+  umur,
+} from "@/lib/hr";
 
 export type Detail = {
   id: number;
   name: string;
   nik: string;
   email: string;
-  division: string;
-  position: string;
-  contractType: "Tetap" | "Kontrak";
-  joinedAt: string;
+  division: string | null;
+  position: string | null;
+  contractType: "Tetap" | "Kontrak" | null;
+  joinedAt: string | null;
   workLocation: string;
   active: boolean;
   role: "hr_admin" | "manager" | "employee";
   managerId: number | null;
   photoUrl: string | null;
   managerName: string | null;
+  birthPlace: string | null;
+  birthDate: string | null;
+  address: string | null;
+  gender: "Laki-laki" | "Perempuan" | null;
+  religion: string | null;
+  phone: string | null;
+  emergencyName: string | null;
+  emergencyPhone: string | null;
   hadir: number;
   telat: number;
   sisaCuti: number;
@@ -51,6 +67,30 @@ export function EmployeeDetail({
   managers: { id: number; name: string }[];
 }) {
   const router = useRouter();
+
+  // The temporary password lives in state for exactly as long as the dialog showing
+  // it is open. Never persisted, never in a toast — a toast outlives the eyes on it.
+  const [sandi, setSandi] = useState<string | null>(null);
+  const reset = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/employees/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: d.id }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        password?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? "Gagal mereset kata sandi");
+      return data.password!;
+    },
+    onSuccess: (password) => {
+      setSandi(password);
+      router.refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const toggle = useMutation({
     mutationFn: async () => {
@@ -87,11 +127,30 @@ export function EmployeeDetail({
     },
   ];
 
+  const pribadi: [string, string][] = [
+    [
+      "Tempat, tanggal lahir",
+      d.birthPlace || d.birthDate
+        ? [d.birthPlace, tanggalTahun(d.birthDate)].filter(Boolean).join(", ")
+        : "—",
+    ],
+    ["Umur", umur(d.birthDate) === null ? "—" : `${umur(d.birthDate)} tahun`],
+    ["Jenis kelamin", d.gender ?? "—"],
+    ["Agama", d.religion ?? "—"],
+    ["No. telepon", telepon(d.phone)],
+    ["Alamat", d.address ?? "—"],
+  ];
+
+  const darurat: [string, string][] = [
+    ["Nama", d.emergencyName ?? "—"],
+    ["No. telepon", telepon(d.emergencyPhone)],
+  ];
+
   const info: [string, string][] = [
-    ["Divisi", d.division],
-    ["Jabatan", d.position],
-    ["Tipe kontrak", d.contractType],
-    ["Mulai kerja", `${tanggalPendek(d.joinedAt)} ${d.joinedAt.slice(0, 4)}`],
+    ["Divisi", d.division ?? "—"],
+    ["Jabatan", d.position ?? "—"],
+    ["Tipe kontrak", d.contractType ?? "—"],
+    ["Mulai kerja", tanggalTahun(d.joinedAt)],
     ["Lokasi kerja", d.workLocation],
     ["Atasan langsung", d.managerName ?? "—"],
     ["Email kantor", d.email],
@@ -192,11 +251,21 @@ export function EmployeeDetail({
                   </p>
                 )}
               </div>
+
+              <h3 className="text-subtle mt-5 mb-2 text-xs font-semibold tracking-[0.05em] uppercase">
+                Data pribadi
+              </h3>
+              <Baris rows={pribadi} />
+
+              <h3 className="text-subtle mt-5 mb-2 text-xs font-semibold tracking-[0.05em] uppercase">
+                Kontak darurat
+              </h3>
+              <Baris rows={darurat} />
             </section>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 border-t px-5 py-3.5 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 border-t px-5 py-3.5 sm:grid-cols-5">
           <EmployeeForm
             divisions={divisions}
             managers={managers}
@@ -214,6 +283,14 @@ export function EmployeeDetail({
               managerId: d.managerId,
               photoUrl: d.photoUrl,
               active: d.active,
+              birthPlace: d.birthPlace,
+              birthDate: d.birthDate,
+              address: d.address,
+              gender: d.gender,
+              religion: d.religion,
+              phone: d.phone,
+              emergencyName: d.emergencyName,
+              emergencyPhone: d.emergencyPhone,
             }}
             trigger={
               <Button variant="outline" className="w-full">
@@ -247,20 +324,90 @@ export function EmployeeDetail({
             destructive={d.active}
             onConfirm={() => toggle.mutate()}
           />
+          <ConfirmDialog
+            trigger={
+              <Button
+                variant="outline"
+                disabled={reset.isPending}
+                className="w-full"
+              >
+                Reset kata sandi
+              </Button>
+            }
+            title={`Reset kata sandi ${d.name}?`}
+            description="Kata sandi lamanya langsung tidak berlaku dan semua perangkat yang masih masuk akan keluar. Kata sandi sementara ditampilkan sekali di layar ini — salin dan serahkan langsung ke karyawan."
+            confirmLabel="Reset"
+            destructive
+            onConfirm={() => reset.mutate()}
+          />
           <Link
             href={`/berkas?owner=${d.id}`}
             className="bg-surface-2 border-border-strong hover:bg-accent flex h-10 items-center justify-center rounded-[9px] border text-[13px] font-medium transition-colors"
           >
             Lihat berkas
           </Link>
-          <Link
-            href={`/kehadiran?div=${encodeURIComponent(d.division)}`}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-10 items-center justify-center rounded-[9px] text-[13px] font-medium transition-colors"
-          >
-            Kehadiran divisi
-          </Link>
+          {d.division && (
+            <Link
+              href={`/kehadiran?div=${encodeURIComponent(d.division)}`}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-10 items-center justify-center rounded-[9px] text-[13px] font-medium transition-colors"
+            >
+              Kehadiran divisi
+            </Link>
+          )}
         </div>
       </DialogContent>
+
+      {sandi && (
+        <Dialog open onOpenChange={() => setSandi(null)}>
+          <DialogContent className="sm:max-w-[420px]">
+            <DialogTitle className="text-[15px]">
+              Kata sandi sementara {d.name}
+            </DialogTitle>
+            <p className="text-muted-foreground text-[12.5px] leading-relaxed">
+              Serahkan ke karyawan lewat jalur yang Anda percaya. Ia wajib
+              menggantinya saat masuk pertama kali.
+            </p>
+            <div className="bg-surface-2 flex items-center justify-between gap-3 rounded-[11px] border px-3 py-2.5">
+              <code className="font-mono text-[17px] font-semibold select-all">
+                {sandi}
+              </code>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  void navigator.clipboard.writeText(sandi);
+                  toast.success("Kata sandi disalin");
+                }}
+              >
+                Salin
+              </Button>
+            </div>
+            <p className="text-subtle text-[11.5px]">
+              Hanya ditampilkan sekali — tidak tersimpan di mana pun, termasuk
+              di audit log.
+            </p>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
+  );
+}
+
+/** The label/value row the three lists in this drawer share. Blank values print
+ *  "—" upstream, so a missing field reads as missing rather than as an empty row. */
+function Baris({ rows }: { rows: [string, string][] }) {
+  return (
+    <dl>
+      {rows.map(([label, value]) => (
+        <div
+          key={label}
+          className="flex items-start justify-between gap-3 border-b py-2.5 last:border-0"
+        >
+          <dt className="text-muted-foreground shrink-0 text-[12.5px]">
+            {label}
+          </dt>
+          <dd className="text-right text-[12.5px] font-medium">{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

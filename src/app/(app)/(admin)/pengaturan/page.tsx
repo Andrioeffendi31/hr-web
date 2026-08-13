@@ -4,6 +4,7 @@ import { PageHead } from "@/components/bits";
 import { db } from "@/db";
 import { officeLocations, settings } from "@/db/schema";
 import { SettingsForm } from "./settings-form";
+import { PERUSAHAAN } from "@/lib/hr";
 
 export default async function PengaturanPage() {
   await requireAdmin();
@@ -19,7 +20,7 @@ export default async function PengaturanPage() {
   ]);
 
   const initial = {
-    companyName: row?.companyName ?? "PT Nusantara Digital",
+    companyName: row?.companyName ?? PERUSAHAAN,
     companyLogoUrl: row?.companyLogoUrl ?? null,
     shiftStart: (row?.shiftStart ?? "08:00:00").slice(0, 5),
     shiftEnd: (row?.shiftEnd ?? "17:00:00").slice(0, 5),

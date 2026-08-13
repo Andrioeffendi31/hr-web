@@ -37,5 +37,9 @@ export const config = {
   // `.well-known` must stay public and un-redirected: Apple and Google fetch the
   // association files anonymously and refuse to follow a redirect, so guarding
   // them would silently break passkey enrolment in the mobile app.
-  matcher: ["/((?!login|api|\\.well-known|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    // lupa-sandi and atur-sandi are public for the same reason login is: they are
+    // how somebody who cannot sign in gets back in.
+    "/((?!login|lupa-sandi|atur-sandi|api|\\.well-known|_next/static|_next/image|favicon.ico).*)",
+  ],
 };

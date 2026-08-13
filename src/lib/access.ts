@@ -17,8 +17,11 @@
 export type Role = "hr_admin" | "manager" | "employee";
 
 /**
- * `/profil` is the one page both sides share: it only ever reads the session's
- * own employee row, so it needs no role of its own.
+ * `/profil` and `/ganti-sandi` are the pages both sides share: each only ever
+ * reads or writes the session's own employee row, so neither needs a role. The
+ * second one has to be reachable by everybody in particular — it is where an
+ * account carrying the shared import password is sent, and denying it to any role
+ * would strand exactly the people who cannot use the rest of the app yet.
  *
  * The `/saya` check is segment-exact on purpose — `startsWith("/saya")` alone
  * would also match `/sayanganku`, handing an employee any future route whose
@@ -26,7 +29,12 @@ export type Role = "hr_admin" | "manager" | "employee";
  */
 export function canAccess(pathname: string, role: Role): boolean {
   if (role === "hr_admin") return true;
-  return pathname === "/saya" || pathname.startsWith("/saya/") || pathname === "/profil";
+  return (
+    pathname === "/saya" ||
+    pathname.startsWith("/saya/") ||
+    pathname === "/profil" ||
+    pathname === "/ganti-sandi"
+  );
 }
 
 /**

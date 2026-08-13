@@ -54,7 +54,9 @@ export function extOf(filename: string): string {
 export function allowed(ext: string, kind: Kind): boolean {
   // a leave attachment is a document (a scanned note, a photo of one), so it
   // takes the document list rather than the image-only one
-  return (kind === "doc" || kind === "lampiran" ? DOC_EXT : IMAGE_EXT).includes(ext);
+  return (kind === "doc" || kind === "lampiran" ? DOC_EXT : IMAGE_EXT).includes(
+    ext,
+  );
 }
 
 /**
@@ -113,9 +115,9 @@ export function keyFor(
 export function r2Configured(): boolean {
   return Boolean(
     process.env.R2_ACCOUNT_ID &&
-      process.env.R2_ACCESS_KEY_ID &&
-      process.env.R2_SECRET_ACCESS_KEY &&
-      process.env.R2_BUCKET,
+    process.env.R2_ACCESS_KEY_ID &&
+    process.env.R2_SECRET_ACCESS_KEY &&
+    process.env.R2_BUCKET,
   );
 }
 
@@ -184,7 +186,11 @@ export async function headObject(key: string): Promise<number | null> {
 }
 
 /** Body is buffered (not streamed) because SigV4 has to hash it. Images only. */
-export async function putObject(key: string, body: ArrayBuffer, contentType: string) {
+export async function putObject(
+  key: string,
+  body: ArrayBuffer,
+  contentType: string,
+) {
   const res = await client().fetch(objectUrl(key), {
     method: "PUT",
     body,

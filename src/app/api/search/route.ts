@@ -1,7 +1,12 @@
 import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { requireAdmin } from "@/auth";
 import { db } from "@/db";
-import { attendance, employees, leaveRequests, overtimeRequests } from "@/db/schema";
+import {
+  attendance,
+  employees,
+  leaveRequests,
+  overtimeRequests,
+} from "@/db/schema";
 import { todayWib } from "@/lib/hr";
 
 const LIMIT = 8;
@@ -10,8 +15,8 @@ export type SearchHit = {
   id: number;
   name: string;
   nik: string;
-  division: string;
-  position: string;
+  division: string | null;
+  position: string | null;
   active: boolean;
   status: string;
   pendingCuti: number;
@@ -60,19 +65,29 @@ export async function GET(req: Request) {
     .orderBy(sql`(${employees.name} ilike ${q + "%"}) desc`, employees.name)
     .limit(LIMIT);
 
-  if (rows.length === 0) return Response.json({ hits: [] satisfies SearchHit[] });
+  if (rows.length === 0)
+    return Response.json({ hits: [] satisfies SearchHit[] });
 
   const ids = rows.map((r) => r.id);
   const [cuti, lembur] = await Promise.all([
     db
-      .select({ employeeId: leaveRequests.employeeId, n: sql<number>`count(*)`.mapWith(Number) })
+      .select({
+        employeeId: leaveRequests.employeeId,
+        n: sql<number>`count(*)`.mapWith(Number),
+      })
       .from(leaveRequests)
       .where(
-        and(inArray(leaveRequests.employeeId, ids), eq(leaveRequests.status, "menunggu")),
+        and(
+          inArray(leaveRequests.employeeId, ids),
+          eq(leaveRequests.status, "menunggu"),
+        ),
       )
       .groupBy(leaveRequests.employeeId),
     db
-      .select({ employeeId: overtimeRequests.employeeId, n: sql<number>`count(*)`.mapWith(Number) })
+      .select({
+        employeeId: overtimeRequests.employeeId,
+        n: sql<number>`count(*)`.mapWith(Number),
+      })
       .from(overtimeRequests)
       .where(
         and(

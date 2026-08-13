@@ -7,7 +7,7 @@ import { announcements, employees } from "@/db/schema";
 import { Empty, PageHead, Panel, Pill, type Tone } from "@/components/bits";
 import { tanggalPanjang } from "@/lib/hr";
 
-export const metadata = { title: "Pengumuman — Ruang HR" };
+export const metadata = { title: "Pengumuman — NanumHR" };
 
 const CATEGORY_TONE: Record<string, Tone> = {
   Kebijakan: "primary",

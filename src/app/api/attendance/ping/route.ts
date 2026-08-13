@@ -79,7 +79,10 @@ export async function POST(req: Request) {
     return Response.json({ error: "Belum clock-in hari ini" }, { status: 400 });
   }
   if (att.clockOut) {
-    return Response.json({ error: "Sudah clock-out hari ini" }, { status: 400 });
+    return Response.json(
+      { error: "Sudah clock-out hari ini" },
+      { status: 400 },
+    );
   }
 
   const [last] = await db

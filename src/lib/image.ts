@@ -38,9 +38,15 @@ export function cropRect(w: number, h: number, ratio: number) {
  */
 export async function toWebp(
   file: File,
-  { ratio, width, quality = 0.6 }: { ratio: number; width: number; quality?: number },
+  {
+    ratio,
+    width,
+    quality = 0.6,
+  }: { ratio: number; width: number; quality?: number },
 ): Promise<File> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const bitmap = await createImageBitmap(file, {
+    imageOrientation: "from-image",
+  });
   const src = cropRect(bitmap.width, bitmap.height, ratio);
 
   const canvas = document.createElement("canvas");
@@ -48,7 +54,17 @@ export async function toWebp(
   canvas.height = Math.round(width / ratio);
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Browser tidak mendukung pemrosesan gambar");
-  ctx.drawImage(bitmap, src.x, src.y, src.w, src.h, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(
+    bitmap,
+    src.x,
+    src.y,
+    src.w,
+    src.h,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
   bitmap.close();
 
   const blob = await new Promise<Blob | null>((resolve) =>

@@ -72,7 +72,10 @@ export const POST = withMe(async (me, req) => {
     throw new Bad("Foto harus JPG, PNG atau WEBP");
   }
   if (file.size > MAX_IMAGE) {
-    throw new Bad(`Foto terlalu besar (maks ${MAX_IMAGE / (1024 * 1024)} MB)`, 413);
+    throw new Bad(
+      `Foto terlalu besar (maks ${MAX_IMAGE / (1024 * 1024)} MB)`,
+      413,
+    );
   }
 
   const cfg = await config();
@@ -122,8 +125,10 @@ export const POST = withMe(async (me, req) => {
    * A null on clock-out means the day was declared WFH, so there is nothing to
    * measure and the punch passes, same as the clock-in did.
    */
-  const wantedId = action === "out" ? existing!.locationId : isWfh ? null : locationId;
-  if (action === "in" && !isWfh && !wantedId) throw new Bad("Pilih titik absen dulu");
+  const wantedId =
+    action === "out" ? existing!.locationId : isWfh ? null : locationId;
+  if (action === "in" && !isWfh && !wantedId)
+    throw new Bad("Pilih titik absen dulu");
 
   const office = wantedId
     ? (
@@ -156,7 +161,12 @@ export const POST = withMe(async (me, req) => {
 
   if (action === "in") {
     const shift = resolveShift(me, cfg);
-    const status = attendanceStatus(now, shift.start, shift.toleranceMinutes, isWfh);
+    const status = attendanceStatus(
+      now,
+      shift.start,
+      shift.toleranceMinutes,
+      isWfh,
+    );
     const values = {
       employeeId: me.id,
       date: today,
@@ -173,7 +183,10 @@ export const POST = withMe(async (me, req) => {
           .set(values)
           .where(eq(attendance.id, existing.id))
           .returning({ id: attendance.id })
-      : await db.insert(attendance).values(values).returning({ id: attendance.id });
+      : await db
+          .insert(attendance)
+          .values(values)
+          .returning({ id: attendance.id });
     attendanceId = row.id;
   } else {
     attendanceId = existing!.id;

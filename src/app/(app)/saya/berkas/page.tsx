@@ -9,7 +9,7 @@ import { FilePreview } from "@/components/file-preview";
 import { previewKind, tanggalPendek, ukuranFile } from "@/lib/hr";
 import { UploadBerkas } from "./upload";
 
-export const metadata = { title: "Berkas Saya — Ruang HR" };
+export const metadata = { title: "Berkas Saya — NanumHR" };
 
 const FOLDER_LABEL: Record<string, string> = {
   personal: "Berkas Pribadi",

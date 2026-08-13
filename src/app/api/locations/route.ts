@@ -46,7 +46,13 @@ export async function POST(req: Request) {
 
   // numeric(9,6) — fix the scale here so the value read back matches what was
   // typed, rather than depending on the driver's rounding
-  const values = { name, lat: lat.toFixed(6), lng: lng.toFixed(6), radiusM, active };
+  const values = {
+    name,
+    lat: lat.toFixed(6),
+    lng: lng.toFixed(6),
+    radiusM,
+    active,
+  };
 
   let row;
   if (id) {
@@ -55,7 +61,11 @@ export async function POST(req: Request) {
       .set(values)
       .where(eq(officeLocations.id, id))
       .returning({ id: officeLocations.id });
-    if (!row) return Response.json({ error: "Lokasi tidak ditemukan" }, { status: 404 });
+    if (!row)
+      return Response.json(
+        { error: "Lokasi tidak ditemukan" },
+        { status: 404 },
+      );
   } else {
     [row] = await db.insert(officeLocations).values(values).returning({
       id: officeLocations.id,
@@ -109,7 +119,8 @@ export async function DELETE(req: Request) {
     throw e;
   }
 
-  if (!removed) return Response.json({ error: "Lokasi tidak ditemukan" }, { status: 404 });
+  if (!removed)
+    return Response.json({ error: "Lokasi tidak ditemukan" }, { status: 404 });
 
   await db.insert(auditLog).values({
     actorId: Number(admin.id),

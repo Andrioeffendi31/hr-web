@@ -55,9 +55,13 @@ export const POST = withMe(async (me, req) => {
   if (!(file instanceof File)) throw new Bad("File tidak ditemukan");
   if (file.size === 0) throw new Bad("File kosong");
   if (file.size > MAX_MOBILE_DOC) {
-    throw new Bad(`File terlalu besar (maks ${MAX_MOBILE_DOC / (1024 * 1024)} MB)`, 413);
+    throw new Bad(
+      `File terlalu besar (maks ${MAX_MOBILE_DOC / (1024 * 1024)} MB)`,
+      413,
+    );
   }
-  if (!allowed(extOf(file.name), "doc")) throw new Bad("Tipe file tidak didukung");
+  if (!allowed(extOf(file.name), "doc"))
+    throw new Bad("Tipe file tidak didukung");
 
   const key = keyFor("doc", "personal", file.name);
   await putObject(key, await file.arrayBuffer(), file.type);

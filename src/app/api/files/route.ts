@@ -61,7 +61,10 @@ const image = z.discriminatedUnion("kind", [
 const forbidden = (e: unknown) =>
   Response.json({ error: (e as Error).message }, { status: 403 });
 const unconfigured = () =>
-  Response.json({ error: "Object storage belum dikonfigurasi" }, { status: 503 });
+  Response.json(
+    { error: "Object storage belum dikonfigurasi" },
+    { status: 503 },
+  );
 
 export async function POST(req: Request) {
   let admin;
@@ -87,17 +90,26 @@ async function confirmDocument(req: Request, actorId: number) {
   // the key must be one we handed out for this folder, or a caller could claim
   // any object in the bucket — including somebody else's document
   if (!key.startsWith(`docs/${folder}/`) || key.split("/").length !== 3) {
-    return Response.json({ error: "Kunci berkas tidak valid" }, { status: 400 });
+    return Response.json(
+      { error: "Kunci berkas tidak valid" },
+      { status: 400 },
+    );
   }
   if (!allowed(extOf(name), "doc")) {
-    return Response.json({ error: "Tipe file tidak didukung" }, { status: 400 });
+    return Response.json(
+      { error: "Tipe file tidak didukung" },
+      { status: 400 },
+    );
   }
 
   // a presigned URL cannot cap what gets written to it, so the real size is
   // whatever R2 reports — never what the browser claimed
   const sizeBytes = await headObject(key);
   if (sizeBytes === null) {
-    return Response.json({ error: "Berkas belum sampai di penyimpanan" }, { status: 400 });
+    return Response.json(
+      { error: "Berkas belum sampai di penyimpanan" },
+      { status: 400 },
+    );
   }
   if (sizeBytes > MAX_DOC) {
     await deleteObject(key);
@@ -159,7 +171,9 @@ async function uploadImage(req: Request, actorId: number) {
   }
   if (file.size > maxImageBytes) {
     return Response.json(
-      { error: `File terlalu besar (maks ${maxImageBytes / (1024 * 1024)} MB)` },
+      {
+        error: `File terlalu besar (maks ${maxImageBytes / (1024 * 1024)} MB)`,
+      },
       { status: 413 },
     );
   }
@@ -237,7 +251,10 @@ async function uploadImage(req: Request, actorId: number) {
       .where(eq(attendanceEvents.id, m.eventId))
       .limit(1);
     if (!event) {
-      return Response.json({ error: "Event kehadiran tidak ditemukan" }, { status: 404 });
+      return Response.json(
+        { error: "Event kehadiran tidak ditemukan" },
+        { status: 404 },
+      );
     }
     // an automatic ping has no photographer — the UI hides the uploader for it,
     // and this closes the direct path so the two cannot drift apart
@@ -248,7 +265,10 @@ async function uploadImage(req: Request, actorId: number) {
       );
     }
 
-    const key = keyFor("selfie", `${event.employeeId}/${event.date}/${event.id}`);
+    const key = keyFor(
+      "selfie",
+      `${event.employeeId}/${event.date}/${event.id}`,
+    );
     await putObject(key, bytes, file.type);
     await db
       .update(attendanceEvents)
@@ -272,7 +292,9 @@ async function uploadImage(req: Request, actorId: number) {
   const [row] = await db
     .update(attendance)
     .set({ selfieUrl: key })
-    .where(and(eq(attendance.employeeId, m.employeeId), eq(attendance.date, m.date)))
+    .where(
+      and(eq(attendance.employeeId, m.employeeId), eq(attendance.date, m.date)),
+    )
     .returning({ id: attendance.id });
   if (!row) {
     return Response.json(

@@ -6,7 +6,7 @@ import { useInfiniteFeed } from "@/components/use-infinite-feed";
 import { RemindButton } from "./remind-button";
 import { initials } from "@/lib/hr";
 
-export type Absentee = { id: number; name: string; division: string };
+export type Absentee = { id: number; name: string; division: string | null };
 
 export function AbsenteePanel({
   date,
@@ -56,7 +56,7 @@ export function AbsenteePanel({
                     {a.name}
                   </span>
                   <span className="text-subtle block text-[11px]">
-                    {a.division}
+                    {a.division ?? "Tanpa divisi"}
                   </span>
                 </span>
                 <RemindButton

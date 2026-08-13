@@ -1,6 +1,17 @@
 /** HR business rules. Single source of truth — web and mobile both compute
  *  through here on the server so the two clients can never drift (PRD §10). */
 
+/**
+ * Nama badan hukum perusahaan.
+ *
+ * Nilai sebenarnya tinggal di `settings.companyName` dan bisa diubah HR lewat
+ * /pengaturan tanpa deploy — konstanta ini hanya default schema dan fallback untuk
+ * tempat yang tidak bisa membaca database (judul tab, halaman login). Sebelumnya
+ * literal yang sama ditulis ulang di lima tempat, dan satu di antaranya tertinggal
+ * setiap kali nama perusahaan berubah.
+ */
+export const PERUSAHAAN = "PT NANUM INDAH SEJATI";
+
 export const ATT_LABEL = {
   hadir: "Hadir",
   telat: "Terlambat",
@@ -160,10 +171,28 @@ export const durasi = (minutes: number) =>
   `${Math.floor(minutes / 60)}j ${minutes % 60}m`;
 
 const MONTHS_ID = [
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
 ];
-const DAYS_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const DAYS_ID = [
+  "Minggu",
+  "Senin",
+  "Selasa",
+  "Rabu",
+  "Kamis",
+  "Jumat",
+  "Sabtu",
+];
 
 export function tanggalPanjang(isoDate: string) {
   const d = new Date(`${isoDate}T00:00:00Z`);
@@ -186,6 +215,12 @@ export function rentangTanggal(start: string, end: string) {
 
 export const jam = (t: string | null) => (t ? t.slice(0, 5) : "—");
 
+/** "30 Jul 2026" — the year matters for a hire date, unlike an attendance row, and
+ *  three pages had spelled it out by hand. Null since the employment columns
+ *  became optional: no start date on file reads as "—", never "Invalid Date". */
+export const tanggalTahun = (iso: string | null | undefined) =>
+  iso ? `${tanggalPendek(iso)} ${iso.slice(0, 4)}` : "—";
+
 export const initials = (name: string) =>
   name
     .split(" ")
@@ -193,6 +228,80 @@ export const initials = (name: string) =>
     .map((w) => w[0])
     .join("")
     .toUpperCase();
+
+/**
+ * The password rule, in one place.
+ *
+ * /api/me/password, the HR reset generator and the forgot-password route all call
+ * this, so no path can end up weaker than another — and the web forms import it
+ * directly, so the message a user reads before submitting is the same string the
+ * server would have answered with.
+ *
+ * Returns the first complaint, or null when acceptable.
+ */
+export function cekSandi(v: string): string | null {
+  if (v.length < 8) return "Kata sandi minimal 8 karakter";
+  // bcrypt silently truncates past 72 *bytes*, so two long passwords that share a
+  // prefix would hash identically. Measured with TextEncoder rather than Buffer:
+  // this file is imported by client components, and Next no longer polyfills
+  // Buffer into the browser bundle.
+  if (new TextEncoder().encode(v).length > 72)
+    return "Kata sandi terlalu panjang";
+  if (!/[A-Z]/.test(v)) return "Kata sandi harus memuat huruf kapital";
+  if (!/[0-9]/.test(v)) return "Kata sandi harus memuat angka";
+  // "not a letter or digit" rather than a list of allowed symbols: a whitelist
+  // rejects é, £ and every non-US keyboard for no gain in strength
+  if (!/[^A-Za-z0-9]/.test(v))
+    return "Kata sandi harus memuat simbol, misalnya ! @ # ?";
+  return null;
+}
+
+/**
+ * Attempt throttle, in process.
+ *
+ * ponytail: a Map, so it resets on deploy and counts per instance. That still
+ * stops a scripted guessing run, which is the whole threat for an endpoint that
+ * already costs ~100 ms of bcrypt per try. Move to a `rate_limits` table or
+ * Upstash the day this runs on more than one node.
+ */
+const hits = new Map<string, number[]>();
+export function tooMany(
+  key: string,
+  max: number,
+  windowMs: number,
+  now = Date.now(),
+): boolean {
+  const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
+  recent.push(now);
+  // crude ceiling so a flood of distinct keys cannot grow this without bound
+  if (hits.size > 5_000) hits.clear();
+  hits.set(key, recent);
+  return recent.length > max;
+}
+
+/**
+ * "0858-8182-0410" — grouped for reading aloud, which is the only thing anyone
+ * does with an emergency number. Stored digits-only, so the grouping is a display
+ * concern; anything that isn't a digit is dropped rather than trusted, because the
+ * source data mixes "0858 8182 0410" with "085881820410".
+ */
+export function telepon(v: string | null | undefined) {
+  const d = (v ?? "").replace(/\D/g, "");
+  if (!d) return "—";
+  return d.match(/.{1,4}/g)!.join("-");
+}
+
+/** Whole years, WIB-agnostic (a birthday is a date, not an instant). */
+export function umur(birthDate: string | null | undefined, today = todayWib()) {
+  if (!birthDate || !isIsoDate(birthDate)) return null;
+  const b = new Date(`${birthDate}T00:00:00Z`);
+  const t = new Date(`${today}T00:00:00Z`);
+  let years = t.getUTCFullYear() - b.getUTCFullYear();
+  // not yet had this year's birthday
+  const md = (d: Date) => (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+  if (md(t) < md(b)) years--;
+  return years;
+}
 
 /* ── File helpers ─────────────────────────────────────────────────────────────
    These live here, not in lib/r2.ts, because client components need them and

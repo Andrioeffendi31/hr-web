@@ -15,15 +15,23 @@ export const POST = withMe(async (me, req) => {
   if (!form) throw new Bad("Permintaan harus multipart/form-data");
 
   const file = form.get("photo");
-  if (!(file instanceof File) || file.size === 0) throw new Bad("Foto belum dipilih");
+  if (!(file instanceof File) || file.size === 0)
+    throw new Bad("Foto belum dipilih");
 
   try {
-    const { key } = await replacePhoto({ employeeId: me.id, file, actorId: me.id });
+    const { key } = await replacePhoto({
+      employeeId: me.id,
+      file,
+      actorId: me.id,
+    });
     // the avatar rides in the app shell on every page, so the whole layout is stale
     revalidatePath("/", "layout");
     revalidatePath("/profil");
     return Response.json({ ok: true, key });
   } catch (e) {
-    throw new Bad((e as Error).message, (e as { status?: number }).status ?? 400);
+    throw new Bad(
+      (e as Error).message,
+      (e as { status?: number }).status ?? 400,
+    );
   }
 });

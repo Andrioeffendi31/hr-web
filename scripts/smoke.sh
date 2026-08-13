@@ -4,7 +4,7 @@
 set -uo pipefail
 
 BASE="${BASE:-http://localhost:3000}"
-EMAIL="${EMAIL:-andini.rahmawati@nusantaradigital.co.id}"
+EMAIL="${EMAIL:-andini.rahmawati@nanumindahsejati.co.id}"
 PASS="${PASS:-securePass123}"
 JAR="$(mktemp)"
 fail=0
@@ -88,7 +88,7 @@ first_name() { grep -o '"name":"[^"]*"' | head -1 | cut -d'"' -f4; }
 check "search by name" "Bagas Prasetyo" \
   "$(body "$BASE/api/search?q=bagas" | first_name)"
 check "search by NIK" 1 \
-  "$(body "$BASE/api/search?q=NDG-0044" | grep -c 'Bagas Prasetyo')"
+  "$(body "$BASE/api/search?q=NIS-0044" | grep -c 'Bagas Prasetyo')"
 check "search by division returns many" 1 \
   "$([ "$(body "$BASE/api/search?q=Engineering" | grep -o '"id":' | grep -c .)" -ge 4 ] && echo 1 || echo 0)"
 check "case-insensitive" 1 "$(body "$BASE/api/search?q=CITRA" | grep -c 'Citra Maharani')"
@@ -138,19 +138,23 @@ check "remind sends to 3 absentees" 3 \
       "$BASE/api/remind" | sed 's/.*"sent":\([0-9]*\).*/\1/')"
 
 echo "11. CRUD karyawan"
-NEWNIK="NDG-TEST-$$"
-NEWEMAIL="smoke.$$@nusantaradigital.co.id"
+NEWNIK="NIS-TEST-$$"
+NEWEMAIL="smoke.$$@nanumindahsejati.co.id"
 emp() { # method json
   body -X "$1" -H 'Content-Type: application/json' -d "$2" "$BASE/api/employees"
 }
-NEWEMP='{"nik":"'"$NEWNIK"'","name":"Smoke Tester","email":"'"$NEWEMAIL"'","role":"employee","division":"Engineering","position":"QA","contractType":"Kontrak","joinedAt":"2026-02-01","workLocation":"Kantor Pusat","managerId":null,"password":"password123"}'
+NEWEMP='{"nik":"'"$NEWNIK"'","name":"Smoke Tester","email":"'"$NEWEMAIL"'","role":"employee","division":"Engineering","position":"QA","contractType":"Kontrak","joinedAt":"2026-02-01","workLocation":"Kantor Pusat","managerId":null,"password":"Password123!"}'
 NEWID="$(emp POST "$NEWEMP" | sed 's/.*"id":\([0-9]*\).*/\1/')"
 check "employee created" 1 "$([ -n "$NEWID" ] && echo 1 || echo 0)"
 check "duplicate nik/email is 409" 409 \
   "$(code -X POST -H 'Content-Type: application/json' -d "$NEWEMP" "$BASE/api/employees")"
 check "short password rejected" 400 \
   "$(code -X POST -H 'Content-Type: application/json' \
-      -d "${NEWEMP/password123/short}" "$BASE/api/employees")"
+      -d "${NEWEMP/Password123!/short}" "$BASE/api/employees")"
+# long but weak: the rule is not just a length check (lib/hr.ts cekSandi)
+check "password without symbol rejected" 400 \
+  "$(code -X POST -H 'Content-Type: application/json' \
+      -d "${NEWEMP/Password123!/Password12345}" "$BASE/api/employees")"
 check "new employee listed" "Smoke Tester" \
   "$(body "$BASE/karyawan?q=Smoke" | grep -o 'Smoke Tester' | head -1)"
 emp PATCH '{"id":'"$NEWID"',"nik":"'"$NEWNIK"'","name":"Smoke Tested","email":"'"$NEWEMAIL"'","role":"employee","division":"Engineering","position":"QA Lead","contractType":"Kontrak","joinedAt":"2026-02-01","workLocation":"Kantor Pusat","managerId":null,"active":true}' > /dev/null
@@ -268,7 +272,7 @@ echo "16. karyawan di web: self-service boleh, konsol admin tidak"
 EMPJAR="$(mktemp)"
 EMPCSRF="$(curl -s -b "$EMPJAR" -c "$EMPJAR" "$BASE/api/auth/csrf" | sed 's/.*"csrfToken":"\([^"]*\)".*/\1/')"
 curl -s -b "$EMPJAR" -c "$EMPJAR" -o /dev/null \
-  -d "csrfToken=$EMPCSRF" -d "email=${EMPEMAIL:-bagas.prasetyo@nusantaradigital.co.id}" \
+  -d "csrfToken=$EMPCSRF" -d "email=${EMPEMAIL:-bagas.prasetyo@nanumindahsejati.co.id}" \
   -d "password=$PASS" "$BASE/api/auth/callback/credentials"
 empcode() { curl -s -b "$EMPJAR" -c "$EMPJAR" -o /dev/null -w '%{http_code}' "$@"; }
 

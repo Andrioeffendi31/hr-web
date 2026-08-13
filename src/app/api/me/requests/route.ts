@@ -68,7 +68,14 @@ export const GET = withMe(async (me) => {
     db
       .select({ id: employees.id, name: employees.name })
       .from(employees)
-      .where(and(eq(employees.active, true), eq(employees.division, me.division))),
+      // no division on file yet: offer every active colleague rather than nobody —
+      // an employee who cannot name a delegate cannot file leave at all
+      .where(
+        and(
+          eq(employees.active, true),
+          me.division ? eq(employees.division, me.division) : undefined,
+        ),
+      ),
   ]);
 
   return Response.json({
@@ -92,7 +99,11 @@ export const GET = withMe(async (me) => {
       delegateId: r.delegateId,
       delegateName,
       attachment: r.attachmentKey
-        ? { key: r.attachmentKey, name: r.attachmentName, size: r.attachmentSize }
+        ? {
+            key: r.attachmentKey,
+            name: r.attachmentName,
+            size: r.attachmentSize,
+          }
         : null,
     })),
     lembur: lembur.map((r) => ({
@@ -115,7 +126,6 @@ export const GET = withMe(async (me) => {
   });
 });
 
-
 /**
  * The body, whichever way it arrived.
  *
@@ -127,7 +137,10 @@ export const GET = withMe(async (me) => {
 async function payload(req: Request) {
   const type = req.headers.get("content-type") ?? "";
   if (!type.includes("multipart/form-data")) {
-    return { data: (await req.json().catch(() => ({}))) as Record<string, unknown>, file: null };
+    return {
+      data: (await req.json().catch(() => ({}))) as Record<string, unknown>,
+      file: null,
+    };
   }
   const form = await req.formData();
   const data: Record<string, unknown> = {};
@@ -143,11 +156,18 @@ async function storeAttachment(file: File, requestId: number) {
     throw new Bad("Lampiran harus PDF, JPG, PNG, DOCX, XLSX atau CSV");
   }
   if (file.size > MAX_ATTACHMENT) {
-    throw new Bad(`Lampiran terlalu besar (maks ${MAX_ATTACHMENT / (1024 * 1024)} MB)`, 413);
+    throw new Bad(
+      `Lampiran terlalu besar (maks ${MAX_ATTACHMENT / (1024 * 1024)} MB)`,
+      413,
+    );
   }
   const key = keyFor("lampiran", String(requestId), file.name);
   await putObject(key, await file.arrayBuffer(), file.type);
-  return { attachmentKey: key, attachmentName: file.name, attachmentSize: file.size };
+  return {
+    attachmentKey: key,
+    attachmentName: file.name,
+    attachmentSize: file.size,
+  };
 }
 
 const create = z.discriminatedUnion("kind", [
@@ -192,7 +212,9 @@ export const POST = withMe(async (me, req) => {
     if (input.type === "Cuti Tahunan") {
       const [bal] = await leaveBalances(year, me.id);
       if (bal && days > bal.remaining) {
-        throw new Bad(`Saldo cuti tinggal ${bal.remaining} hari, diminta ${days} hari`);
+        throw new Bad(
+          `Saldo cuti tinggal ${bal.remaining} hari, diminta ${days} hari`,
+        );
       }
     }
 
@@ -240,7 +262,10 @@ export const POST = withMe(async (me, req) => {
 
   const [week] = await db
     .select({
-      minutes: sql<number>`coalesce(sum(${overtimeRequests.minutes}), 0)`.mapWith(Number),
+      minutes:
+        sql<number>`coalesce(sum(${overtimeRequests.minutes}), 0)`.mapWith(
+          Number,
+        ),
     })
     .from(overtimeRequests)
     .where(
@@ -259,7 +284,9 @@ export const POST = withMe(async (me, req) => {
   }
 
   const day = new Date(`${input.date}T00:00:00Z`).getUTCDay();
-  const holiday = (await holidaySet(Number(input.date.slice(0, 4)))).has(input.date);
+  const holiday = (await holidaySet(Number(input.date.slice(0, 4)))).has(
+    input.date,
+  );
   const [row] = await db
     .insert(overtimeRequests)
     .values({
@@ -281,7 +308,6 @@ export const POST = withMe(async (me, req) => {
   revalidatePath("/lembur");
   return Response.json({ ok: true, id: row.id, minutes });
 });
-
 
 /**
  * Edit a leave request that is still open — `menunggu` or `revisi`.
@@ -330,13 +356,18 @@ export const PUT = withMe(async (me, req) => {
       ),
     )
     .limit(1);
-  if (!current) throw new Bad("Pengajuan tidak ditemukan atau sudah diputuskan", 404);
+  if (!current)
+    throw new Bad("Pengajuan tidak ditemukan atau sudah diputuskan", 404);
 
   if (input.endDate < input.startDate) {
     throw new Bad("Tanggal selesai lebih awal dari tanggal mulai");
   }
   const year = Number(input.startDate.slice(0, 4));
-  const days = workingDays(input.startDate, input.endDate, await holidaySet(year));
+  const days = workingDays(
+    input.startDate,
+    input.endDate,
+    await holidaySet(year),
+  );
   if (days < 1) throw new Bad("Rentang tanggal tidak memuat hari kerja");
 
   if (input.type === "Cuti Tahunan") {
@@ -349,7 +380,9 @@ export const PUT = withMe(async (me, req) => {
      */
     const [bal] = await leaveBalances(year, me.id);
     if (bal && days > bal.remaining) {
-      throw new Bad(`Saldo cuti tinggal ${bal.remaining} hari, diminta ${days} hari`);
+      throw new Bad(
+        `Saldo cuti tinggal ${bal.remaining} hari, diminta ${days} hari`,
+      );
     }
   }
 
@@ -386,7 +419,13 @@ export const PUT = withMe(async (me, req) => {
   await queueEmail({
     to: await hrAdmins(),
     template: "request_submitted",
-    context: { kind: "cuti", requestId: input.id, from: me.name, days, revised: true },
+    context: {
+      kind: "cuti",
+      requestId: input.id,
+      from: me.name,
+      days,
+      revised: true,
+    },
   });
   revalidatePath("/cuti");
   return Response.json({ ok: true, id: input.id, days });
@@ -417,7 +456,8 @@ export const PATCH = withMe(async (me, req) => {
     )
     .returning({ id: table.id });
 
-  if (!row) throw new Bad("Pengajuan tidak ditemukan atau sudah diputuskan", 404);
+  if (!row)
+    throw new Bad("Pengajuan tidak ditemukan atau sudah diputuskan", 404);
 
   revalidatePath(parsed.data.kind === "cuti" ? "/cuti" : "/lembur");
   return Response.json({ ok: true });

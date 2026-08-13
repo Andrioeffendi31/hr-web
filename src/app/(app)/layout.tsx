@@ -1,5 +1,6 @@
 import { and, count, eq, isNotNull } from "drizzle-orm";
-import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { auth, stale } from "@/auth";
 import { db } from "@/db";
 import {
   attendance,
@@ -10,7 +11,7 @@ import {
 } from "@/db/schema";
 import { Shell } from "@/components/shell";
 import { type Role } from "@/lib/access";
-import { todayWib } from "@/lib/hr";
+import { PERUSAHAAN, todayWib } from "@/lib/hr";
 
 export default async function AppLayout({
   children,
@@ -26,18 +27,41 @@ export default async function AppLayout({
   // recognised here, where the real error still exists.
   let cfg;
   let stats;
+  let forced;
   try {
     // The settings row is brand, not admin data — every sidebar needs the company
     // name and logo. The five aggregates below it are company-wide counts, so for
     // an employee they are simply never issued: there is nothing to redact if the
     // query never runs, and nothing to forget on the next person's page.
-    [[cfg], stats] = await Promise.all([
+    [[cfg], stats, forced] = await Promise.all([
       db.select().from(settings).limit(1),
       isAdmin ? loadAdminStats(today) : null,
+      // Read per request rather than carried in the JWT: the flag clears mid
+      // session, and a stale token would keep bouncing somebody who has already
+      // chosen a new password. One indexed lookup by primary key.
+      session?.user?.id
+        ? db
+            .select({
+              must: employees.mustChangePassword,
+              changedAt: employees.passwordChangedAt,
+            })
+            .from(employees)
+            .where(eq(employees.id, Number(session.user.id)))
+            .limit(1)
+        : null,
     ]);
   } catch (e) {
     return <DatabaseDown error={e as Error} />;
   }
+
+  // A token older than the last password change is spent — the session was ended
+  // deliberately, from another device or by HR.
+  if (stale(forced?.[0]?.changedAt ?? null, session?.user?.pwdAt))
+    redirect("/login?stale=1");
+
+  // One check covering every page in the group: an account still on the shared
+  // import password gets no further than the page that replaces it.
+  if (forced?.[0]?.must) redirect("/ganti-sandi");
 
   return (
     <Shell
@@ -55,7 +79,7 @@ export default async function AppLayout({
           ? `${stats[3][0].n} dari ${stats[4][0].n} karyawan sudah absen masuk hari ini.`
           : undefined
       }
-      companyName={cfg?.companyName ?? "PT Nusantara Digital"}
+      companyName={cfg?.companyName ?? PERUSAHAAN}
       companyLogoUrl={cfg?.companyLogoUrl}
       user={{
         name: session?.user?.name ?? "—",

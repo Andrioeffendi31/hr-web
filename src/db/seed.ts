@@ -1,4 +1,4 @@
-/** Seeds the demo dataset lifted from the "Ruang HR Lite" mockup.
+/** Seeds the demo dataset lifted from the "NanumHR Lite" mockup.
  *  Run: npm run db:seed  (idempotent — truncates first) */
 import "dotenv/config";
 import bcrypt from "bcryptjs";
@@ -40,31 +40,207 @@ type Row = [
 ];
 
 const EMP: Row[] = [
-  ["Andini Rahmawati", "NDG-0012", "Human Resource", "HR Admin", "Tetap", "2021-02-01", "hadir", "07:52", "17:04", "Kantor Pusat"],
-  ["Bagas Prasetyo", "NDG-0044", "Engineering", "Backend Engineer", "Tetap", "2022-03-14", "telat", "08:26", "17:12", "Kantor Pusat"],
-  ["Citra Maharani", "NDG-0051", "Engineering", "QA Engineer", "Tetap", "2022-08-02", "hadir", "07:45", null, "Kantor Pusat"],
-  ["Dimas Anggara", "NDG-0063", "Finance", "Accounting Staff", "Tetap", "2023-01-09", "wfh", "08:02", null, "Rumah · Bekasi"],
-  ["Eka Wulandari", "NDG-0070", "Marketing", "Content Lead", "Tetap", "2023-04-21", "cuti", null, null, "Cuti tahunan"],
-  ["Fajar Nugroho", "NDG-0078", "Engineering", "Frontend Engineer", "Kontrak", "2023-06-05", "hadir", "07:58", null, "Kantor Pusat"],
-  ["Gita Permata", "NDG-0085", "Human Resource", "Recruiter", "Tetap", "2023-09-18", "telat", "08:41", null, "Kantor Pusat"],
-  ["Hendra Saputra", "NDG-0091", "Operations", "Field Supervisor", "Tetap", "2023-11-03", "hadir", "07:12", null, "Gudang Cakung"],
-  ["Indah Lestari", "NDG-0098", "Finance", "Payroll Officer", "Tetap", "2024-02-12", "hadir", "07:49", null, "Kantor Pusat"],
-  ["Joko Susilo", "NDG-0104", "Operations", "Driver", "Kontrak", "2024-03-26", "belum_absen", null, null, null as unknown as string],
-  ["Kirana Ayu", "NDG-0110", "Marketing", "Social Media", "Kontrak", "2024-07-08", "sakit", null, null, "Surat dokter"],
-  ["Lukman Hakim", "NDG-0117", "Engineering", "DevOps", "Tetap", "2024-08-19", "hadir", "07:35", null, "Kantor Pusat"],
-  ["Maya Sari", "NDG-0123", "Human Resource", "GA Staff", "Tetap", "2024-11-04", "belum_absen", null, null, null as unknown as string],
-  ["Nanda Pratama", "NDG-0131", "Operations", "Warehouse", "Kontrak", "2025-01-13", "hadir", "06:58", null, "Gudang Cakung"],
-  ["Oktavia Rini", "NDG-0138", "Finance", "Tax Staff", "Tetap", "2025-03-17", "izin", null, null, "Izin keluarga"],
-  ["Putra Wijaya", "NDG-0145", "Marketing", "Designer", "Kontrak", "2025-06-02", "belum_absen", null, null, null as unknown as string],
+  [
+    "Andini Rahmawati",
+    "NIS-0012",
+    "Human Resource",
+    "HR Admin",
+    "Tetap",
+    "2021-02-01",
+    "hadir",
+    "07:52",
+    "17:04",
+    "Kantor Pusat",
+  ],
+  [
+    "Bagas Prasetyo",
+    "NIS-0044",
+    "Engineering",
+    "Backend Engineer",
+    "Tetap",
+    "2022-03-14",
+    "telat",
+    "08:26",
+    "17:12",
+    "Kantor Pusat",
+  ],
+  [
+    "Citra Maharani",
+    "NIS-0051",
+    "Engineering",
+    "QA Engineer",
+    "Tetap",
+    "2022-08-02",
+    "hadir",
+    "07:45",
+    null,
+    "Kantor Pusat",
+  ],
+  [
+    "Dimas Anggara",
+    "NIS-0063",
+    "Finance",
+    "Accounting Staff",
+    "Tetap",
+    "2023-01-09",
+    "wfh",
+    "08:02",
+    null,
+    "Rumah · Bekasi",
+  ],
+  [
+    "Eka Wulandari",
+    "NIS-0070",
+    "Marketing",
+    "Content Lead",
+    "Tetap",
+    "2023-04-21",
+    "cuti",
+    null,
+    null,
+    "Cuti tahunan",
+  ],
+  [
+    "Fajar Nugroho",
+    "NIS-0078",
+    "Engineering",
+    "Frontend Engineer",
+    "Kontrak",
+    "2023-06-05",
+    "hadir",
+    "07:58",
+    null,
+    "Kantor Pusat",
+  ],
+  [
+    "Gita Permata",
+    "NIS-0085",
+    "Human Resource",
+    "Recruiter",
+    "Tetap",
+    "2023-09-18",
+    "telat",
+    "08:41",
+    null,
+    "Kantor Pusat",
+  ],
+  [
+    "Hendra Saputra",
+    "NIS-0091",
+    "Operations",
+    "Field Supervisor",
+    "Tetap",
+    "2023-11-03",
+    "hadir",
+    "07:12",
+    null,
+    "Gudang Cakung",
+  ],
+  [
+    "Indah Lestari",
+    "NIS-0098",
+    "Finance",
+    "Payroll Officer",
+    "Tetap",
+    "2024-02-12",
+    "hadir",
+    "07:49",
+    null,
+    "Kantor Pusat",
+  ],
+  [
+    "Joko Susilo",
+    "NIS-0104",
+    "Operations",
+    "Driver",
+    "Kontrak",
+    "2024-03-26",
+    "belum_absen",
+    null,
+    null,
+    null as unknown as string,
+  ],
+  [
+    "Kirana Ayu",
+    "NIS-0110",
+    "Marketing",
+    "Social Media",
+    "Kontrak",
+    "2024-07-08",
+    "sakit",
+    null,
+    null,
+    "Surat dokter",
+  ],
+  [
+    "Lukman Hakim",
+    "NIS-0117",
+    "Engineering",
+    "DevOps",
+    "Tetap",
+    "2024-08-19",
+    "hadir",
+    "07:35",
+    null,
+    "Kantor Pusat",
+  ],
+  [
+    "Maya Sari",
+    "NIS-0123",
+    "Human Resource",
+    "GA Staff",
+    "Tetap",
+    "2024-11-04",
+    "belum_absen",
+    null,
+    null,
+    null as unknown as string,
+  ],
+  [
+    "Nanda Pratama",
+    "NIS-0131",
+    "Operations",
+    "Warehouse",
+    "Kontrak",
+    "2025-01-13",
+    "hadir",
+    "06:58",
+    null,
+    "Gudang Cakung",
+  ],
+  [
+    "Oktavia Rini",
+    "NIS-0138",
+    "Finance",
+    "Tax Staff",
+    "Tetap",
+    "2025-03-17",
+    "izin",
+    null,
+    null,
+    "Izin keluarga",
+  ],
+  [
+    "Putra Wijaya",
+    "NIS-0145",
+    "Marketing",
+    "Designer",
+    "Kontrak",
+    "2025-06-02",
+    "belum_absen",
+    null,
+    null,
+    null as unknown as string,
+  ],
 ];
 
 const email = (name: string) =>
-  name.toLowerCase().replace(/ /g, ".") + "@nusantaradigital.co.id";
+  name.toLowerCase().replace(/ /g, ".") + "@nanumindahsejati.co.id";
 
 /** Deterministic pseudo-random so reseeding gives the same history. */
 function rng(seed: number) {
   let s = seed;
-  return () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  return () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
 }
 
 async function main() {
@@ -79,13 +255,20 @@ async function main() {
    * inheriting the default, nothing in the demo would ever exercise resolveShift,
    * and a warehouse crew starting at 07:00 is exactly why the feature exists.
    */
-  await db.insert(divisions).values([
-    { name: "Human Resource" },
-    { name: "Engineering" },
-    { name: "Finance" },
-    { name: "Marketing" },
-    { name: "Operations", shiftStart: "07:00:00", shiftEnd: "16:00:00", lateToleranceMinutes: 10 },
-  ]);
+  await db
+    .insert(divisions)
+    .values([
+      { name: "Human Resource" },
+      { name: "Engineering" },
+      { name: "Finance" },
+      { name: "Marketing" },
+      {
+        name: "Operations",
+        shiftStart: "07:00:00",
+        shiftEnd: "16:00:00",
+        lateToleranceMinutes: 10,
+      },
+    ]);
   const shiftOf = (division: string) =>
     division === "Operations"
       ? { start: "07:00:00", startM: 7 * 60, tol: 10 }
@@ -98,14 +281,28 @@ async function main() {
   const [pusat, gudang] = await db
     .insert(officeLocations)
     .values([
-      { name: "Kantor Pusat", lat: "-6.224900", lng: "106.809200", radiusM: 150 },
-      { name: "Gudang Cakung", lat: "-6.188900", lng: "106.939400", radiusM: 250 },
+      {
+        name: "Kantor Pusat",
+        lat: "-6.224900",
+        lng: "106.809200",
+        radiusM: 150,
+      },
+      {
+        name: "Gudang Cakung",
+        lat: "-6.188900",
+        lng: "106.939400",
+        radiusM: 250,
+      },
     ])
     .returning({ id: officeLocations.id, name: officeLocations.name });
 
   /** WFH and leave days have no office point; field staff punch at the warehouse. */
   const officeFor = (location: string | null) =>
-    location === "Gudang Cakung" ? gudang.id : location === "Kantor Pusat" ? pusat.id : null;
+    location === "Gudang Cakung"
+      ? gudang.id
+      : location === "Kantor Pusat"
+        ? pusat.id
+        : null;
 
   await db.insert(holidays).values([
     { date: "2026-08-17", name: "Hari Kemerdekaan RI" },
@@ -122,14 +319,13 @@ async function main() {
         email: email(name),
         passwordHash,
         role: (i === 0 ? "hr_admin" : i === 7 ? "manager" : "employee") as
-          | "hr_admin"
-          | "manager"
-          | "employee",
+          "hr_admin" | "manager" | "employee",
         division,
         position,
         contractType,
         joinedAt,
-        workLocation: division === "Operations" ? "Gudang Cakung" : "Kantor Pusat",
+        workLocation:
+          division === "Operations" ? "Gudang Cakung" : "Kantor Pusat",
         managerId: i === 0 ? null : 1,
       })),
     )
@@ -161,11 +357,21 @@ async function main() {
     for (const [name, , division] of EMP) {
       const r = rand();
       if (r < 0.03) {
-        history.push({ employeeId: idOf(name), date, status: "cuti", location: "Cuti tahunan" });
+        history.push({
+          employeeId: idOf(name),
+          date,
+          status: "cuti",
+          location: "Cuti tahunan",
+        });
         continue;
       }
       if (r < 0.05) {
-        history.push({ employeeId: idOf(name), date, status: "sakit", location: "Surat dokter" });
+        history.push({
+          employeeId: idOf(name),
+          date,
+          status: "sakit",
+          location: "Surat dokter",
+        });
         continue;
       }
       if (r < 0.06) {
@@ -182,7 +388,11 @@ async function main() {
           ? shift.startM + shift.tol + 1 + Math.floor(rand() * 25)
           : shift.startM - 25 + Math.floor(rand() * 23),
       );
-      const location = wfh ? "Rumah" : division === "Operations" ? "Gudang Cakung" : "Kantor Pusat";
+      const location = wfh
+        ? "Rumah"
+        : division === "Operations"
+          ? "Gudang Cakung"
+          : "Kantor Pusat";
       history.push({
         employeeId: idOf(name),
         date,
@@ -228,7 +438,11 @@ async function main() {
     const jauh = row.location?.startsWith("Rumah");
     // coordinates have to sit at the office the row points at, or the day detail
     // would report every warehouse punch as 14 km outside its own geofence
-    const base = jauh ? RUMAH : row.location === "Gudang Cakung" ? GUDANG : OFFICE;
+    const base = jauh
+      ? RUMAH
+      : row.location === "Gudang Cakung"
+        ? GUDANG
+        : OFFICE;
     events.push({
       attendanceId: row.id,
       kind: "masuk",
@@ -271,12 +485,61 @@ async function main() {
     status: "menunggu" | "disetujui" | "ditolak";
     note?: string;
   }[] = [
-    { name: "Citra Maharani", type: "Cuti Tahunan", start: "2026-08-03", end: "2026-08-05", delegate: "Fajar Nugroho", reason: "Menghadiri pernikahan keluarga di Yogyakarta.", status: "menunggu" },
-    { name: "Dimas Anggara", type: "Cuti Sakit", start: "2026-07-31", end: "2026-07-31", delegate: "Indah Lestari", reason: "Demam, sudah melampirkan surat dokter klinik.", status: "menunggu" },
-    { name: "Hendra Saputra", type: "Cuti Tahunan", start: "2026-08-10", end: "2026-08-14", delegate: "Nanda Pratama", reason: "Libur keluarga yang sudah direncanakan sejak awal tahun.", status: "menunggu" },
-    { name: "Kirana Ayu", type: "Izin Khusus", start: "2026-08-01", end: "2026-08-01", delegate: "Putra Wijaya", reason: "Mengurus dokumen kependudukan di kelurahan.", status: "menunggu" },
-    { name: "Eka Wulandari", type: "Cuti Tahunan", start: "2026-07-28", end: "2026-07-30", delegate: "Kirana Ayu", reason: "Cuti tahunan periode kedua.", status: "disetujui" },
-    { name: "Joko Susilo", type: "Izin Khusus", start: "2026-07-18", end: "2026-07-18", delegate: null, reason: "Pengajuan terlambat tanpa bukti pendukung.", status: "ditolak", note: "Tanpa bukti pendukung." },
+    {
+      name: "Citra Maharani",
+      type: "Cuti Tahunan",
+      start: "2026-08-03",
+      end: "2026-08-05",
+      delegate: "Fajar Nugroho",
+      reason: "Menghadiri pernikahan keluarga di Yogyakarta.",
+      status: "menunggu",
+    },
+    {
+      name: "Dimas Anggara",
+      type: "Cuti Sakit",
+      start: "2026-07-31",
+      end: "2026-07-31",
+      delegate: "Indah Lestari",
+      reason: "Demam, sudah melampirkan surat dokter klinik.",
+      status: "menunggu",
+    },
+    {
+      name: "Hendra Saputra",
+      type: "Cuti Tahunan",
+      start: "2026-08-10",
+      end: "2026-08-14",
+      delegate: "Nanda Pratama",
+      reason: "Libur keluarga yang sudah direncanakan sejak awal tahun.",
+      status: "menunggu",
+    },
+    {
+      name: "Kirana Ayu",
+      type: "Izin Khusus",
+      start: "2026-08-01",
+      end: "2026-08-01",
+      delegate: "Putra Wijaya",
+      reason: "Mengurus dokumen kependudukan di kelurahan.",
+      status: "menunggu",
+    },
+    {
+      name: "Eka Wulandari",
+      type: "Cuti Tahunan",
+      start: "2026-07-28",
+      end: "2026-07-30",
+      delegate: "Kirana Ayu",
+      reason: "Cuti tahunan periode kedua.",
+      status: "disetujui",
+    },
+    {
+      name: "Joko Susilo",
+      type: "Izin Khusus",
+      start: "2026-07-18",
+      end: "2026-07-18",
+      delegate: null,
+      reason: "Pengajuan terlambat tanpa bukti pendukung.",
+      status: "ditolak",
+      note: "Tanpa bukti pendukung.",
+    },
   ];
 
   await db.insert(leaveRequests).values(
@@ -291,7 +554,8 @@ async function main() {
       status: l.status,
       decisionNote: l.note ?? null,
       decidedById: l.status === "menunggu" ? null : 1,
-      decidedAt: l.status === "menunggu" ? null : new Date(`${TODAY}T03:00:00Z`),
+      decidedAt:
+        l.status === "menunggu" ? null : new Date(`${TODAY}T03:00:00Z`),
     })),
   );
 
@@ -305,11 +569,52 @@ async function main() {
     status: "menunggu" | "disetujui" | "ditolak";
     note?: string;
   }[] = [
-    { name: "Bagas Prasetyo", date: "2026-07-29", start: "17:30", end: "20:30", kind: "Hari kerja", reason: "Perbaikan bug rilis payroll", status: "menunggu" },
-    { name: "Lukman Hakim", date: "2026-07-28", start: "18:00", end: "22:00", kind: "Hari kerja", reason: "Migrasi server produksi", status: "menunggu" },
-    { name: "Nanda Pratama", date: "2026-07-26", start: "08:00", end: "14:00", kind: "Hari libur", reason: "Stock opname gudang", status: "menunggu" },
-    { name: "Hendra Saputra", date: "2026-07-24", start: "17:00", end: "19:00", kind: "Hari kerja", reason: "Pengiriman mendesak klien", status: "disetujui" },
-    { name: "Joko Susilo", date: "2026-07-23", start: "19:00", end: "21:00", kind: "Hari kerja", reason: "Tanpa persetujuan atasan", status: "ditolak", note: "Tidak ada persetujuan atasan sebelum lembur." },
+    {
+      name: "Bagas Prasetyo",
+      date: "2026-07-29",
+      start: "17:30",
+      end: "20:30",
+      kind: "Hari kerja",
+      reason: "Perbaikan bug rilis payroll",
+      status: "menunggu",
+    },
+    {
+      name: "Lukman Hakim",
+      date: "2026-07-28",
+      start: "18:00",
+      end: "22:00",
+      kind: "Hari kerja",
+      reason: "Migrasi server produksi",
+      status: "menunggu",
+    },
+    {
+      name: "Nanda Pratama",
+      date: "2026-07-26",
+      start: "08:00",
+      end: "14:00",
+      kind: "Hari libur",
+      reason: "Stock opname gudang",
+      status: "menunggu",
+    },
+    {
+      name: "Hendra Saputra",
+      date: "2026-07-24",
+      start: "17:00",
+      end: "19:00",
+      kind: "Hari kerja",
+      reason: "Pengiriman mendesak klien",
+      status: "disetujui",
+    },
+    {
+      name: "Joko Susilo",
+      date: "2026-07-23",
+      start: "19:00",
+      end: "21:00",
+      kind: "Hari kerja",
+      reason: "Tanpa persetujuan atasan",
+      status: "ditolak",
+      note: "Tidak ada persetujuan atasan sebelum lembur.",
+    },
   ];
 
   await db.insert(overtimeRequests).values(
@@ -326,36 +631,178 @@ async function main() {
         status: o.status,
         decisionNote: o.note ?? null,
         decidedById: o.status === "menunggu" ? null : 1,
-        decidedAt: o.status === "menunggu" ? null : new Date(`${TODAY}T03:00:00Z`),
+        decidedAt:
+          o.status === "menunggu" ? null : new Date(`${TODAY}T03:00:00Z`),
       };
     }),
   );
 
   await db.insert(announcements).values([
-    { title: "Penyesuaian jam kerja bulan Agustus", category: "Kebijakan", audience: "Semua karyawan", pinned: true, authorId: idOf("Andini Rahmawati"), createdAt: new Date("2026-07-29T02:00:00Z"), body: "Mulai 1 Agustus 2026 jam kerja shift pagi menjadi 08.00–17.00 dengan toleransi keterlambatan 15 menit. Absensi tetap melalui aplikasi karyawan dengan verifikasi lokasi." },
-    { title: "Libur bersama Hari Kemerdekaan", category: "Libur", audience: "Semua karyawan", authorId: idOf("Andini Rahmawati"), createdAt: new Date("2026-07-27T02:00:00Z"), body: "Kantor tutup pada 17–18 Agustus 2026. Tim Operations yang bertugas jaga akan dihitung sebagai lembur hari libur." },
-    { title: "Pengumpulan berkas BPJS tanggungan keluarga", category: "Administrasi", audience: "Karyawan tetap", authorId: idOf("Gita Permata"), createdAt: new Date("2026-07-24T02:00:00Z"), body: "Bagi karyawan yang ingin menambahkan anggota keluarga, unggah KK dan akta ke folder Berkas Pribadi paling lambat 8 Agustus 2026." },
-    { title: "Pelatihan K3 untuk tim gudang", category: "Pelatihan", audience: "Divisi Operations", authorId: idOf("Hendra Saputra"), createdAt: new Date("2026-07-22T02:00:00Z"), body: "Sesi wajib pada 6 Agustus 2026, 09.00–12.00 di Gudang Cakung. Kehadiran dicatat otomatis melalui absensi lokasi." },
+    {
+      title: "Penyesuaian jam kerja bulan Agustus",
+      category: "Kebijakan",
+      audience: "Semua karyawan",
+      pinned: true,
+      authorId: idOf("Andini Rahmawati"),
+      createdAt: new Date("2026-07-29T02:00:00Z"),
+      body: "Mulai 1 Agustus 2026 jam kerja shift pagi menjadi 08.00–17.00 dengan toleransi keterlambatan 15 menit. Absensi tetap melalui aplikasi karyawan dengan verifikasi lokasi.",
+    },
+    {
+      title: "Libur bersama Hari Kemerdekaan",
+      category: "Libur",
+      audience: "Semua karyawan",
+      authorId: idOf("Andini Rahmawati"),
+      createdAt: new Date("2026-07-27T02:00:00Z"),
+      body: "Kantor tutup pada 17–18 Agustus 2026. Tim Operations yang bertugas jaga akan dihitung sebagai lembur hari libur.",
+    },
+    {
+      title: "Pengumpulan berkas BPJS tanggungan keluarga",
+      category: "Administrasi",
+      audience: "Karyawan tetap",
+      authorId: idOf("Gita Permata"),
+      createdAt: new Date("2026-07-24T02:00:00Z"),
+      body: "Bagi karyawan yang ingin menambahkan anggota keluarga, unggah KK dan akta ke folder Berkas Pribadi paling lambat 8 Agustus 2026.",
+    },
+    {
+      title: "Pelatihan K3 untuk tim gudang",
+      category: "Pelatihan",
+      audience: "Divisi Operations",
+      authorId: idOf("Hendra Saputra"),
+      createdAt: new Date("2026-07-22T02:00:00Z"),
+      body: "Sesi wajib pada 6 Agustus 2026, 09.00–12.00 di Gudang Cakung. Kehadiran dicatat otomatis melalui absensi lokasi.",
+    },
   ]);
 
   const MB = 1024 * 1024;
-  const docs: [string, string, "personal" | "kontrak" | "sertif" | "legal", number, string | null, string][] = [
-    ["KTP - Bagas Prasetyo.pdf", "PDF", "personal", 1.2 * MB, "Bagas Prasetyo", "2026-07-29"],
-    ["NPWP - Citra Maharani.pdf", "PDF", "personal", 0.68 * MB, "Citra Maharani", "2026-07-28"],
-    ["Kartu Keluarga - Dimas A.pdf", "PDF", "personal", 2.1 * MB, "Dimas Anggara", "2026-07-27"],
-    ["Ijazah S1 - Fajar Nugroho.pdf", "PDF", "personal", 3.4 * MB, "Fajar Nugroho", "2026-07-26"],
-    ["Rekening BCA - Indah L.jpg", "JPG", "personal", 0.42 * MB, "Indah Lestari", "2026-07-24"],
-    ["BPJS - Maya Sari.pdf", "PDF", "personal", 0.91 * MB, "Maya Sari", "2026-07-21"],
-    ["PKWT - Nanda Pratama 2026.pdf", "PDF", "kontrak", 1.8 * MB, "Nanda Pratama", "2026-07-28"],
-    ["PKWT - Putra Wijaya 2026.pdf", "PDF", "kontrak", 1.7 * MB, "Putra Wijaya", "2026-07-26"],
-    ["SK Pengangkatan - Lukman H.pdf", "PDF", "kontrak", 0.94 * MB, "Lukman Hakim", "2026-07-20"],
-    ["Adendum Gaji - Bagas P.pdf", "PDF", "kontrak", 0.62 * MB, "Bagas Prasetyo", "2026-07-18"],
-    ["Sertifikat K3 Umum - Hendra S.pdf", "PDF", "sertif", 2.4 * MB, "Hendra Saputra", "2026-07-25"],
-    ["Brevet Pajak A - Oktavia R.pdf", "PDF", "sertif", 1.9 * MB, "Oktavia Rini", "2026-07-19"],
-    ["AWS Solutions Architect - Lukman.pdf", "PDF", "sertif", 1.1 * MB, "Lukman Hakim", "2026-07-12"],
-    ["Peraturan Perusahaan 2026.pdf", "PDF", "legal", 4.2 * MB, null, "2026-07-15"],
+  const docs: [
+    string,
+    string,
+    "personal" | "kontrak" | "sertif" | "legal",
+    number,
+    string | null,
+    string,
+  ][] = [
+    [
+      "KTP - Bagas Prasetyo.pdf",
+      "PDF",
+      "personal",
+      1.2 * MB,
+      "Bagas Prasetyo",
+      "2026-07-29",
+    ],
+    [
+      "NPWP - Citra Maharani.pdf",
+      "PDF",
+      "personal",
+      0.68 * MB,
+      "Citra Maharani",
+      "2026-07-28",
+    ],
+    [
+      "Kartu Keluarga - Dimas A.pdf",
+      "PDF",
+      "personal",
+      2.1 * MB,
+      "Dimas Anggara",
+      "2026-07-27",
+    ],
+    [
+      "Ijazah S1 - Fajar Nugroho.pdf",
+      "PDF",
+      "personal",
+      3.4 * MB,
+      "Fajar Nugroho",
+      "2026-07-26",
+    ],
+    [
+      "Rekening BCA - Indah L.jpg",
+      "JPG",
+      "personal",
+      0.42 * MB,
+      "Indah Lestari",
+      "2026-07-24",
+    ],
+    [
+      "BPJS - Maya Sari.pdf",
+      "PDF",
+      "personal",
+      0.91 * MB,
+      "Maya Sari",
+      "2026-07-21",
+    ],
+    [
+      "PKWT - Nanda Pratama 2026.pdf",
+      "PDF",
+      "kontrak",
+      1.8 * MB,
+      "Nanda Pratama",
+      "2026-07-28",
+    ],
+    [
+      "PKWT - Putra Wijaya 2026.pdf",
+      "PDF",
+      "kontrak",
+      1.7 * MB,
+      "Putra Wijaya",
+      "2026-07-26",
+    ],
+    [
+      "SK Pengangkatan - Lukman H.pdf",
+      "PDF",
+      "kontrak",
+      0.94 * MB,
+      "Lukman Hakim",
+      "2026-07-20",
+    ],
+    [
+      "Adendum Gaji - Bagas P.pdf",
+      "PDF",
+      "kontrak",
+      0.62 * MB,
+      "Bagas Prasetyo",
+      "2026-07-18",
+    ],
+    [
+      "Sertifikat K3 Umum - Hendra S.pdf",
+      "PDF",
+      "sertif",
+      2.4 * MB,
+      "Hendra Saputra",
+      "2026-07-25",
+    ],
+    [
+      "Brevet Pajak A - Oktavia R.pdf",
+      "PDF",
+      "sertif",
+      1.9 * MB,
+      "Oktavia Rini",
+      "2026-07-19",
+    ],
+    [
+      "AWS Solutions Architect - Lukman.pdf",
+      "PDF",
+      "sertif",
+      1.1 * MB,
+      "Lukman Hakim",
+      "2026-07-12",
+    ],
+    [
+      "Peraturan Perusahaan 2026.pdf",
+      "PDF",
+      "legal",
+      4.2 * MB,
+      null,
+      "2026-07-15",
+    ],
     ["SOP Absensi & Lembur.pdf", "PDF", "legal", 1.3 * MB, null, "2026-07-14"],
-    ["Rekap Karyawan Aktif.xlsx", "XLSX", "legal", 0.78 * MB, null, "2026-07-30"],
+    [
+      "Rekap Karyawan Aktif.xlsx",
+      "XLSX",
+      "legal",
+      0.78 * MB,
+      null,
+      "2026-07-30",
+    ],
   ];
 
   await db.insert(documents).values(
@@ -380,7 +827,7 @@ async function main() {
     `Seed OK — ${inserted.length} karyawan, ${history.length + EMP.length} absensi, ${events.length} event lokasi, ${leaves.length} cuti, ${ots.length} lembur, ${docs.length} berkas`,
   );
   console.log(
-    `Login: andini.rahmawati@nusantaradigital.co.id / ${SEED_PASSWORD} (HR Admin)`,
+    `Login: andini.rahmawati@nanumindahsejati.co.id / ${SEED_PASSWORD} (HR Admin)`,
   );
   process.exit(0);
 }

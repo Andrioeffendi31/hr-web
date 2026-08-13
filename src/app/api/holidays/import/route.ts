@@ -10,7 +10,9 @@ import { isIsoDate } from "@/lib/hr";
 const MAX_BYTES = 256 * 1024;
 
 const row = z.object({
-  date: z.string().refine(isIsoDate, "tanggal harus YYYY-MM-DD dan tanggal nyata"),
+  date: z
+    .string()
+    .refine(isIsoDate, "tanggal harus YYYY-MM-DD dan tanggal nyata"),
   name: z.string().trim().min(2, "nama wajib diisi").max(120),
   collective: z.boolean(),
 });
@@ -36,19 +38,31 @@ export async function POST(req: Request) {
   const rows: Row[] = [];
 
   if (req.headers.get("content-type")?.includes("application/json")) {
-    const parsed = z.array(row).max(400).safeParse(await req.json());
+    const parsed = z
+      .array(row)
+      .max(400)
+      .safeParse(await req.json());
     if (!parsed.success) {
-      return Response.json({ error: "Daftar hari libur tidak valid" }, { status: 400 });
+      return Response.json(
+        { error: "Daftar hari libur tidak valid" },
+        { status: 400 },
+      );
     }
     rows.push(...parsed.data);
   } else {
     const form = await req.formData();
     const file = form.get("file");
     if (!(file instanceof File)) {
-      return Response.json({ error: "File CSV tidak ditemukan" }, { status: 400 });
+      return Response.json(
+        { error: "File CSV tidak ditemukan" },
+        { status: 400 },
+      );
     }
     if (file.size > MAX_BYTES) {
-      return Response.json({ error: "File terlalu besar (maks 256 KB)" }, { status: 413 });
+      return Response.json(
+        { error: "File terlalu besar (maks 256 KB)" },
+        { status: 413 },
+      );
     }
 
     const table = parseCsv(await file.text());
@@ -60,10 +74,15 @@ export async function POST(req: Request) {
     const start = /tanggal/i.test(table[0][0] ?? "") ? 1 : 0;
     for (let i = start; i < table.length; i++) {
       const line = i + 1;
-      const [date = "", name = "", collective = ""] = table[i].map((c) => c.trim());
+      const [date = "", name = "", collective = ""] = table[i].map((c) =>
+        c.trim(),
+      );
       const flag = collective.toLowerCase();
       if (!TRUE.has(flag) && !FALSE.has(flag)) {
-        errors.push({ line, message: `kolom cuti_bersama "${collective}" tidak dikenal` });
+        errors.push({
+          line,
+          message: `kolom cuti_bersama "${collective}" tidak dikenal`,
+        });
         continue;
       }
       const parsed = row.safeParse({ date, name, collective: TRUE.has(flag) });
@@ -102,5 +121,9 @@ export async function POST(req: Request) {
     revalidatePath("/cuti");
   }
 
-  return Response.json({ imported: unique.length, skipped: errors.length, errors });
+  return Response.json({
+    imported: unique.length,
+    skipped: errors.length,
+    errors,
+  });
 }

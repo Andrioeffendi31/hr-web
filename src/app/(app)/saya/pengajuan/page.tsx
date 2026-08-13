@@ -1,6 +1,6 @@
 import { Pengajuan } from "./pengajuan";
 
-export const metadata = { title: "Pengajuan — Ruang HR" };
+export const metadata = { title: "Pengajuan — NanumHR" };
 
 /**
  * Like /saya, this hands over to a client component instead of querying drizzle.

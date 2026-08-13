@@ -107,7 +107,7 @@ export default async function LemburPage({
                 {r.name}
               </span>
               <span className="text-subtle block text-[11px]">
-                {r.division}
+                {r.division ?? "Tanpa divisi"}
               </span>
             </span>
           </div>

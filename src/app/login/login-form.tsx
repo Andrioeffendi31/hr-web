@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -134,13 +136,21 @@ export function LoginForm({
             autoComplete="username webauthn"
             required
             disabled={busy}
-            placeholder="nama@nusantaradigital.co.id"
+            placeholder="nama@nanumindahsejati.co.id"
             className="h-10"
           />
         </div>
 
         <div className="grid gap-1.5">
-          <Label htmlFor="password">Kata sandi</Label>
+          <div className="flex items-baseline justify-between gap-3">
+            <Label htmlFor="password">Kata sandi</Label>
+            <Link
+              href="/lupa-sandi"
+              className="text-muted-foreground hover:text-foreground text-[11.5px]"
+            >
+              Lupa kata sandi?
+            </Link>
+          </div>
           <div className="relative">
             <Input
               id="password"

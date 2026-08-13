@@ -22,7 +22,11 @@ export const POST = withMe(async (me, req) => {
   if (!parsed.success) {
     throw new Bad(parsed.error.issues[0]?.message ?? "Permintaan tidak valid");
   }
-  await registerPushToken(me.id, parsed.data.token, parsed.data.platform ?? "unknown");
+  await registerPushToken(
+    me.id,
+    parsed.data.token,
+    parsed.data.platform ?? "unknown",
+  );
   return Response.json({ ok: true });
 });
 

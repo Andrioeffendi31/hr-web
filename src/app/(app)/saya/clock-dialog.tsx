@@ -100,7 +100,7 @@ export function ClockDialog({
   // fact about the page rather than something that happens to it
   const problem = secure
     ? locError
-    : "Absen butuh koneksi aman (HTTPS). Buka Ruang HR lewat alamat resminya.";
+    : "Absen butuh koneksi aman (HTTPS). Buka NanumHR lewat alamat resminya.";
 
   /**
    * Which office this punch is measured against, in two-step preselection —

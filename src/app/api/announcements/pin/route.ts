@@ -30,7 +30,10 @@ export async function POST(req: Request) {
     .returning({ id: announcements.id });
 
   if (!updated) {
-    return Response.json({ error: "Pengumuman tidak ditemukan" }, { status: 404 });
+    return Response.json(
+      { error: "Pengumuman tidak ditemukan" },
+      { status: 404 },
+    );
   }
 
   await db.insert(auditLog).values({
