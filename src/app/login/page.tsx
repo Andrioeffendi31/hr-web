@@ -3,6 +3,7 @@ import Image from "next/image";
 import { auth } from "@/auth";
 import { canAccess, homeFor, type Role } from "@/lib/access";
 import { LoginForm } from "./login-form";
+import loginBanner from "../../../public/images/nanumhr-login-banner.png";
 
 export const metadata = { title: "Masuk — NanumHR" };
 
@@ -37,14 +38,13 @@ export default async function LoginPage({
 
   const brand = (
     <div className="flex items-center gap-2.5">
-      <div className="bg-primary flex size-9 shrink-0 items-center justify-center rounded-[10px] shadow-sm">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path
-            d="M5 20V5.5A1.5 1.5 0 0 1 6.5 4H13a5 5 0 0 1 1.4 9.8L19 20h-3.4l-4-6H8v6H5Z"
-            fill="#fff"
-          />
-        </svg>
-      </div>
+      <Image
+        src="/images/nanumhr-logo.png"
+        alt="Logo NanumHR"
+        width={36}
+        height={36}
+        className="size-9 shrink-0 rounded-[10px] shadow-sm"
+      />
       <div>
         <div className="font-heading text-base font-bold tracking-tight">
           Nanum<span className="text-subtle font-semibold">HR</span>
@@ -60,7 +60,7 @@ export default async function LoginPage({
     <div className="bg-background min-h-dvh lg:grid lg:grid-cols-[1.05fr_1fr]">
       <aside className="relative hidden min-h-dvh overflow-hidden border-r lg:block">
         <Image
-          src="/images/nanumhr-login-banner.png"
+          src={loginBanner}
           alt="Tim Nanum berkolaborasi di ruang kerja"
           fill
           priority
@@ -91,7 +91,7 @@ export default async function LoginPage({
           <div className="mb-8 lg:hidden">
             <div className="relative mb-6 aspect-[2/1] overflow-hidden rounded-2xl border shadow-sm">
               <Image
-                src="/images/nanumhr-login-banner.png"
+                src={loginBanner}
                 alt="Tim Nanum berkolaborasi di ruang kerja"
                 fill
                 priority

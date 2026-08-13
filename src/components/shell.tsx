@@ -226,20 +226,12 @@ export function Shell({
           className="bg-card size-[30px] shrink-0 rounded-lg border object-contain p-0.5 shadow-sm"
         />
       ) : (
-        <div className="bg-primary shadow-sm flex size-[30px] shrink-0 items-center justify-center rounded-lg">
-          <svg
-            width="17"
-            height="17"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden
-          >
-            <path
-              d="M5 20V5.5A1.5 1.5 0 0 1 6.5 4H13a5 5 0 0 1 1.4 9.8L19 20h-3.4l-4-6H8v6H5Z"
-              fill="#fff"
-            />
-          </svg>
-        </div>
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src="/images/nanumhr-logo.png"
+          alt="Logo NanumHR"
+          className="size-[30px] shrink-0 rounded-lg shadow-sm"
+        />
       )}
       <div className="min-w-0 leading-tight">
         <div className="font-heading text-[14.5px] font-bold tracking-tight">
