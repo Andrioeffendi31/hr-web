@@ -1,29 +1,10 @@
 import { redirect } from "next/navigation";
-import { CalendarCheck, Fingerprint, ShieldCheck } from "lucide-react";
+import Image from "next/image";
 import { auth } from "@/auth";
 import { canAccess, homeFor, type Role } from "@/lib/access";
-import { PERUSAHAAN } from "@/lib/hr";
 import { LoginForm } from "./login-form";
 
 export const metadata = { title: "Masuk — NanumHR" };
-
-const HIGHLIGHTS = [
-  {
-    icon: CalendarCheck,
-    title: "Kehadiran, cuti, dan lembur dalam satu papan",
-    body: "Setujui pengajuan dan pantau absensi harian tanpa berpindah aplikasi.",
-  },
-  {
-    icon: Fingerprint,
-    title: "Masuk tanpa kata sandi",
-    body: "Daftarkan passkey sekali, lalu cukup Touch ID, Face ID, atau Windows Hello.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Siap audit",
-    body: "Setiap persetujuan tercatat lengkap dengan pelaku dan waktunya.",
-  },
-];
 
 export default async function LoginPage({
   searchParams,
@@ -68,53 +49,58 @@ export default async function LoginPage({
         <div className="font-heading text-base font-bold tracking-tight">
           Nanum<span className="text-subtle font-semibold">HR</span>
         </div>
-        <div className="text-subtle font-mono text-[10.5px]">{PERUSAHAAN}</div>
+        <div className="text-subtle font-mono text-[10.5px]">
+          PT. NANUM INDAH SEJATI · 나눔컨설팅
+        </div>
       </div>
     </div>
   );
 
   return (
     <div className="bg-background min-h-dvh lg:grid lg:grid-cols-[1.05fr_1fr]">
-      {/* Brand panel — hidden on small screens where it would just push the form down */}
-      <aside className="bg-sidebar relative hidden flex-col justify-between border-r p-10 lg:flex">
-        {brand}
+      <aside className="relative hidden min-h-dvh overflow-hidden border-r lg:block">
+        <Image
+          src="/images/nanumhr-login-banner.png"
+          alt="Tim Nanum berkolaborasi di ruang kerja"
+          fill
+          priority
+          sizes="52vw"
+          className="object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,247,243,0.94)_0%,rgba(248,247,243,0.38)_35%,rgba(18,39,73,0.06)_62%,rgba(18,39,73,0.72)_100%)]" />
 
-        <div className="max-w-[420px]">
-          <h1 className="text-[26px] leading-tight font-semibold tracking-tight">
-            Satu ruang untuk kehadiran dan pengajuan.
-          </h1>
-          <p className="text-muted-foreground mt-3 text-[13.5px] leading-relaxed">
-            Karyawan mencatat absensi dan mengajukan cuti; tim HR menyetujui,
-            mengelola data, dan menarik laporan — di atas satu sumber data.
-          </p>
-
-          <ul className="mt-8 flex flex-col gap-5">
-            {HIGHLIGHTS.map((h) => (
-              <li key={h.title} className="flex gap-3.5">
-                <span className="bg-primary-subtle text-primary flex size-9 shrink-0 items-center justify-center rounded-[10px]">
-                  <h.icon className="size-[18px]" aria-hidden />
-                </span>
-                <span>
-                  <span className="block text-[13.5px] font-medium">
-                    {h.title}
-                  </span>
-                  <span className="text-muted-foreground mt-0.5 block text-[12.5px] leading-relaxed">
-                    {h.body}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
+        <div className="absolute inset-0 flex flex-col justify-between p-10">
+          {brand}
+          <div className="max-w-[420px] text-white [text-shadow:0_1px_16px_rgba(18,39,73,0.24)]">
+            <p className="mb-3 font-mono text-[11px] tracking-[0.16em] text-white/75 uppercase">
+              Satu tim, satu ruang kerja
+            </p>
+            <h1 className="text-[28px] leading-[1.18] font-semibold tracking-tight">
+              Kerja terasa lebih dekat ketika semuanya terhubung.
+            </h1>
+            <p className="mt-3 max-w-[390px] text-[13.5px] leading-relaxed text-white/80">
+              Kehadiran, cuti, lembur, dan data karyawan tersusun rapi untuk
+              seluruh tim Nanum.
+            </p>
+          </div>
         </div>
-
-        <p className="text-subtle text-[11.5px]">
-          Absensi dan pengajuan juga tersedia di aplikasi NanumHR Mobile.
-        </p>
       </aside>
 
       <main className="flex items-center justify-center px-5 py-12">
         <div className="w-full max-w-[380px]">
-          <div className="mb-8 lg:hidden">{brand}</div>
+          <div className="mb-8 lg:hidden">
+            <div className="relative mb-6 aspect-[2/1] overflow-hidden rounded-2xl border shadow-sm">
+              <Image
+                src="/images/nanumhr-login-banner.png"
+                alt="Tim Nanum berkolaborasi di ruang kerja"
+                fill
+                priority
+                sizes="(max-width: 1023px) 380px, 0px"
+                className="object-cover object-[center_62%]"
+              />
+            </div>
+            {brand}
+          </div>
 
           <h2 className="font-heading text-xl font-semibold tracking-tight">
             Masuk ke NanumHR
