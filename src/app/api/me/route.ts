@@ -187,9 +187,14 @@ export const GET = withMe(async (me) => {
     team: {
       total: team.length,
       present: present.length,
-      avatars: present.slice(0, 4).map((t) => ({
+      // lima, bukan empat: baris avatar di Beranda memuat lima wajah lalu sebuah
+      // gelembung "+N" untuk sisanya
+      avatars: present.slice(0, 5).map((t) => ({
         id: t.id,
         initials: initials(t.name),
+        /** nama depan saja yang ditampilkan di bawah avatar; nama lengkapnya
+         *  dikirim utuh karena memenggalnya adalah urusan tampilan */
+        name: t.name,
         /** the same colleague is a photo in the Tim tab; the stack on the Beranda
          *  should not show them as initials */
         photoKey: t.photoKey,
