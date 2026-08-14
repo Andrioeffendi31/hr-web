@@ -3,6 +3,7 @@ import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { employees, settings } from "@/db/schema";
 import { isiFor, renderHtml, renderText } from "./email-render";
+import { baseUrl } from "./url";
 
 type Template =
   | "request_submitted"
@@ -121,10 +122,7 @@ export async function queueEmail({
     .from(settings)
     .limit(1);
   const perusahaan = cfg?.companyName ?? "NanumHR";
-  const base = (process.env.AUTH_URL ?? "http://localhost:3000").replace(
-    /\/$/,
-    "",
-  );
+  const base = baseUrl();
 
   await Promise.all(
     targets.map((r) => {

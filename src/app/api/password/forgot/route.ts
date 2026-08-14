@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { employees } from "@/db/schema";
 import { queueEmail } from "@/lib/email";
+import { baseUrl } from "@/lib/url";
 import { tooMany } from "@/lib/hr";
 import { putReset, recentReset } from "@/lib/reset";
 
@@ -35,11 +36,10 @@ export async function POST(req: Request) {
   // an inactive account is not a login problem to solve
   if (emp?.active && !(await recentReset(emp.id, 2 * 60_000))) {
     const token = await putReset(emp.id);
-    const base = process.env.AUTH_URL ?? "http://localhost:3000";
     await queueEmail({
       to: emp.id,
       template: "password_reset",
-      context: { url: `${base}/atur-sandi?token=${token}` },
+      context: { url: `${baseUrl()}/atur-sandi?token=${token}` },
     });
   }
 

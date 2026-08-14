@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check": "tsx src/lib/hr.check.ts && tsx src/lib/r2.check.ts && tsx src/lib/webauthn.check.ts && tsx src/lib/access.check.ts && tsx src/lib/image.check.ts",
+    "check": "tsx src/lib/hr.check.ts && tsx src/lib/r2.check.ts && tsx src/lib/webauthn.check.ts && tsx src/lib/access.check.ts && tsx src/lib/image.check.ts && tsx src/lib/url.check.ts",
     "db:push": "dotenv -e .env.local -- drizzle-kit push",
     "db:seed": "dotenv -e .env.local -- tsx src/db/seed.ts",
     "db:import": "dotenv -e .env.local -- tsx src/db/import-karyawan.ts",
