@@ -80,6 +80,7 @@ export default async function DetailKehadiranPage({
           lng: attendanceEvents.lng,
           photoUrl: attendanceEvents.photoUrl,
           note: attendanceEvents.note,
+          suspect: attendanceEvents.suspect,
         })
         .from(attendanceEvents)
         .where(eq(attendanceEvents.attendanceId, day.id))
@@ -261,6 +262,14 @@ export default async function DetailKehadiranPage({
                           )}
                         >
                           {e.note}
+                        </div>
+                      )}
+                      {/* Karyawan melihat tanda ini juga, bukan hanya HR: catatan
+                          yang menuduh seseorang tanpa ia pernah tahu bukan catatan
+                          yang bisa ia bantah. */}
+                      {e.suspect && (
+                        <div className="text-danger mt-1 text-[12px] font-medium">
+                          {e.suspect}
                         </div>
                       )}
                       {e.photoUrl && (

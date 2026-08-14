@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, or, sql } from "drizzle-orm";
-import { MapPin } from "lucide-react";
+import { MapPin, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
 import {
@@ -32,6 +32,7 @@ import {
   todayWib,
 } from "@/lib/hr";
 import {
+  adaCurigaSql,
   cutiDitolak,
   grupSql,
   rekapSql,
@@ -153,6 +154,7 @@ export default async function KehadiranPage({
     clockOut: attendance.clockOut,
     location: attendance.location,
     selfieUrl: attendance.selfieUrl,
+    curiga: adaCurigaSql,
   };
   const [
     [counts],
@@ -315,6 +317,7 @@ export default async function KehadiranPage({
                 lng: attendanceEvents.lng,
                 photoUrl: attendanceEvents.photoUrl,
                 note: attendanceEvents.note,
+                suspect: attendanceEvents.suspect,
               })
               .from(attendanceEvents)
               .where(eq(attendanceEvents.attendanceId, row.attendanceId))
@@ -387,8 +390,16 @@ export default async function KehadiranPage({
         >
           <Avatar name={r.name} photoKey={r.photoUrl} />
           <span className="min-w-0">
-            <span className="block truncate text-[13px] font-medium">
-              {r.name}
+            <span className="flex items-center gap-1 text-[13px] font-medium">
+              <span className="truncate">{r.name}</span>
+              {/* Satu ikon, bukan pill: yang perlu diketahui dari papan hanyalah
+                  "hari ini perlu dilihat", dan alasannya ada di dalam drawer. */}
+              {r.curiga && (
+                <ShieldAlert
+                  className="text-danger size-3.5 shrink-0"
+                  aria-label="Ada titik lokasi yang mencurigakan"
+                />
+              )}
             </span>
             <span className="text-subtle tnum block text-[11px]">{r.nik}</span>
           </span>

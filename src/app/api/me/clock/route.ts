@@ -2,7 +2,12 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { attendance, attendanceEvents, officeLocations } from "@/db/schema";
+import {
+  attendance,
+  attendanceEvents,
+  auditLog,
+  officeLocations,
+} from "@/db/schema";
 import {
   attendanceStatus,
   formatJarak,
@@ -40,6 +45,14 @@ const body = z.object({
   /** which office this punch is measured against; required on clock-in unless WFH,
    *  and ignored on clock-out, which reuses whatever clock-in chose */
   locationId: z.coerce.number().int().positive().optional(),
+  /**
+   * Android melaporkan sendiri bahwa fix ini berasal dari mock location provider,
+   * yaitu dari aplikasi fake-GPS. Absen dengan bendera ini DITOLAK: tidak seperti
+   * ping berkala — yang bertugas mencatat di mana orangnya berada dan karena itu
+   * tidak boleh membuang fakta — punch adalah klaim yang sedang diajukan, dan
+   * klaim yang koordinatnya diketahui karangan tidak punya alasan untuk diterima.
+   */
+  mocked: z.enum(["1", "0"]).optional(),
 });
 
 export const POST = withMe(async (me, req) => {
@@ -50,7 +63,7 @@ export const POST = withMe(async (me, req) => {
   if (!parsed.success) {
     throw new Bad(parsed.error.issues[0]?.message ?? "Permintaan tidak valid");
   }
-  const { action, lat, lng, location, wfh, locationId } = parsed.data;
+  const { action, lat, lng, location, wfh, locationId, mocked } = parsed.data;
 
   /**
    * The selfie is mandatory for both punches, and it is checked here — before the
@@ -63,6 +76,28 @@ export const POST = withMe(async (me, req) => {
    * recording photoless punches. That is the policy, not an oversight — an
    * exception that fires whenever R2 has a bad day is not a requirement.
    */
+  /**
+   * Diperiksa sebelum apa pun yang lain, termasuk sebelum selfie: menyuruh orang
+   * berfoto lalu menolak punch-nya karena hal yang sudah diketahui sejak baris
+   * pertama adalah membuang waktunya dengan sengaja.
+   *
+   * Bendera ini datang dari perangkat, jadi APK yang dimodifikasi bisa saja tidak
+   * mengirimkannya. Yang menjaga sisi itu adalah heuristik perpindahan mustahil di
+   * jalur ping — di sini yang ditutup adalah aplikasi fake-GPS biasa dari Play Store,
+   * yaitu seluruh kasus yang sebenarnya terjadi.
+   */
+  if (mocked === "1") {
+    await db.insert(auditLog).values({
+      actorId: me.id,
+      action: "attendance.mocked",
+      entity: "attendance",
+      detail: `Absen ${action === "in" ? "masuk" : "keluar"} ditolak: GPS palsu terdeteksi di perangkat (${lat}, ${lng})`,
+    });
+    throw new Bad(
+      "Absen ditolak: aplikasi lokasi palsu terdeteksi. Matikan aplikasi fake GPS, lalu coba lagi.",
+    );
+  }
+
   const file = form.get("selfie");
   if (!(file instanceof File) || file.size === 0) {
     throw new Bad("Foto selfie wajib untuk absen masuk maupun keluar");

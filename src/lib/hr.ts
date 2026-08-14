@@ -497,6 +497,31 @@ export function jarakMeter(
   return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))));
 }
 
+/**
+ * Kecepatan tersirat antara dua fix, km/jam. Nol kalau selisih waktunya nol atau
+ * mundur — dua fix pada detik yang sama tidak menyiratkan kecepatan apa pun, dan
+ * membaginya dengan nol akan menghasilkan Infinity yang menuduh semua orang.
+ */
+export function kecepatanKmJam(
+  a: { lat: number; lng: number; at: Date },
+  b: { lat: number; lng: number; at: Date },
+): number {
+  const jam = (b.at.getTime() - a.at.getTime()) / 3_600_000;
+  if (jam <= 0) return 0;
+  return jarakMeter(a.lat, a.lng, b.lat, b.lng) / 1000 / jam;
+}
+
+/**
+ * Di atas ini, perpindahannya tidak mungkin dilakukan orang yang sedang bekerja.
+ *
+ * 250 km/jam: di atas kendaraan darat mana pun di Indonesia, dan cukup longgar
+ * untuk fix GPS yang meleset ratusan meter (meleset 1 km pun hanya menyiratkan
+ * 0,4 km/jam pada jeda 2,5 jam). Yang di atasnya praktis hanya pesawat — dan
+ * karena itulah ambang ini hanya MENANDAI, tidak pernah menolak: karyawan WFH
+ * yang naik pesawat itu jarang, tapi ada.
+ */
+export const KECEPATAN_MUSTAHIL = 250;
+
 /** "24 m" / "1,2 km" — comma decimal, like every other number in the UI. */
 export const formatJarak = (meter: number) =>
   meter >= 1000

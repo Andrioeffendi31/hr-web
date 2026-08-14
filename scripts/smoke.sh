@@ -330,6 +330,85 @@ check "karyawan tetap bisa baca datanya sendiri" 200 "$(empcode "$BASE/api/me")"
 check "beranda karyawan tanpa agregat admin" 0 \
   "$(curl -s -b "$EMPJAR" "$BASE/saya" | grep -c 'sudah absen masuk hari ini')"
 
+echo "17. jejak lokasi: waktu pengambilan, antrean, dan GPS palsu"
+# Citra absen masuk 08:00 pada tanggal HARI INI (seed menulisnya khusus untuk ini —
+# papan yang dipatok di 2026-07-30 tidak bisa menyentuh jalur yang memakai todayWib).
+PINGJAR="$(mktemp)"
+PINGCSRF="$(curl -s -b "$PINGJAR" -c "$PINGJAR" "$BASE/api/auth/csrf" | sed 's/.*"csrfToken":"\([^"]*\)".*/\1/')"
+curl -s -b "$PINGJAR" -c "$PINGJAR" -o /dev/null \
+  -d "csrfToken=$PINGCSRF" -d "email=citra.maharani@nanumindahsejati.co.id" \
+  -d "password=$PASS" "$BASE/api/auth/callback/credentials"
+# Waktunya relatif terhadap jam jalan, bukan jam mati: fix di masa depan ditolak,
+# jadi "14:30" akan benar sebelum tengah hari dan salah sesudahnya.
+# argumen = detik ke BELAKANG; negatif berarti ke depan. BSD dan GNU date memakai
+# bendera yang sama sekali berbeda, jadi keduanya dicoba.
+iso() {
+  if [ "$1" -lt 0 ]; then off="+$(( -$1 ))"; else off="-$1"; fi
+  TZ=Asia/Jakarta date -v"${off}S" +%FT%T+07:00 2>/dev/null ||
+    TZ=Asia/Jakarta date -d "${off} seconds" +%FT%T+07:00
+}
+ping() { # detik-ke-belakang lat lng [mocked]
+  curl -s -b "$PINGJAR" -c "$PINGJAR" -X POST "$BASE/api/attendance/ping" \
+    -H 'content-type: application/json' \
+    -d "{\"lat\":$2,\"lng\":$3,\"at\":\"$(iso "$1")\"${4:+,\"mocked\":true}}"
+}
+check "ping butuh sesi" 401 \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/attendance/ping" \
+     -H 'content-type: application/json' -d '{"lat":0,"lng":0}')"
+check "koordinat ngawur ditolak" 400 \
+  "$(curl -s -b "$PINGJAR" -o /dev/null -w '%{http_code}' -X POST "$BASE/api/attendance/ping" \
+     -H 'content-type: application/json' -d '{"lat":999,"lng":0}')"
+# batas waktu: fix tidak boleh datang dari masa depan maupun dari sebelum absen masuk
+check "waktu ping di masa depan ditolak" "Waktu ping di masa depan" \
+  "$(ping -600 -6.2249 106.8092 | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+
+# Blok berikut MENULIS baris lokasi, jadi ia hanya benar sekali per seed: jalan
+# kedua akan menabrak jeda 2,5 jam yang dibuat jalan pertama. Keduanya dideteksi
+# dan dilewati dengan terang-terangan — uji yang diam-diam lolos di jalan kedua
+# lebih buruk daripada uji yang mengaku dilewati.
+#
+# Fix bertanggal juga butuh ruang 2,5 jam DI DALAM hari ini, dan seed memasang
+# absen masuk pukul 00:01; sebelum 03:00 WIB ruang itu belum ada.
+BEKAS="$(curl -s -b "$PINGJAR" "$BASE/api/me/attendance/$(TZ=Asia/Jakarta date +%F)" | grep -c '"kind":"lokasi"')"
+if [ "$BEKAS" != "0" ]; then
+  echo "  skip jejak bertanggal: hari ini sudah punya baris lokasi · jalankan npm run db:seed dulu"
+elif [ "$(TZ=Asia/Jakarta date +%H)" -lt 03 ]; then
+  echo "  skip jejak bertanggal: sebelum 03:00 WIB belum ada ruang 2,5 jam sejak absen masuk"
+else
+  # antrean offline: fix yang tertahan 2,7 jam lalu menyusul, kemudian fix baru —
+  # keduanya masuk hanya kalau jeda diukur pada waktu PENGAMBILAN, bukan waktu unggah
+  check "fix antrean yang menyusul diterima" 1 \
+    "$(ping 9720 -6.2249 106.8092 | grep -c '"ok":true')"
+  check "fix baru sesudahnya juga diterima" 1 \
+    "$(ping 30 -6.2249 106.8092 | grep -c '"ok":true')"
+  # ...dan jeda itu tetap menjadi rate limit
+  check "fix kedua di jendela yang sama ditolak 409" "Ping terlalu cepat" \
+    "$(ping 20 -6.2249 106.8092 | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+fi
+# GPS palsu: ping tidak pernah ditolak, tapi barisnya ditandai untuk HR.
+# Karyawan lain, karena ping-ping di atas sudah memakai jendela jeda milik Citra.
+MOCKJAR="$(mktemp)"
+MOCKCSRF="$(curl -s -b "$MOCKJAR" -c "$MOCKJAR" "$BASE/api/auth/csrf" | sed 's/.*"csrfToken":"\([^"]*\)".*/\1/')"
+curl -s -b "$MOCKJAR" -c "$MOCKJAR" -o /dev/null \
+  -d "csrfToken=$MOCKCSRF" -d "email=dimas.anggara@nanumindahsejati.co.id" \
+  -d "password=$PASS" "$BASE/api/auth/callback/credentials"
+MOCKBEKAS="$(curl -s -b "$MOCKJAR" "$BASE/api/me/attendance/$(TZ=Asia/Jakarta date +%F)" | grep -c '"kind":"lokasi"')"
+MOCKBODY="{\"lat\":-6.2249,\"lng\":106.8092,\"at\":\"$(iso 10)\",\"mocked\":true}"
+if [ "$MOCKBEKAS" != "0" ]; then
+  echo "  skip uji GPS palsu: hari ini sudah punya baris lokasi · jalankan npm run db:seed dulu"
+else
+  check "ping ber-GPS palsu ditandai, bukan ditolak" "GPS palsu terdeteksi di perangkat" \
+    "$(curl -s -b "$MOCKJAR" -X POST "$BASE/api/attendance/ping" \
+       -H 'content-type: application/json' -d "$MOCKBODY" \
+       | sed 's/.*"suspect":"\([^"]*\)".*/\1/')"
+fi
+rm -f "$MOCKJAR"
+# absen masuk dengan GPS palsu ditolak sebelum apa pun ditulis — termasuk sebelum selfie
+check "absen ber-GPS palsu ditolak" 400 \
+  "$(curl -s -b "$PINGJAR" -o /dev/null -w '%{http_code}' -X POST "$BASE/api/me/clock" \
+     -F action=in -F lat=-6.2249 -F lng=106.8092 -F locationId=1 -F mocked=1)"
+rm -f "$PINGJAR"
+
 rm -f "$JAR" "$BADJAR" "$EMPJAR"
 echo
 [ $fail -eq 0 ] && echo "smoke: all checks passed" || echo "smoke: FAILURES above"

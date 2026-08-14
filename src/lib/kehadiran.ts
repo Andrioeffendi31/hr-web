@@ -2,6 +2,7 @@ import { and, desc, eq, gte, lte, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
   attendance,
+  attendanceEvents,
   divisions,
   employees,
   leaveRequests,
@@ -124,6 +125,17 @@ export function grupSql(status: SQL<string>) {
 }
 
 export type GrupStatus = keyof ReturnType<typeof grupSql>;
+
+/**
+ * Adakah titik mencurigakan pada absensi hari ini? Subkueri skalar dengan pola
+ * yang sama seperti `cutiPadaTanggal`, jadi papan tidak perlu join tambahan.
+ * Ada indeks parsial untuk ini (`att_events_suspect`, migrasi 0008) — barisnya
+ * segelintir, jadi pertanyaannya murah meski ditanyakan per baris.
+ */
+export const adaCurigaSql = sql<boolean>`exists (
+  select 1 from ${attendanceEvents} ae
+  where ae.attendance_id = ${attendance.id} and ae.suspect is not null
+)`;
 
 /**
  * Rekap dihitung dari HARI KERJA, bukan dari baris absensi.

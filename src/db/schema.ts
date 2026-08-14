@@ -237,6 +237,14 @@ export const attendanceEvents = pgTable(
     /** R2 object key, optional */
     photoUrl: text("photo_url"),
     note: text("note"),
+    /**
+     * Kenapa titik ini patut dicurigai, atau NULL kalau bersih.
+     *
+     * Teks, bukan boolean: yang bisa ditindaklanjuti HR adalah alasannya
+     * ("GPS palsu terdeteksi di perangkat", "Perpindahan 812 km dalam 4 menit"),
+     * dan bendera tanpa alasan hanya memindahkan pertanyaan.
+     */
+    suspect: text("suspect"),
   },
   (t) => [index("att_events_attendance").on(t.attendanceId, t.at)],
 );

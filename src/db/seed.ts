@@ -18,7 +18,12 @@ import {
   overtimeRequests,
   settings,
 } from "./schema";
-import { attendanceStatus, overtimeMinutes, workingDays } from "../lib/hr";
+import {
+  attendanceStatus,
+  overtimeMinutes,
+  todayWib,
+  workingDays,
+} from "../lib/hr";
 
 const TODAY = "2026-07-30";
 /**
@@ -263,25 +268,23 @@ async function main() {
    * inheriting the default, nothing in the demo would ever exercise resolveShift,
    * and a warehouse crew starting at 07:00 is exactly why the feature exists.
    */
-  await db
-    .insert(divisions)
-    .values([
-      { name: "Human Resource" },
-      { name: "Engineering" },
-      { name: "Finance" },
-      { name: "Marketing" },
-      {
-        name: "Operations",
-        shiftStart: "07:00:00",
-        shiftEnd: "16:00:00",
-        lateToleranceMinutes: 10,
-        // Gudang jalan hari Minggu dan tutup hari Jumat–Sabtu. Divisi dengan hari
-        // kerja sendiri ada di seed supaya jalur itu ikut teruji, bukan hanya
-        // dipercaya: sebelum ada kolom ini, mereka tercatat "tanpa keterangan"
-        // setiap Minggu dan "belum absen" setiap Jumat.
-        workDays: [0, 1, 2, 3, 4],
-      },
-    ]);
+  await db.insert(divisions).values([
+    { name: "Human Resource" },
+    { name: "Engineering" },
+    { name: "Finance" },
+    { name: "Marketing" },
+    {
+      name: "Operations",
+      shiftStart: "07:00:00",
+      shiftEnd: "16:00:00",
+      lateToleranceMinutes: 10,
+      // Gudang jalan hari Minggu dan tutup hari Jumat–Sabtu. Divisi dengan hari
+      // kerja sendiri ada di seed supaya jalur itu ikut teruji, bukan hanya
+      // dipercaya: sebelum ada kolom ini, mereka tercatat "tanpa keterangan"
+      // setiap Minggu dan "belum absen" setiap Jumat.
+      workDays: [0, 1, 2, 3, 4],
+    },
+  ]);
   /** hari kerja divisi, nomor Postgres — cerminan tabel di atas */
   const hariKerjaOf = (division: string) =>
     division === "Operations" ? [0, 1, 2, 3, 4] : [1, 2, 3, 4, 5];
@@ -361,6 +364,40 @@ async function main() {
       locationId: clockIn ? officeFor(location ?? null) : null,
     })),
   );
+
+  /**
+   * Satu orang yang absen masuk pada tanggal HARI INI yang sebenarnya, bukan pada
+   * TODAY yang dipatok di atas.
+   *
+   * Papan di atas sengaja dipatok supaya angkanya deterministik, tapi jalur ping
+   * lokasi memakai `todayWib()` dan karena itu tidak bisa disentuh sama sekali oleh
+   * data yang dipatok — endpoint yang tidak bisa diuji adalah endpoint yang rusak
+   * diam-diam. Baris ini yang membuat smoke bisa memeriksanya.
+   */
+  const hariIniAsli = todayWib();
+  if (hariIniAsli !== TODAY) {
+    // Dua orang, bukan satu: uji jeda 2,5 jam dan uji GPS palsu sama-sama menulis
+    // baris `lokasi`, dan kalau berbagi satu absensi maka yang kedua selalu jatuh
+    // di dalam jendela jeda yang baru saja dibuat yang pertama.
+    await db
+      .insert(attendance)
+      .values(
+        ["Citra Maharani", "Dimas Anggara"].map((nama) => ({
+          employeeId: idOf(nama),
+          date: hariIniAsli,
+          // 00:01, bukan 08:00: smoke mengirim fix bertanggal beberapa jam ke
+          // belakang, dan semuanya harus jatuh SESUDAH absen masuk berapa pun jam
+          // pengujiannya dijalankan.
+          clockIn: "00:01:00",
+          status: "hadir" as const,
+          location: "Kantor Pusat",
+          lat: "-6.224900",
+          lng: "106.809200",
+          locationId: officeFor("Kantor Pusat"),
+        })),
+      )
+      .onConflictDoNothing();
+  }
 
   // 60 hari ke belakang (hari kerja masing-masing divisi) supaya rekap bulanan
   // dan log 5 hari di drawer punya isi

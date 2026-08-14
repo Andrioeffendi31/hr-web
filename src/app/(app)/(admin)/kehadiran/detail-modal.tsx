@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { Camera, ExternalLink, MapPin } from "lucide-react";
+import { Camera, ExternalLink, MapPin, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { AttBadge, Avatar } from "@/components/bits";
@@ -34,6 +34,8 @@ export type AttEvent = {
   lng: string | null;
   photoUrl: string | null;
   note: string | null;
+  /** kenapa titik ini patut dicurigai, atau null kalau bersih */
+  suspect: string | null;
 };
 
 /** The geofence a punch was judged against — name included, because with several
@@ -449,6 +451,15 @@ function TimelineEntry({
               )}
             >
               {e.note}
+            </div>
+          )}
+          {/* Merah, satu tingkat di atas "di luar radius": berada di tempat lain
+              adalah fakta tentang hari itu, sedangkan koordinat karangan adalah
+              fakta tentang catatannya sendiri. */}
+          {e.suspect && (
+            <div className="text-danger mt-1 flex items-center gap-1 text-[12px] font-medium">
+              <ShieldAlert className="size-3.5 shrink-0" aria-hidden />
+              {e.suspect}
             </div>
           )}
         </div>

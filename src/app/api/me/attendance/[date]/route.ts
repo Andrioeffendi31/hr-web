@@ -37,6 +37,7 @@ export const GET = withMe(async (me, _req, ctx) => {
             lng: attendanceEvents.lng,
             photoKey: attendanceEvents.photoUrl,
             note: attendanceEvents.note,
+            suspect: attendanceEvents.suspect,
           })
           .from(attendanceEvents)
           .where(eq(attendanceEvents.attendanceId, day.id))
@@ -81,6 +82,7 @@ export const GET = withMe(async (me, _req, ctx) => {
       }),
       location: e.location,
       note: e.note,
+      suspect: e.suspect,
       photoKey: e.photoKey,
       /** where it happened; null for a punch written before coordinates were kept */
       lat: e.lat === null ? null : Number(e.lat),

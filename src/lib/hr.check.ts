@@ -13,6 +13,8 @@ import {
   isoFromDate,
   jarakMeter,
   jejakAbsen,
+  KECEPATAN_MUSTAHIL,
+  kecepatanKmJam,
   leaveQuota,
   overtimeMinutes,
   previewKind,
@@ -282,6 +284,38 @@ assert.equal(formatJarak(24), "24 m");
 assert.equal(formatJarak(999), "999 m");
 assert.equal(formatJarak(1000), "1,0 km");
 assert.equal(formatJarak(4750), "4,8 km");
+
+// kecepatan tersirat: penanda GPS palsu yang tidak bergantung pada bendera perangkat
+{
+  const t = (jam: number) => new Date(Date.UTC(2026, 7, 20, jam));
+  // Jakarta → Surabaya (±660 km) dalam 4 menit: tidak ada yang bisa
+  const lompat = kecepatanKmJam(
+    { lat: -6.1754, lng: 106.8272, at: new Date(Date.UTC(2026, 7, 20, 9, 0)) },
+    { lat: -7.2575, lng: 112.7521, at: new Date(Date.UTC(2026, 7, 20, 9, 4)) },
+  );
+  assert.ok(lompat > KECEPATAN_MUSTAHIL, `lompatan lintas pulau, got ${lompat}`);
+
+  // menyeberang Jakarta dalam 2,5 jam: hari kerja yang biasa saja
+  const wajar = kecepatanKmJam(
+    { lat: -6.1754, lng: 106.8272, at: t(9) },
+    { lat: -6.2607, lng: 106.7816, at: t(11.5) },
+  );
+  assert.ok(wajar < KECEPATAN_MUSTAHIL, `menyeberang kota, got ${wajar}`);
+
+  // fix GPS yang meleset 1 km pada jeda ping normal tidak boleh menuduh siapa pun
+  const meleset = kecepatanKmJam(
+    { lat: -6.1754, lng: 106.8272, at: t(9) },
+    { lat: -6.1844, lng: 106.8272, at: t(11.5) },
+  );
+  assert.ok(meleset < 1, `GPS meleset 1 km, got ${meleset}`);
+
+  // dua fix pada detik yang sama tidak menyiratkan kecepatan — bukan Infinity
+  const kembar = kecepatanKmJam(
+    { lat: -6.1754, lng: 106.8272, at: t(9) },
+    { lat: -7.2575, lng: 112.7521, at: t(9) },
+  );
+  assert.equal(kembar, 0, "pembagian nol tidak boleh menuduh");
+}
 
 // file helpers behind the dropzone and the preview dialog
 assert.equal(ekstensi("Kontrak Kerja.PDF"), "pdf");
