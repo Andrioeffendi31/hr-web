@@ -21,6 +21,14 @@ import {
 import { attendanceStatus, overtimeMinutes, workingDays } from "../lib/hr";
 
 const TODAY = "2026-07-30";
+/**
+ * Skenario "tanpa keterangan": pengajuan izin ditolak, karyawannya tetap tidak
+ * masuk dan tidak pernah absen. 16 Juli 2026 adalah hari Kamis, dan Joko ada di
+ * Operations yang hari kerjanya Minggu–Kamis — jadi ini benar-benar hari kerjanya,
+ * bukan Jumat yang justru hari liburnya. Baris absensinya sengaja tidak dibuat:
+ * tidak masuk memang berarti tidak ada baris.
+ */
+const MANGKIR = { name: "Joko Susilo", date: "2026-07-16" } as const;
 
 /** One password for every demo account, printed at the end of the seed. Dev and
  *  preview only — production accounts are changed by hand (README). */
@@ -267,8 +275,16 @@ async function main() {
         shiftStart: "07:00:00",
         shiftEnd: "16:00:00",
         lateToleranceMinutes: 10,
+        // Gudang jalan hari Minggu dan tutup hari Jumat–Sabtu. Divisi dengan hari
+        // kerja sendiri ada di seed supaya jalur itu ikut teruji, bukan hanya
+        // dipercaya: sebelum ada kolom ini, mereka tercatat "tanpa keterangan"
+        // setiap Minggu dan "belum absen" setiap Jumat.
+        workDays: [0, 1, 2, 3, 4],
       },
     ]);
+  /** hari kerja divisi, nomor Postgres — cerminan tabel di atas */
+  const hariKerjaOf = (division: string) =>
+    division === "Operations" ? [0, 1, 2, 3, 4] : [1, 2, 3, 4, 5];
   const shiftOf = (division: string) =>
     division === "Operations"
       ? { start: "07:00:00", startM: 7 * 60, tol: 10 }
@@ -346,15 +362,22 @@ async function main() {
     })),
   );
 
-  // 60 working days of history so the monthly recap and 5-day drawer log have data
+  // 60 hari ke belakang (hari kerja masing-masing divisi) supaya rekap bulanan
+  // dan log 5 hari di drawer punya isi
+
   const rand = rng(42);
   const history: (typeof attendance.$inferInsert)[] = [];
   for (let back = 1; back <= 60; back++) {
     const d = new Date(`${TODAY}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() - back);
-    if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
     const date = d.toISOString().slice(0, 10);
     for (const [name, , division] of EMP) {
+      // absensi hanya pada hari kerja divisinya masing-masing
+      if (!hariKerjaOf(division).includes(d.getUTCDay())) continue;
+      // Skenario "tanpa keterangan": izin ditolak, tetap tidak masuk, tidak pernah
+      // absen — dan karena tidak masuk berarti tidak ada baris, harinya benar-benar
+      // dilewati di sini. Tanpa satu kasus nyata, smoke tidak bisa menjaganya.
+      if (name === MANGKIR.name && date === MANGKIR.date) continue;
       const r = rand();
       if (r < 0.03) {
         history.push({
@@ -531,10 +554,10 @@ async function main() {
       status: "disetujui",
     },
     {
-      name: "Joko Susilo",
+      name: MANGKIR.name,
       type: "Izin Khusus",
-      start: "2026-07-18",
-      end: "2026-07-18",
+      start: MANGKIR.date,
+      end: MANGKIR.date,
       delegate: null,
       reason: "Pengajuan terlambat tanpa bukti pendukung.",
       status: "ditolak",

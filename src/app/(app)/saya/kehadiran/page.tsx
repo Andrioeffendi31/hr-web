@@ -1,12 +1,10 @@
-import { and, desc, eq, gte, lte } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { db } from "@/db";
-import { attendance } from "@/db/schema";
 import { AttBadge, Empty, PageHead, Panel, Stat } from "@/components/bits";
 import { SelectField } from "@/components/select-field";
 import { type AttStatus, jam, tanggalPanjang, todayWib } from "@/lib/hr";
+import { bulanKaryawan } from "@/lib/kehadiran";
 
 export const metadata = { title: "Kehadiran Saya — NanumHR" };
 
@@ -52,31 +50,7 @@ export default async function KehadiranSayaPage({
     ? sp.month!
     : todayWib().slice(0, 7);
 
-  // last day of the month without a calendar table: day 0 of the next month
-  const [y, m] = month.split("-").map(Number);
-  const end = `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
-
-  const rows = await db
-    .select({
-      date: attendance.date,
-      clockIn: attendance.clockIn,
-      clockOut: attendance.clockOut,
-      status: attendance.status,
-      location: attendance.location,
-      note: attendance.note,
-    })
-    .from(attendance)
-    .where(
-      and(
-        eq(attendance.employeeId, Number(session.user.id)),
-        gte(attendance.date, `${month}-01`),
-        lte(attendance.date, end),
-      ),
-    )
-    .orderBy(desc(attendance.date));
-
-  const count = (...s: string[]) =>
-    rows.filter((r) => s.includes(r.status)).length;
+  const { days, stats } = await bulanKaryawan(Number(session.user.id), month);
 
   return (
     <>
@@ -92,32 +66,24 @@ export default async function KehadiranSayaPage({
         </form>
       </PageHead>
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Hadir" value={stats.hadir} sub="hari" tone="success" />
+        <Stat label="Terlambat" value={stats.telat} sub="hari" tone="warning" />
+        <Stat label="Cuti / izin / sakit" value={stats.cuti} sub="hari" />
         <Stat
-          label="Hadir"
-          value={count("hadir", "wfh")}
+          label="Tanpa keterangan"
+          value={stats.tanpaKeterangan}
           sub="hari"
-          tone="success"
-        />
-        <Stat
-          label="Terlambat"
-          value={count("telat")}
-          sub="hari"
-          tone="warning"
-        />
-        <Stat
-          label="Cuti / izin / sakit"
-          value={count("cuti", "izin", "sakit")}
-          sub="hari"
+          tone="danger"
         />
       </div>
 
       <Panel title={months.find((mm) => mm.value === month)?.label}>
-        {rows.length === 0 ? (
+        {days.length === 0 ? (
           <Empty>Belum ada catatan kehadiran di bulan ini.</Empty>
         ) : (
           <ul className="divide-y">
-            {rows.map((r) => (
+            {days.map((r) => (
               <li key={r.date}>
                 <Link
                   href={`/saya/kehadiran/${r.date}`}

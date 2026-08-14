@@ -1,7 +1,8 @@
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { attendance, attendanceEvents, officeLocations } from "@/db/schema";
+import { attendanceEvents } from "@/db/schema";
 import { isIsoDate, jam, jarakMeter, resolveShift } from "@/lib/hr";
+import { hariKaryawan } from "@/lib/kehadiran";
 import { Bad, config, withMe } from "@/lib/me";
 
 /**
@@ -21,45 +22,26 @@ export const GET = withMe(async (me, _req, ctx) => {
   const { date } = await ctx.params;
   if (!date || !isIsoDate(date)) throw new Bad("Tanggal harus YYYY-MM-DD");
 
-  const [day] = await db
-    .select({
-      id: attendance.id,
-      date: attendance.date,
-      clockIn: attendance.clockIn,
-      clockOut: attendance.clockOut,
-      status: attendance.status,
-      location: attendance.location,
-      note: attendance.note,
-      selfieKey: attendance.selfieUrl,
-      /** the office this day was punched against; null for WFH and for rows
-       *  written before locations existed */
-      officeName: officeLocations.name,
-      officeLat: officeLocations.lat,
-      officeLng: officeLocations.lng,
-      officeRadiusM: officeLocations.radiusM,
-    })
-    .from(attendance)
-    .leftJoin(officeLocations, eq(attendance.locationId, officeLocations.id))
-    .where(and(eq(attendance.employeeId, me.id), eq(attendance.date, date)))
-    .limit(1);
-
-  if (!day) throw new Bad("Belum ada catatan kehadiran di tanggal ini", 404);
+  const day = await hariKaryawan(me.id, date);
+  if (!day) throw new Bad("Karyawan tidak ditemukan", 404);
 
   const [events, cfg] = await Promise.all([
-    db
-      .select({
-        id: attendanceEvents.id,
-        kind: attendanceEvents.kind,
-        at: attendanceEvents.at,
-        location: attendanceEvents.location,
-        lat: attendanceEvents.lat,
-        lng: attendanceEvents.lng,
-        photoKey: attendanceEvents.photoUrl,
-        note: attendanceEvents.note,
-      })
-      .from(attendanceEvents)
-      .where(eq(attendanceEvents.attendanceId, day.id))
-      .orderBy(asc(attendanceEvents.at)),
+    day.id
+      ? db
+          .select({
+            id: attendanceEvents.id,
+            kind: attendanceEvents.kind,
+            at: attendanceEvents.at,
+            location: attendanceEvents.location,
+            lat: attendanceEvents.lat,
+            lng: attendanceEvents.lng,
+            photoKey: attendanceEvents.photoUrl,
+            note: attendanceEvents.note,
+          })
+          .from(attendanceEvents)
+          .where(eq(attendanceEvents.attendanceId, day.id))
+          .orderBy(asc(attendanceEvents.at))
+      : [],
     config(),
   ]);
 
@@ -73,6 +55,9 @@ export const GET = withMe(async (me, _req, ctx) => {
     selfieKey: day.selfieKey,
     shift: resolveShift(me, cfg),
     office: day.officeName,
+    /** pengajuan yang ditolak dan mencakup hari ini — konteks untuk hari tanpa
+     *  keterangan, bukan status kedua */
+    ditolak: day.ditolak,
     /**
      * The same office as a point, so the phone can draw the day rather than only
      * list it. Added alongside `office` rather than replacing it: a shipped build
@@ -82,7 +67,7 @@ export const GET = withMe(async (me, _req, ctx) => {
       ? {
           lat: Number(day.officeLat),
           lng: Number(day.officeLng),
-          radiusM: day.officeRadiusM!,
+          radiusM: day.officeRadius!,
         }
       : null,
     events: events.map((e) => ({

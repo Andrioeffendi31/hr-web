@@ -43,7 +43,11 @@ const ATT_TONE: Record<AttStatus, Tone> = {
   cuti: "neutral",
   izin: "neutral",
   sakit: "info",
-  belum_absen: "danger",
+  // "belum" bukan pelanggaran — orangnya mungkin baru di jalan. Yang merah adalah
+  // hari kerja yang sudah lewat tanpa kabar.
+  belum_absen: "warning",
+  tanpa_keterangan: "danger",
+  libur: "neutral",
 };
 
 export const AttBadge = ({ status }: { status: AttStatus }) => (

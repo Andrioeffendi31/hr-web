@@ -3,6 +3,7 @@
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  divisions,
   employees,
   holidays,
   leaveAdjustments,
@@ -66,6 +67,8 @@ export async function leaveBalances(
         id: employees.id,
         name: employees.name,
         joinedAt: employees.joinedAt,
+        /** hari kerja divisinya; null = default perusahaan */
+        workDays: divisions.workDays,
         usedRequests:
           sql<number>`coalesce(sum(${leaveRequests.days}), 0)`.mapWith(Number),
         adjustment:
@@ -74,6 +77,7 @@ export async function leaveBalances(
           ),
       })
       .from(employees)
+      .leftJoin(divisions, eq(employees.division, divisions.name))
       .leftJoin(
         leaveRequests,
         and(
@@ -98,7 +102,7 @@ export async function leaveBalances(
             ? eq(employees.id, employeeId)
             : eq(employees.active, true),
       )
-      .groupBy(employees.id, employees.name, employees.joinedAt)
+      .groupBy(employees.id, employees.name, employees.joinedAt, divisions.workDays)
       .orderBy(employees.name)
       .limit(paging?.limit ?? 1000)
       .offset(paging?.offset ?? 0),
@@ -132,7 +136,11 @@ export async function leaveBalances(
     // not inside leaveQuota keeps hr.ts's pure functions total on their input.
     const joined = r.joinedAt ?? yearStart;
     const quota = leaveQuota(joined, asOf, cfg?.baseLeaveQuota ?? 12);
-    const usedCollective = collectiveLeaveDays(joined, collectiveDates);
+    const usedCollective = collectiveLeaveDays(
+      joined,
+      collectiveDates,
+      r.workDays ?? undefined,
+    );
     return {
       ...r,
       quota,

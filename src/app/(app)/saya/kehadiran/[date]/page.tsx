@@ -1,10 +1,10 @@
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { attendance, attendanceEvents, officeLocations } from "@/db/schema";
+import { attendanceEvents } from "@/db/schema";
 import { AttBadge, Empty, PageHead, Panel } from "@/components/bits";
 import { PetaPanel } from "@/components/peta";
 import {
@@ -18,6 +18,7 @@ import {
   overtimeMinutes,
   tanggalPanjang,
 } from "@/lib/hr";
+import { hariKaryawan } from "@/lib/kehadiran";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Detail Kehadiran — NanumHR" };
@@ -63,49 +64,26 @@ export default async function DetailKehadiranPage({
   const { date } = await params;
   if (!isIsoDate(date)) notFound();
 
-  const [day] = await db
-    .select({
-      id: attendance.id,
-      date: attendance.date,
-      clockIn: attendance.clockIn,
-      clockOut: attendance.clockOut,
-      status: attendance.status,
-      location: attendance.location,
-      note: attendance.note,
-      selfieKey: attendance.selfieUrl,
-      officeName: officeLocations.name,
-      officeLat: officeLocations.lat,
-      officeLng: officeLocations.lng,
-      officeRadius: officeLocations.radiusM,
-    })
-    .from(attendance)
-    .leftJoin(officeLocations, eq(officeLocations.id, attendance.locationId))
-    // scoped to the session's own employee id, the same rule withMe enforces on
-    // /api/me/attendance/[date] — a date in the URL can never reach anyone else
-    .where(
-      and(
-        eq(attendance.employeeId, Number(session.user.id)),
-        eq(attendance.date, date),
-      ),
-    )
-    .limit(1);
-
+  // hari tanpa baris absensi tetap bisa dibuka: itu justru hari yang perlu dijelaskan
+  const day = await hariKaryawan(Number(session.user.id), date);
   if (!day) notFound();
 
-  const events = await db
-    .select({
-      id: attendanceEvents.id,
-      kind: attendanceEvents.kind,
-      at: attendanceEvents.at,
-      location: attendanceEvents.location,
-      lat: attendanceEvents.lat,
-      lng: attendanceEvents.lng,
-      photoUrl: attendanceEvents.photoUrl,
-      note: attendanceEvents.note,
-    })
-    .from(attendanceEvents)
-    .where(eq(attendanceEvents.attendanceId, day.id))
-    .orderBy(asc(attendanceEvents.at));
+  const events = !day.id
+    ? []
+    : await db
+        .select({
+          id: attendanceEvents.id,
+          kind: attendanceEvents.kind,
+          at: attendanceEvents.at,
+          location: attendanceEvents.location,
+          lat: attendanceEvents.lat,
+          lng: attendanceEvents.lng,
+          photoUrl: attendanceEvents.photoUrl,
+          note: attendanceEvents.note,
+        })
+        .from(attendanceEvents)
+        .where(eq(attendanceEvents.attendanceId, day.id))
+        .orderBy(asc(attendanceEvents.at));
 
   const minutes =
     day.clockIn && day.clockOut
@@ -148,6 +126,24 @@ export default async function DetailKehadiranPage({
 
       <div className="flex flex-wrap items-start gap-4">
         <div className="flex min-w-0 flex-1 basis-[380px] flex-col gap-4">
+          {/* Kalau hari ini tercatat tanpa keterangan padahal Anda sudah mengajukan
+              izin, alasan penolakannya ada di sini — bukan hanya di riwayat pengajuan. */}
+          {day.ditolak && (
+            <Panel title="Pengajuan Anda ditolak">
+              <div className="px-4 py-3">
+                <p className="text-[13px] font-medium">
+                  {day.ditolak.type} · {day.ditolak.startDate} s/d{" "}
+                  {day.ditolak.endDate}
+                </p>
+                {day.ditolak.note && (
+                  <p className="text-muted-foreground mt-1 text-[12px]">
+                    {day.ditolak.note}
+                  </p>
+                )}
+              </div>
+            </Panel>
+          )}
+
           <Panel title="Ringkasan">
             <div className="flex items-center gap-2 border-b px-4 py-3">
               <AttBadge status={day.status as AttStatus} />

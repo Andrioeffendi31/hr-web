@@ -11,7 +11,8 @@ import { divisions, employees, settings } from "@/db/schema";
 export type Me = Awaited<ReturnType<typeof loadMe>>;
 
 /**
- * The employee row, plus their division's shift columns flattened onto it.
+ * The employee row, plus their division's shift and work-day columns flattened
+ * onto it.
  *
  * Joined here rather than queried per route because this runs on every /api/me/*
  * request anyway, and three of those routes need the shift — a separate lookup
@@ -26,6 +27,8 @@ async function loadMe(id: number) {
       shiftStart: divisions.shiftStart,
       shiftEnd: divisions.shiftEnd,
       lateToleranceMinutes: divisions.lateToleranceMinutes,
+      /** hari kerja divisinya; null = ikut default perusahaan */
+      workDays: divisions.workDays,
     })
     .from(employees)
     .leftJoin(divisions, eq(employees.division, divisions.name))

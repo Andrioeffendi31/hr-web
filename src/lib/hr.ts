@@ -20,19 +20,97 @@ export const ATT_LABEL = {
   izin: "Izin",
   sakit: "Sakit",
   belum_absen: "Belum absen",
+  /**
+   * Bukan hari kerja bagi orang ini: akhir pekan divisinya, atau hari libur
+   * nasional. Sebuah status tampilan, bukan tuduhan dan bukan kehadiran — sebelum
+   * ada `divisions.work_days`, hari seperti ini terlihat sebagai "Belum absen" dan
+   * ikut masuk daftar yang perlu ditindaklanjuti.
+   */
+  libur: "Libur",
+  /**
+   * Hari kerja yang sudah lewat, tanpa catatan masuk dan tanpa izin yang
+   * disetujui. Sengaja faktual, bukan "Mangkir": sistem tidak bisa membedakan
+   * orang yang bolos dari orang yang masuk tapi lupa absen — keduanya terlihat
+   * persis sama, yaitu tidak ada baris absensi. Yang menyimpulkan niat adalah HR,
+   * bukan aplikasi.
+   */
+  tanpa_keterangan: "Tanpa keterangan",
 } as const;
 
 export type AttStatus = keyof typeof ATT_LABEL;
 
-/** Groups the 7 raw statuses into the 4 buckets the stat cards filter by. */
+/**
+ * Status yang benar-benar bisa tersimpan di kolom `attendance.status`.
+ *
+ * `tanpa_keterangan` dan `libur` sengaja tidak termasuk: keduanya disimpulkan saat ditampilkan dan
+ * tidak pernah ditulis, jadi enum Postgres pun tidak memuatnya. Memisahkan kedua
+ * tipe ini yang membuat compiler menolak percobaan menyimpannya — bukan constraint
+ * database yang baru ketahuan saat runtime di produksi.
+ */
+export type StoredAttStatus = Exclude<AttStatus, "tanpa_keterangan" | "libur">;
+
+/**
+ * Groups the raw statuses into the buckets the stat cards filter by.
+ *
+ * Every value is matched explicitly and the fallthrough is gone: it used to
+ * `return "cuti"`, which would have swallowed `tanpa_keterangan` into the leave
+ * bucket — the exact opposite of what it means. The `satisfies` on the return type
+ * keeps that from happening again silently.
+ */
 export function statusGroup(s: AttStatus) {
   if (s === "hadir" || s === "wfh") return "hadir";
   if (s === "telat") return "telat";
   if (s === "belum_absen") return "belum";
+  if (s === "tanpa_keterangan") return "alpa";
+  if (s === "libur") return "libur";
   return "cuti"; // cuti / izin / sakit
 }
 
-const isWeekend = (d: Date) => d.getUTCDay() === 0 || d.getUTCDay() === 6;
+/**
+ * Hari kerja default perusahaan sebagai nomor hari Postgres
+ * (`extract(dow)`: 0 = Minggu … 6 = Sabtu), dipakai divisi yang `work_days`-nya
+ * NULL — sama seperti jam shift yang kosong mewarisi jadwal perusahaan.
+ */
+export const HARI_KERJA_DEFAULT = [1, 2, 3, 4, 5] as const;
+
+/** Nama hari sesuai nomor di atas, untuk label di layar. */
+export const NAMA_HARI = [
+  "Minggu",
+  "Senin",
+  "Selasa",
+  "Rabu",
+  "Kamis",
+  "Jumat",
+  "Sabtu",
+] as const;
+
+/**
+ * Apakah tanggal ini hari kerja bagi orang yang bersangkutan?
+ *
+ * `kerja` adalah hari kerja divisinya; yang tidak menyebutkannya mendapat
+ * Senin–Jumat. Hari libur nasional bukan hari kerja bagi siapa pun.
+ *
+ * Logikanya sebelumnya tertulis inline di jalur lembur
+ * (api/me/requests/route.ts) untuk menentukan "Hari libur"; sekarang satu tempat.
+ */
+export function isHariKerja(
+  isoDate: string,
+  libur: Set<string> = new Set(),
+  kerja: readonly number[] = HARI_KERJA_DEFAULT,
+) {
+  const dow = new Date(`${isoDate}T00:00:00Z`).getUTCDay();
+  return kerja.includes(dow) && !libur.has(isoDate);
+}
+
+/** Jenis pengajuan cuti → status kehadiran yang ditampilkan pada hari itu.
+ *  Pemetaan ini tersirat di mana-mana tapi belum pernah ditulis. */
+export function statusDariCuti(
+  type: "Cuti Tahunan" | "Cuti Sakit" | "Izin Khusus",
+): AttStatus {
+  if (type === "Cuti Sakit") return "sakit";
+  if (type === "Izin Khusus") return "izin";
+  return "cuti";
+}
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 /** Date → YYYY-MM-DD using the *local* calendar. `toISOString()` would shift
@@ -56,18 +134,20 @@ export function isIsoDate(s: string): boolean {
   return !Number.isNaN(d.getTime()) && iso(d) === s;
 }
 
-/** Working days in an inclusive range, excluding weekends and national holidays. */
+/** Working days in an inclusive range, excluding the days this person does not
+ *  work and national holidays. */
 export function workingDays(
   start: string,
   end: string,
   holidays: Set<string> = new Set(),
+  kerja: readonly number[] = HARI_KERJA_DEFAULT,
 ): number {
   const a = new Date(`${start}T00:00:00Z`);
   const b = new Date(`${end}T00:00:00Z`);
   if (b < a) return 0;
   let n = 0;
   for (const d = new Date(a); d <= b; d.setUTCDate(d.getUTCDate() + 1)) {
-    if (!isWeekend(d) && !holidays.has(iso(d))) n++;
+    if (kerja.includes(d.getUTCDay()) && !holidays.has(iso(d))) n++;
   }
   return n;
 }
@@ -84,14 +164,56 @@ export function leaveQuota(joinedAt: string, today: string, base = 12): number {
   return base + Math.max(0, Math.floor(years / 2));
 }
 
+/**
+ * Status seorang karyawan pada satu tanggal — satu-satunya tempat yang memutuskan.
+ *
+ * Urutannya yang penting, bukan sekadar daftar syarat:
+ *   1. sudah absen        → hadir/telat/wfh, apa pun yang lain
+ *   2. cuti disetujui     → cuti/izin/sakit; izin selalu menang atas tuduhan
+ *   3. bukan hari kerja   → null, hari itu tidak masuk hitungan sama sekali
+ *   4. hari ini / nanti   → belum_absen; orangnya masih mungkin datang
+ *   5. sisanya            → tanpa_keterangan
+ *
+ * Langkah 2 sebelum 5 itulah yang membuat orang yang cutinya disetujui tidak
+ * pernah tertuduh, dan langkah 4 yang membuat aplikasi tidak menghakimi hari yang
+ * belum selesai. Dihitung, tidak disimpan: kalau HR menyetujui izin susulan untuk
+ * tanggal lampau, status hari itu berubah sendiri tanpa perbaikan data.
+ */
+export function statusHarian(input: {
+  tanggal: string;
+  hariIni: string;
+  clockIn: string | null;
+  /** jenis cuti yang DISETUJUI dan mencakup tanggal ini, kalau ada */
+  cuti?: "Cuti Tahunan" | "Cuti Sakit" | "Izin Khusus" | null;
+  wfh?: boolean;
+  libur?: Set<string>;
+  /** hari kerja divisinya; kosong = Senin–Jumat */
+  hariKerja?: readonly number[];
+  shift: { start: string; toleranceMinutes: number };
+}): AttStatus | null {
+  const { tanggal, hariIni, clockIn, cuti, wfh, libur, shift, hariKerja } =
+    input;
+
+  if (clockIn)
+    return attendanceStatus(clockIn, shift.start, shift.toleranceMinutes, wfh);
+  if (cuti) return statusDariCuti(cuti);
+  if (!isHariKerja(tanggal, libur, hariKerja)) return null;
+  if (tanggal >= hariIni) return "belum_absen";
+  return "tanpa_keterangan";
+}
+
 /** Only Cuti Tahunan draws down the balance (PRD §6.2). */
 export const deductsBalance = (type: string) => type === "Cuti Tahunan";
 
-/** Cuti bersama days charged to one employee: weekends were never working days,
- *  and days before he joined are not his to pay for. */
-export function collectiveLeaveDays(joinedAt: string, dates: string[]): number {
+/** Cuti bersama days charged to one employee: a day he never works was never his
+ *  to take off, and days before he joined are not his to pay for. */
+export function collectiveLeaveDays(
+  joinedAt: string,
+  dates: string[],
+  kerja: readonly number[] = HARI_KERJA_DEFAULT,
+): number {
   return dates.filter(
-    (d) => d >= joinedAt && !isWeekend(new Date(`${d}T00:00:00Z`)),
+    (d) => d >= joinedAt && kerja.includes(new Date(`${d}T00:00:00Z`).getUTCDay()),
   ).length;
 }
 
@@ -122,7 +244,7 @@ export function attendanceStatus(
   shiftStart: string,
   toleranceMinutes: number,
   wfh = false,
-): AttStatus {
+): "hadir" | "telat" | "wfh" | "belum_absen" {
   if (!clockIn) return "belum_absen";
   const m = (t: string) => {
     const [h, min] = t.split(":").map(Number);

@@ -41,7 +41,8 @@ export type AttEvent = {
 export type Office = { name: string; lat: number; lng: number; radius: number };
 
 export type DayDetail = {
-  attendanceId: number;
+  /** null kalau hari itu tidak punya baris absensi sama sekali */
+  attendanceId: number | null;
   employeeId: number;
   name: string;
   nik: string;
@@ -54,6 +55,13 @@ export type DayDetail = {
   location: string | null;
   selfieUrl: string | null;
   events: AttEvent[];
+  /** pengajuan cuti yang ditolak dan mencakup hari ini — konteks, bukan status */
+  ditolak: {
+    type: string;
+    startDate: string;
+    endDate: string;
+    note: string | null;
+  } | null;
   /** the office this day was punched against; null for WFH and for rows written
    *  before locations existed, in which case there is no distance to report */
   office: Office | null;
@@ -162,6 +170,20 @@ export function AttendanceDetail({
           <p className="text-muted-foreground mb-3 text-[12.5px]">
             {tanggalPanjang(d.date)}
           </p>
+
+          {/* Membedakan "tidak pernah minta izin" dari "sudah minta, ditolak, tetap
+              tidak masuk" — tanpa membuat status kedua untuknya. */}
+          {d.ditolak && (
+            <div className="bg-warning-subtle border-warning/30 mb-3 rounded-[11px] border p-3">
+              <div className="text-[12.5px] font-medium">
+                Pengajuan {d.ditolak.type.toLowerCase()} ditolak
+              </div>
+              <p className="text-muted-foreground mt-0.5 text-[11.5px]">
+                {d.ditolak.startDate} s/d {d.ditolak.endDate}
+                {d.ditolak.note ? ` · ${d.ditolak.note}` : ""}
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-2.5">
             {[

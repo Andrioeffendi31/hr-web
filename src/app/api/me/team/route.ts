@@ -1,7 +1,9 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { attendance, employees } from "@/db/schema";
 import { initials, jam, todayWib } from "@/lib/hr";
+import { statusHarianSql } from "@/lib/kehadiran";
+import { holidaySet } from "@/lib/leave";
 import { withMe } from "@/lib/me";
 
 /**
@@ -14,6 +16,13 @@ import { withMe } from "@/lib/me";
  */
 export const GET = withMe(async () => {
   const today = todayWib();
+  // aturan yang sama dengan papan admin: yang sedang cuti resmi tampil cuti, dan
+  // hari libur divisinya tidak tampil sebagai "belum absen"
+  const status = statusHarianSql(
+    today,
+    today,
+    await holidaySet(Number(today.slice(0, 4))),
+  );
   const rows = await db
     .select({
       id: employees.id,
@@ -21,7 +30,7 @@ export const GET = withMe(async () => {
       position: employees.position,
       division: employees.division,
       photoKey: employees.photoUrl,
-      status: attendance.status,
+      status: sql<string>`${status}`.as("status"),
       clockIn: attendance.clockIn,
       location: attendance.location,
       note: attendance.note,
@@ -38,11 +47,12 @@ export const GET = withMe(async () => {
     date: today,
     members: rows.map((r) => ({
       ...r,
-      status: r.status ?? "belum_absen",
+
       initials: initials(r.name),
       detail: r.clockIn
         ? `masuk ${jam(r.clockIn)}${r.location ? ` · ${r.location}` : ""}`
-        : (r.note ?? "belum absen masuk"),
+        : (r.note ??
+          (r.status === "libur" ? "bukan hari kerjanya" : "belum absen masuk")),
     })),
   });
 });

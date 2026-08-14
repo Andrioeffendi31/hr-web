@@ -7,6 +7,7 @@ import { employees, leaveRequests, overtimeRequests } from "@/db/schema";
 import {
   durasi,
   isIsoDate,
+  isHariKerja,
   overtimeMinutes,
   rentangTanggal,
   tanggalPendek,
@@ -202,10 +203,13 @@ export const POST = withMe(async (me, req) => {
       throw new Bad("Tanggal selesai lebih awal dari tanggal mulai");
     }
     const year = Number(input.startDate.slice(0, 4));
+    // hari kerja divisinya, bukan Senin–Jumat untuk semua: cuti Sabtu di divisi
+    // yang memang masuk hari Sabtu adalah satu hari cuti sungguhan
     const days = workingDays(
       input.startDate,
       input.endDate,
       await holidaySet(year),
+      me.workDays ?? undefined,
     );
     if (days < 1) throw new Bad("Rentang tanggal tidak memuat hari kerja");
 
@@ -283,9 +287,12 @@ export const POST = withMe(async (me, req) => {
     );
   }
 
-  const day = new Date(`${input.date}T00:00:00Z`).getUTCDay();
-  const holiday = (await holidaySet(Number(input.date.slice(0, 4)))).has(
+  // "Hari libur" menurut jadwal divisinya: yang liburnya Jumat berhak atas tarif
+  // hari libur pada hari Jumat, bukan pada hari Sabtu yang justru hari kerjanya
+  const hariKerja = isHariKerja(
     input.date,
+    await holidaySet(Number(input.date.slice(0, 4))),
+    me.workDays ?? undefined,
   );
   const [row] = await db
     .insert(overtimeRequests)
@@ -295,7 +302,7 @@ export const POST = withMe(async (me, req) => {
       startTime: input.startTime,
       endTime: input.endTime,
       minutes,
-      kind: day === 0 || day === 6 || holiday ? "Hari libur" : "Hari kerja",
+      kind: hariKerja ? "Hari kerja" : "Hari libur",
       reason: input.reason,
     })
     .returning({ id: overtimeRequests.id });
@@ -367,6 +374,7 @@ export const PUT = withMe(async (me, req) => {
     input.startDate,
     input.endDate,
     await holidaySet(year),
+    me.workDays ?? undefined,
   );
   if (days < 1) throw new Bad("Rentang tanggal tidak memuat hari kerja");
 

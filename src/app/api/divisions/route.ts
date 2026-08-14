@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/auth";
 import { db } from "@/db";
 import { auditLog, divisions } from "@/db/schema";
+import { NAMA_HARI } from "@/lib/hr";
 import { duplicate, fkViolation } from "@/lib/pg";
 
 /**
@@ -29,6 +30,21 @@ const upsertBody = z
     lateToleranceMinutes: z
       .union([z.coerce.number().int().min(0).max(240), z.literal("")])
       .default(""),
+    /**
+     * Nomor hari Postgres (0 = Minggu … 6 = Sabtu). Array kosong = ikut default
+     * perusahaan; divisi tanpa hari kerja sama sekali tidak boleh tersimpan,
+     * karena itu akan membuat setiap harinya libur diam-diam.
+     */
+    workDays: z
+      .array(
+        z.coerce
+          .number()
+          .int()
+          .min(0, "Hari kerja tidak dikenal")
+          .max(6, "Hari kerja tidak dikenal"),
+      )
+      .max(7)
+      .default([]),
   })
   // both hours or neither: a division with a start and no end has no shift at all,
   // and half-inheriting would silently pair 09:30 with the company's 17:00
@@ -60,6 +76,7 @@ export async function POST(req: Request) {
   }
   const { name, original, shiftStart, shiftEnd, lateToleranceMinutes } =
     parsed.data;
+  const workDays = [...new Set(parsed.data.workDays)].sort();
 
   const values = {
     name,
@@ -68,10 +85,15 @@ export async function POST(req: Request) {
     shiftEnd: shiftEnd ? `${shiftEnd}:00` : null,
     lateToleranceMinutes:
       lateToleranceMinutes === "" ? null : lateToleranceMinutes,
+    // kosong = NULL, jadi hariKerjaSql() jatuh ke default perusahaan
+    workDays: workDays.length ? workDays : null,
   };
-  const shiftLabel = shiftStart
-    ? `${shiftStart}–${shiftEnd}`
-    : "ikut jam default";
+  const shiftLabel = [
+    shiftStart ? `${shiftStart}–${shiftEnd}` : "ikut jam default",
+    workDays.length
+      ? workDays.map((d) => NAMA_HARI[d].slice(0, 3)).join("/")
+      : "hari kerja default",
+  ].join(" · ");
 
   try {
     if (original) {

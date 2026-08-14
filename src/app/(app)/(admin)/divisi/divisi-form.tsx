@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { NAMA_HARI } from "@/lib/hr";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
@@ -25,6 +26,8 @@ type Division = {
   shiftStart: string | null;
   shiftEnd: string | null;
   lateToleranceMinutes: number | null;
+  /** nomor hari Postgres (0 = Minggu … 6 = Sabtu); null = ikut default */
+  workDays: number[] | null;
 };
 
 type Fallback = {
@@ -47,6 +50,9 @@ async function send(method: string, body: unknown) {
 /** `time` comes back as HH:mm:ss; the input wants HH:mm. */
 const hhmm = (t: string | null) => t?.slice(0, 5) ?? "";
 
+/** Senin dulu, karena begitulah pekan dibaca — nomornya tetap nomor Postgres. */
+const URUTAN_HARI = [1, 2, 3, 4, 5, 6, 0] as const;
+
 /**
  * Create when `initial` is absent, edit when present — the two forms differ only
  * in what they start with and whether the name is a rename, so they are one
@@ -61,6 +67,13 @@ export function DivisiDialog({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  /**
+   * Kosong berarti "ikut default perusahaan", bukan "tidak pernah kerja" — sama
+   * seperti jam shift yang dikosongkan. State di sini, bukan FormData, karena
+   * checkbox yang tidak dicentang tidak mengirim apa pun dan kami perlu bisa
+   * membedakan "semua dilepas" dari "belum disentuh".
+   */
+  const [hari, setHari] = useState<number[]>(initial?.workDays ?? []);
 
   const save = useMutation({
     mutationFn: (body: Record<string, unknown>) => send("POST", body),
@@ -102,8 +115,8 @@ export function DivisiDialog({
             {initial ? `Ubah ${initial.name}` : "Divisi baru"}
           </DialogTitle>
           <DialogDescription className="text-[12.5px]">
-            Kosongkan jam kerja untuk mengikuti jadwal default perusahaan (
-            {def.start}–{def.end}, toleransi {def.tol} menit).
+            Kosongkan jam atau hari kerja untuk mengikuti default perusahaan (
+            {def.start}–{def.end}, toleransi {def.tol} menit, Senin–Jumat).
           </DialogDescription>
         </DialogHeader>
 
@@ -119,6 +132,7 @@ export function DivisiDialog({
               shiftStart: String(f.get("shiftStart") ?? ""),
               shiftEnd: String(f.get("shiftEnd") ?? ""),
               lateToleranceMinutes: String(f.get("lateToleranceMinutes") ?? ""),
+              workDays: hari,
             });
           }}
         >
@@ -159,6 +173,44 @@ export function DivisiDialog({
               />
             </label>
           </div>
+
+          <fieldset className="text-[12px] font-medium">
+            <legend>Hari kerja</legend>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {URUTAN_HARI.map((d) => {
+                const on = hari.includes(d);
+                return (
+                  <label
+                    key={d}
+                    className={`flex h-9 cursor-pointer items-center rounded-[9px] border px-2.5 text-[12.5px] font-medium transition-colors ${
+                      on
+                        ? "border-primary bg-primary-subtle text-primary"
+                        : "border-border-strong bg-card hover:bg-accent"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={on}
+                      onChange={() =>
+                        setHari((v) =>
+                          v.includes(d)
+                            ? v.filter((x) => x !== d)
+                            : [...v, d].sort(),
+                        )
+                      }
+                    />
+                    {NAMA_HARI[d].slice(0, 3)}
+                  </label>
+                );
+              })}
+            </div>
+            <span className="text-subtle mt-1 block text-[11px] font-normal">
+              {hari.length === 0
+                ? "Kosong = ikut default perusahaan (Senin–Jumat)."
+                : "Hari di luar pilihan ini tidak pernah dihitung tanpa keterangan."}
+            </span>
+          </fieldset>
 
           <label className="text-[12px] font-medium">
             Toleransi keterlambatan (menit)

@@ -1,11 +1,13 @@
-import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
-import { attendance, employees } from "@/db/schema";
+import { employees } from "@/db/schema";
 import { PageHead, Panel } from "@/components/bits";
 import { DateField } from "@/components/date-field";
 import { namaBulan, todayWib } from "@/lib/hr";
+import { rekapSql, type RekapBaris } from "@/lib/kehadiran";
+import { holidaySet } from "@/lib/leave";
 import { cn } from "@/lib/utils";
 
 const REPORTS = [
@@ -51,38 +53,26 @@ export default async function LaporanPage({
   const from = sp.from ?? `${today.slice(0, 7)}-01`;
   const to = sp.to ?? today;
 
-  const byDivision = await db
-    .select({
-      division: employees.division,
-      hadir:
-        sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(
-          Number,
-        ),
-      telat:
-        sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(
-          Number,
-        ),
-      cuti: sql<number>`count(*) filter (where ${attendance.status} in ('cuti','izin','sakit'))`.mapWith(
-        Number,
-      ),
-      absen:
-        sql<number>`count(*) filter (where ${attendance.status} = 'belum_absen')`.mapWith(
-          Number,
-        ),
-      hari: sql<number>`count(${attendance.id})`.mapWith(Number),
-    })
-    .from(employees)
-    .leftJoin(
-      attendance,
-      and(
-        eq(attendance.employeeId, employees.id),
-        gte(attendance.date, from),
-        lte(attendance.date, to),
-      ),
+  /**
+   * Sama seperti rekap bulanan di /kehadiran: penyebutnya hari kerja, bukan baris
+   * absensi. Menghitung baris membuat segmen merah selalu kosong — tidak masuk
+   * berarti tidak ada baris untuk dihitung.
+   */
+  const libur = await holidaySet(Number(from.slice(0, 4)));
+  const byDivision = (
+    await db.execute(
+      rekapSql({
+        dari: from,
+        sampai: to < today ? to : today,
+        hariIni: today,
+        libur,
+        pilih: sql`${employees.division} as division`,
+        groupBy: sql`${employees.division}`,
+        where: eq(employees.active, true),
+        orderBy: sql`${employees.division} asc`,
+      }),
     )
-    .where(eq(employees.active, true))
-    .groupBy(employees.division)
-    .orderBy(asc(employees.division));
+  ).rows as (RekapBaris & { division: string | null })[];
 
   const periodLabel = `${namaBulan(Number(from.slice(5, 7)) - 1)} ${from.slice(0, 4)}`;
   const q = `from=${from}&to=${to}`;
@@ -161,7 +151,7 @@ export default async function LaporanPage({
                     />
                     <div
                       className="bg-danger h-full"
-                      style={{ width: `${pct(d.absen)}%` }}
+                      style={{ width: `${pct(d.alpa)}%` }}
                     />
                   </div>
                 </li>
@@ -174,7 +164,7 @@ export default async function LaporanPage({
               ["bg-success", "Hadir & WFH"],
               ["bg-warning", "Terlambat"],
               ["bg-subtle", "Cuti / izin / sakit"],
-              ["bg-danger", "Tidak absen"],
+              ["bg-danger", "Tanpa keterangan"],
             ].map(([cls, label]) => (
               <span key={label} className="flex items-center gap-1.5">
                 <span className={cn("size-2.5 rounded-sm", cls)} aria-hidden />
@@ -193,7 +183,7 @@ export default async function LaporanPage({
                 <th className="py-2 font-semibold">Hadir</th>
                 <th className="py-2 font-semibold">Telat</th>
                 <th className="py-2 font-semibold">Cuti/izin</th>
-                <th className="py-2 font-semibold">Absen</th>
+                <th className="py-2 font-semibold">Tanpa keterangan</th>
               </tr>
             </thead>
             <tbody>
@@ -212,7 +202,7 @@ export default async function LaporanPage({
                     {d.cuti}
                   </td>
                   <td className="tnum text-danger py-2 text-[12.5px]">
-                    {d.absen}
+                    {d.alpa}
                   </td>
                 </tr>
               ))}

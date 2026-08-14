@@ -10,6 +10,8 @@ import {
   overtimeRequests,
 } from "@/db/schema";
 import { ATT_LABEL, durasi, jam, todayWib } from "@/lib/hr";
+import { rekapSql, statusHarianSql, type RekapBaris } from "@/lib/kehadiran";
+import { holidaySet } from "@/lib/leave";
 import { toCsv } from "@/lib/csv";
 
 const REPORTS = new Set([
@@ -60,7 +62,9 @@ export async function GET(
         position: employees.position,
         clockIn: attendance.clockIn,
         clockOut: attendance.clockOut,
-        status: attendance.status,
+        // aturan yang sama dengan papan /kehadiran — CSV yang berbeda dari layar
+        // yang mengekspornya lebih buruk daripada tidak ada CSV sama sekali
+        status: sql<string>`${statusHarianSql(date, todayWib(), await holidaySet(Number(date.slice(0, 4))))}`,
         location: attendance.location,
       })
       .from(employees)
@@ -88,7 +92,7 @@ export async function GET(
       r.position,
       jam(r.clockIn),
       jam(r.clockOut),
-      ATT_LABEL[(r.status ?? "belum_absen") as keyof typeof ATT_LABEL],
+      ATT_LABEL[r.status as keyof typeof ATT_LABEL],
       r.location ?? "",
     ]);
   }
@@ -224,45 +228,28 @@ export async function GET(
   }
 
   if (report === "divisi") {
-    const data = await db
-      .select({
-        division: employees.division,
-        hadir:
-          sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(
-            Number,
-          ),
-        telat:
-          sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(
-            Number,
-          ),
-        cuti: sql<number>`count(*) filter (where ${attendance.status} in ('cuti','izin','sakit'))`.mapWith(
-          Number,
-        ),
-        absen:
-          sql<number>`count(*) filter (where ${attendance.status} = 'belum_absen')`.mapWith(
-            Number,
-          ),
-        hari: sql<number>`count(${attendance.id})`.mapWith(Number),
-      })
-      .from(employees)
-      .leftJoin(
-        attendance,
-        and(
-          eq(attendance.employeeId, employees.id),
-          gte(attendance.date, from),
-          lte(attendance.date, to),
-        ),
+    const hariIni = todayWib();
+    const data = (
+      await db.execute(
+        rekapSql({
+          dari: from,
+          sampai: to < hariIni ? to : hariIni,
+          hariIni,
+          libur: await holidaySet(Number(from.slice(0, 4))),
+          pilih: sql`${employees.division} as division`,
+          groupBy: sql`${employees.division}`,
+          where: eq(employees.active, true),
+          orderBy: sql`${employees.division} asc`,
+        }),
       )
-      .where(eq(employees.active, true))
-      .groupBy(employees.division)
-      .orderBy(asc(employees.division));
+    ).rows as (RekapBaris & { division: string | null })[];
 
     headers = [
       "Divisi",
       "Hadir",
       "Terlambat",
       "Cuti/izin/sakit",
-      "Tidak absen",
+      "Tanpa keterangan",
       "Tingkat kehadiran (%)",
     ];
     rows = data.map((r) => [
@@ -270,7 +257,7 @@ export async function GET(
       r.hadir,
       r.telat,
       r.cuti,
-      r.absen,
+      r.alpa,
       r.hari ? Math.round(((r.hadir + r.telat) / r.hari) * 100) : 0,
     ]);
   }

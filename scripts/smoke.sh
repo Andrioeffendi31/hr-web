@@ -241,12 +241,44 @@ check "crafted sort falls back, no 500" "Andini Rahmawati" \
 check "crafted dir falls back" 200 "$(code "$BASE/karyawan?sort=nama&dir=;delete")"
 check "negative page falls back to 1" 200 "$(code "$BASE/berkas?page=-3")"
 check "berkas sorting" 200 "$(code "$BASE/berkas?sort=ukuran&dir=desc")"
-# the stat card counts every employee, not just the visible page
+# the stat card counts every employee, not just the visible page.
+# 2026-07-30 adalah tanggal seed dan sudah lewat, jadi embernya "alpa" (tanpa
+# keterangan), bukan "belum" — pada hari yang sudah selesai tidak ada lagi orang
+# yang "belum" absen, dan panelnya ikut berganti judul.
 check "status filter total matches panel" 1 \
-  "$(body "$BASE/kehadiran?status=belum&date=2026-07-30" > /tmp/keh.$$.html; \
-     PANEL=$(grep -o 'Belum absen masuk ([0-9]*)' /tmp/keh.$$.html | grep -o '[0-9]*' | head -1); \
+  "$(body "$BASE/kehadiran?status=alpa&date=2026-07-30" > /tmp/keh.$$.html; \
+     PANEL=$(grep -o 'Tanpa keterangan ([0-9]*)' /tmp/keh.$$.html | grep -o '[0-9]*' | head -1); \
      TABLE=$(grep -oE '[0-9]+–[0-9]+ dari [0-9]+' /tmp/keh.$$.html | head -1 | sed 's/.*dari //'); \
      rm -f /tmp/keh.$$.html; [ -n "$PANEL" ] && [ "$PANEL" = "$TABLE" ] && echo 1 || echo "panel=$PANEL table=$TABLE")"
+
+# dan hari ini tetap memakai ember "belum": statusnya kontekstual, jadi keduanya
+# harus diuji atau separuh aturannya tidak terjaga
+check "papan hari ini masih memakai 'belum absen'" 1 \
+  "$(body "$BASE/kehadiran?status=belum" | grep -c 'Belum absen masuk (')"
+
+# feed dan panel membaca aturan status yang sama; kalau salah satunya menyalin
+# ulang SQL-nya (dulu begitu) angkanya langsung berbeda. Yang sedang cuti tidak
+# boleh muncul di keduanya.
+check "feed belum-absen sama dengan panel" 3 \
+  "$(body "$BASE/api/feed/belum-absen?date=2026-07-30" | grep -o '\"id\":' | wc -l | tr -d ' ')"
+check "yang cuti tidak ada di feed belum-absen" 0 \
+  "$(body "$BASE/api/feed/belum-absen?date=2026-07-30" | grep -c 'Eka Wulandari')"
+
+# Hari kerja per divisi: Operations (gudang) libur Jumat–Sabtu dan masuk Minggu.
+# 24 Juli 2026 adalah Jumat — hari liburnya, jadi tidak seorang pun dari sana boleh
+# ditagih absen; dan 26 Juli (Minggu) justru hari kerjanya.
+check "divisi tidak ditagih absen pada hari liburnya" 0 \
+  "$(body "$BASE/api/feed/belum-absen?date=2026-07-24" | grep -c 'Operations')"
+check "hari libur divisi tampil sebagai Libur" 3 \
+  "$(body "$BASE/kehadiran?date=2026-07-24" | grep -o '>Libur<' | wc -l | tr -d ' ')"
+
+# Skenario "tanpa keterangan": Joko mengajukan izin pada 16 Juli, ditolak, lalu
+# tetap tidak masuk dan tidak pernah absen. Harinya tidak punya baris absensi sama
+# sekali, jadi drawer-nya dikunci dengan id KARYAWAN — dengan id absensi hari ini
+# justru satu-satunya hari yang tidak bisa dibuka.
+check "hari tanpa baris absensi tetap bisa dibuka" 1 \
+  "$(body "$BASE/kehadiran?date=2026-07-16&open=$(body "$BASE/api/search?q=Joko" | sed 's/.*"id":\([0-9]*\).*/\1/')" \
+     | grep -c 'Tanpa bukti pendukung')"
 
 echo "15. feed API for infinite scroll"
 feed() { body "$BASE/api/feed/$1"; }

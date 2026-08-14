@@ -11,7 +11,8 @@ import {
   leaveRequests,
 } from "@/db/schema";
 import { todayWib } from "@/lib/hr";
-import { leaveBalances, withRemaining } from "@/lib/leave";
+import { statusHarianSql } from "@/lib/kehadiran";
+import { holidaySet, leaveBalances, withRemaining } from "@/lib/leave";
 import { FEED_PAGE } from "@/lib/paging";
 
 /**
@@ -97,8 +98,20 @@ const FEEDS = {
       offset,
     }),
 
-  "belum-absen": async ({ limit, offset, date, div }: Params) =>
-    db
+  /**
+   * Siapa yang belum absen — dipakai panel "Ingatkan" di papan kehadiran.
+   *
+   * Dulu berisi salinan SQL status milik sendiri, dan salinan itu tidak tahu apa
+   * pun soal cuti: karyawan yang cutinya sudah disetujui ikut terdaftar di sini
+   * dan ikut menerima pengingat absen. Sekarang memakai aturan yang sama dengan
+   * papan (lib/kehadiran.ts), jadi yang sedang cuti tersaring dengan sendirinya.
+   */
+  "belum-absen": async ({ limit, offset, date, div }: Params) => {
+    const hariIni = todayWib();
+    const tanggal = date ?? hariIni;
+    const libur = await holidaySet(Number(tanggal.slice(0, 4)));
+    const status = statusHarianSql(tanggal, hariIni, libur);
+    return db
       .select({
         id: employees.id,
         name: employees.name,
@@ -109,19 +122,22 @@ const FEEDS = {
         attendance,
         and(
           eq(attendance.employeeId, employees.id),
-          eq(attendance.date, date ?? todayWib()),
+          eq(attendance.date, tanggal),
         ),
       )
       .where(
         and(
           eq(employees.active, true),
           div && div !== "all" ? eq(employees.division, div) : undefined,
-          sql`coalesce(${attendance.status}::text, 'belum_absen') = 'belum_absen'`,
+          // tanggal lampau tidak lagi menghasilkan "belum_absen", jadi kedua ember
+          // disebut: panel ini tetap berguna untuk menindaklanjuti hari kemarin
+          sql`${status} in ('belum_absen','tanpa_keterangan')`,
         ),
       )
       .orderBy(asc(employees.name))
       .limit(limit)
-      .offset(offset),
+      .offset(offset);
+  },
 } as const;
 
 export async function GET(

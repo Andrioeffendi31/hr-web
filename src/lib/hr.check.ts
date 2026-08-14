@@ -8,6 +8,7 @@ import {
   dateFromIso,
   ekstensi,
   formatJarak,
+  isHariKerja,
   isIsoDate,
   isoFromDate,
   jarakMeter,
@@ -18,7 +19,9 @@ import {
   remainingLeave,
   rentangTanggal,
   resolveShift,
+  statusDariCuti,
   statusGroup,
+  statusHarian,
   telepon,
   tooMany,
   ukuranFile,
@@ -415,6 +418,108 @@ assert.equal(ukuranFile(1.5 * 1024 * 1024), "1,5 MB");
   );
   assert.equal(tooMany("uji", 5, 1000, 3_000), false, "and the window slides");
   assert.equal(tooMany("lain", 5, 1000, 1_000), false, "keys are independent");
+}
+
+// statusHarian — urutan keputusannya yang diuji, bukan sekadar tiap cabang
+{
+  const shift = { start: "08:00", toleranceMinutes: 15 };
+  const libur = new Set(["2026-08-17"]);          // 17 Agustus, Senin
+  const hariIni = "2026-08-20";                    // Kamis
+  const dasar = { hariIni, clockIn: null, libur, shift };
+
+  // 1. sudah absen menang atas segalanya
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-18", clockIn: "07:55" }),
+    "hadir",
+  );
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-18", clockIn: "08:30" }),
+    "telat",
+  );
+
+  // 2. cuti disetujui SELALU menang atas tuduhan — inti fitur ini
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-18", cuti: "Cuti Tahunan" }),
+    "cuti",
+    "hari kerja lampau tanpa absen, tapi cutinya disetujui",
+  );
+  assert.equal(statusHarian({ ...dasar, tanggal: "2026-08-18", cuti: "Cuti Sakit" }), "sakit");
+  assert.equal(statusHarian({ ...dasar, tanggal: "2026-08-18", cuti: "Izin Khusus" }), "izin");
+
+  // 3. akhir pekan dan hari libur nasional tidak pernah dihitung
+  assert.equal(statusHarian({ ...dasar, tanggal: "2026-08-15" }), null, "Sabtu");
+  assert.equal(statusHarian({ ...dasar, tanggal: "2026-08-16" }), null, "Minggu");
+  assert.equal(statusHarian({ ...dasar, tanggal: "2026-08-17" }), null, "libur nasional");
+
+  // 4. hari ini dan besok tidak pernah dituduh
+  assert.equal(statusHarian({ ...dasar, tanggal: hariIni }), "belum_absen", "hari ini");
+  assert.equal(statusHarian({ ...dasar, tanggal: "2026-08-21" }), "belum_absen", "besok");
+
+  // 5. baru yang tersisa
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-18" }),
+    "tanpa_keterangan",
+    "hari kerja lampau, tanpa absen, tanpa izin",
+  );
+}
+
+// isHariKerja / statusDariCuti
+{
+  const libur = new Set(["2026-08-17"]);
+  assert.equal(isHariKerja("2026-08-18", libur), true);
+  assert.equal(isHariKerja("2026-08-15", libur), false, "Sabtu");
+  assert.equal(isHariKerja("2026-08-17", libur), false, "libur nasional");
+  assert.equal(isHariKerja("2026-08-17"), true, "tanpa daftar libur, hanya akhir pekan");
+  assert.equal(statusDariCuti("Cuti Tahunan"), "cuti");
+}
+
+// hari kerja per divisi: yang liburnya Jumat tidak boleh dituduh setiap Jumat
+{
+  const libur = new Set<string>();
+  const jumatSabtu = [0, 1, 2, 3, 4] as const; // Minggu–Kamis masuk, Jumat & Sabtu libur
+  assert.equal(isHariKerja("2026-08-21", libur, jumatSabtu), false, "Jumat, hari liburnya");
+  assert.equal(isHariKerja("2026-08-16", libur, jumatSabtu), true, "Minggu, hari kerjanya");
+  assert.equal(isHariKerja("2026-08-16", libur), false, "divisi lain: Minggu tetap libur");
+
+  // dan hari libur nasional tetap libur bagi siapa pun
+  assert.equal(isHariKerja("2026-08-17", new Set(["2026-08-17"]), jumatSabtu), false);
+
+  const shift = { start: "08:00", toleranceMinutes: 15 };
+  const dasar = { hariIni: "2026-08-24", clockIn: null, libur, shift };
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-21", hariKerja: jumatSabtu }),
+    null,
+    "Jumat: hari libur divisinya, jadi tidak dihitung sama sekali",
+  );
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-21" }),
+    "tanpa_keterangan",
+    "Jumat yang sama, divisi dengan jadwal default",
+  );
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-16", hariKerja: jumatSabtu }),
+    "tanpa_keterangan",
+    "Minggu: hari kerjanya, jadi bolos tetap bolos",
+  );
+
+  // dan penghitung hari cuti ikut jadwal itu, bukan Senin–Jumat
+  assert.equal(workingDays("2026-08-17", "2026-08-23", new Set(), jumatSabtu), 5);
+  assert.equal(workingDays("2026-08-17", "2026-08-23"), 5, "default: Senin–Jumat");
+  assert.equal(
+    workingDays("2026-08-21", "2026-08-22", new Set(), jumatSabtu),
+    0,
+    "Jumat–Sabtu: akhir pekan divisinya",
+  );
+}
+
+// statusGroup: nilai baru TIDAK boleh jatuh ke ember cuti lewat fallthrough
+{
+  assert.equal(statusGroup("tanpa_keterangan"), "alpa", "bukan 'cuti' — itu kebalikannya");
+  assert.equal(statusGroup("libur"), "libur", "hari libur bukan kehadiran dan bukan tuduhan");
+  assert.equal(statusGroup("belum_absen"), "belum");
+  assert.equal(statusGroup("hadir"), "hadir");
+  assert.equal(statusGroup("telat"), "telat");
+  assert.equal(statusGroup("izin"), "cuti");
 }
 
 console.log("hr.ts self-check OK");

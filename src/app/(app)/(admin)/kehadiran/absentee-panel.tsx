@@ -13,11 +13,14 @@ export function AbsenteePanel({
   div,
   initial,
   total,
+  lampau = false,
 }: {
   date: string;
   div: string;
   initial: Absentee[];
   total: number;
+  /** tanggal ini sudah lewat — yang di daftar bukan lagi "belum", tapi tanpa kabar */
+  lampau?: boolean;
 }) {
   const { items, sentinelRef, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useInfiniteFeed<Absentee>({
@@ -29,7 +32,7 @@ export function AbsenteePanel({
 
   return (
     <Panel
-      title={`Belum absen masuk (${total})`}
+      title={`${lampau ? "Tanpa keterangan" : "Belum absen masuk"} (${total})`}
       action={
         total > 0 && (
           // reminds everyone loaded so far; scroll further to cover the rest

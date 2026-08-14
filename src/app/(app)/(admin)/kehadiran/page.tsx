@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 import { MapPin } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
@@ -31,6 +31,14 @@ import {
   tanggalPanjang,
   todayWib,
 } from "@/lib/hr";
+import {
+  cutiDitolak,
+  grupSql,
+  rekapSql,
+  statusHarianSql,
+  type RekapBaris,
+} from "@/lib/kehadiran";
+import { holidaySet } from "@/lib/leave";
 import { FEED_PAGE, parsePaging, parseSort } from "@/lib/paging";
 import { cn } from "@/lib/utils";
 
@@ -68,7 +76,8 @@ export default async function KehadiranPage({
   searchParams: Promise<Search>;
 }) {
   const sp = await searchParams;
-  const date = sp.date ?? todayWib();
+  const hariIni = todayWib();
+  const date = sp.date ?? hariIni;
   const tab = sp.tab === "recap" ? "recap" : "today";
   const divFilter = sp.div ?? "all";
   const statusFilter = sp.status ?? "all";
@@ -108,13 +117,18 @@ export default async function KehadiranPage({
 
   // Status lives in SQL now: with pagination the page can no longer derive the
   // stat cards or the status filter from the rows it happens to have fetched.
-  const statusText = sql`coalesce(${attendance.status}::text, 'belum_absen')`;
-  const GROUP_SQL = {
-    hadir: sql`${statusText} in ('hadir','wfh')`,
-    telat: sql`${statusText} = 'telat'`,
-    cuti: sql`${statusText} in ('cuti','izin','sakit')`,
-    belum: sql`${statusText} = 'belum_absen'`,
-  } as const;
+  // Aturannya sendiri ada di lib/kehadiran.ts, dipakai bersama dengan feed
+  // "belum absen" yang dulu menyimpan salinan SQL-nya sendiri.
+  const libur = await holidaySet(Number(date.slice(0, 4)));
+  const statusText = statusHarianSql(date, hariIni, libur);
+  const GROUP_SQL = grupSql(statusText);
+  /**
+   * Isi panel tindak lanjut di bawah papan. Bukan `GROUP_SQL.belum` saja: pada
+   * tanggal yang sudah lewat tidak ada seorang pun yang berstatus "belum absen"
+   * lagi, sehingga panelnya akan selalu kosong justru pada hari-hari yang paling
+   * perlu ditindaklanjuti.
+   */
+  const PERLU_TINDAK_LANJUT = or(GROUP_SQL.belum, GROUP_SQL.alpa);
 
   const divWhere =
     divFilter === "all" ? undefined : eq(employees.division, divFilter);
@@ -134,7 +148,7 @@ export default async function KehadiranPage({
     division: employees.division,
     photoUrl: employees.photoUrl,
     attendanceId: attendance.id,
-    status: attendance.status,
+    status: sql<string>`${statusText}`.as("status"),
     clockIn: attendance.clockIn,
     clockOut: attendance.clockOut,
     location: attendance.location,
@@ -158,6 +172,9 @@ export default async function KehadiranPage({
           Number,
         ),
         cuti: sql<number>`count(*) filter (where ${GROUP_SQL.cuti})`.mapWith(
+          Number,
+        ),
+        alpa: sql<number>`count(*) filter (where ${GROUP_SQL.alpa})`.mapWith(
           Number,
         ),
         belum: sql<number>`count(*) filter (where ${GROUP_SQL.belum})`.mapWith(
@@ -203,7 +220,7 @@ export default async function KehadiranPage({
         attendance,
         and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
       )
-      .where(and(baseWhere, GROUP_SQL.belum))
+      .where(and(baseWhere, PERLU_TINDAK_LANJUT))
       .orderBy(asc(employees.name))
       .limit(FEED_PAGE),
 
@@ -214,7 +231,7 @@ export default async function KehadiranPage({
         attendance,
         and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
       )
-      .where(and(baseWhere, GROUP_SQL.belum)),
+      .where(and(baseWhere, PERLU_TINDAK_LANJUT)),
 
     db
       .select({
@@ -222,7 +239,10 @@ export default async function KehadiranPage({
         name: employees.name,
         division: employees.division,
         location: attendance.location,
-        status: attendance.status,
+        // status turunan, bukan kolom mentah: panel ini memfilter dengan aturan
+        // turunan, jadi menampilkan kolom mentah membuat orang yang cutinya
+        // disetujui tapi tak punya baris absensi muncul berlabel "Belum absen"
+        status: sql<string>`${statusText}`.as("status"),
       })
       .from(employees)
       .leftJoin(
@@ -236,15 +256,20 @@ export default async function KehadiranPage({
 
   const visible = visibleRaw.map((r) => ({
     ...r,
-    status: (r.status ?? "belum_absen") as AttStatus,
+    status: r.status as AttStatus,
   }));
   const onLeave = onLeaveRaw.map((r) => ({
     ...r,
-    status: (r.status ?? "belum_absen") as AttStatus,
+    status: r.status as AttStatus,
   }));
 
-  // Day detail — queried only while the modal is open, like /karyawan does.
-  // An unknown ?open= leaves `detail` null and the list renders as usual.
+  /**
+   * Day detail — queried only while the modal is open, like /karyawan does.
+   * `?open` adalah id KARYAWAN, bukan id absensi: hari tanpa keterangan tidak punya
+   * baris absensi sama sekali, jadi kunci berbasis absensi membuat justru hari yang
+   * paling perlu dibuka menjadi satu-satunya yang tidak bisa dibuka.
+   * ?open yang tidak dikenal meninggalkan `detail` null dan daftar tampil seperti biasa.
+   */
   const openId = sp.open ? Number(sp.open) : null;
   let detail: DayDetail | null = null;
   if (openId) {
@@ -256,10 +281,9 @@ export default async function KehadiranPage({
         nik: employees.nik,
         division: employees.division,
         photoUrl: employees.photoUrl,
-        date: attendance.date,
         clockIn: attendance.clockIn,
         clockOut: attendance.clockOut,
-        status: attendance.status,
+        status: sql<string>`${statusText}`.as("status"),
         location: attendance.location,
         selfieUrl: attendance.selfieUrl,
         officeName: officeLocations.name,
@@ -267,34 +291,44 @@ export default async function KehadiranPage({
         officeLng: officeLocations.lng,
         officeRadius: officeLocations.radiusM,
       })
-      .from(attendance)
-      .innerJoin(employees, eq(employees.id, attendance.employeeId))
+      .from(employees)
+      .leftJoin(
+        attendance,
+        and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
+      )
       // the office this day was punched against — left, because a WFH day and any
       // row from before locations existed simply has none
       .leftJoin(officeLocations, eq(officeLocations.id, attendance.locationId))
-      .where(eq(attendance.id, openId))
+      .where(and(eq(employees.id, openId), eq(employees.active, true)))
       .limit(1);
 
     if (row) {
-      const events = await db
-        .select({
-          id: attendanceEvents.id,
-          kind: attendanceEvents.kind,
-          at: attendanceEvents.at,
-          location: attendanceEvents.location,
-          lat: attendanceEvents.lat,
-          lng: attendanceEvents.lng,
-          photoUrl: attendanceEvents.photoUrl,
-          note: attendanceEvents.note,
-        })
-        .from(attendanceEvents)
-        .where(eq(attendanceEvents.attendanceId, openId))
-        .orderBy(asc(attendanceEvents.at));
+      const [events, ditolak] = await Promise.all([
+        row.attendanceId
+          ? db
+              .select({
+                id: attendanceEvents.id,
+                kind: attendanceEvents.kind,
+                at: attendanceEvents.at,
+                location: attendanceEvents.location,
+                lat: attendanceEvents.lat,
+                lng: attendanceEvents.lng,
+                photoUrl: attendanceEvents.photoUrl,
+                note: attendanceEvents.note,
+              })
+              .from(attendanceEvents)
+              .where(eq(attendanceEvents.attendanceId, row.attendanceId))
+              .orderBy(asc(attendanceEvents.at))
+          : [],
+        cutiDitolak(openId, date),
+      ]);
 
       detail = {
         ...row,
+        date,
         status: row.status as AttStatus,
         events,
+        ditolak,
         office: row.officeLat
           ? {
               name: row.officeName!,
@@ -307,53 +341,33 @@ export default async function KehadiranPage({
     }
   }
 
-  // Monthly recap — aggregated in SQL so the page stays fast at scale (PRD §9)
-  const recap =
+  /**
+   * Monthly recap — aggregated in SQL so the page stays fast at scale (PRD §9).
+   * Penyebutnya hari kerja, bukan baris absensi: lihat `rekapSql`. Batasnya hari
+   * ini, karena hari yang belum tiba bukan hari yang bisa dibolos.
+   */
+  const recap = (
     tab === "recap"
-      ? await db
-          .select({
-            id: employees.id,
-            name: employees.name,
-            division: employees.division,
-            hadir:
-              sql<number>`count(*) filter (where ${attendance.status} in ('hadir','wfh'))`.mapWith(
-                Number,
-              ),
-            telat:
-              sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(
-                Number,
-              ),
-            cuti: sql<number>`count(*) filter (where ${attendance.status} in ('cuti','izin','sakit'))`.mapWith(
-              Number,
-            ),
-            absen:
-              sql<number>`count(*) filter (where ${attendance.status} = 'belum_absen')`.mapWith(
-                Number,
-              ),
-            hari: sql<number>`count(*)`.mapWith(Number),
-          })
-          .from(employees)
-          .leftJoin(
-            attendance,
-            and(
-              eq(attendance.employeeId, employees.id),
-              gte(attendance.date, monthStart),
-              lte(attendance.date, date),
-            ),
+      ? (
+          await db.execute(
+            rekapSql({
+              dari: monthStart,
+              sampai: date < hariIni ? date : hariIni,
+              hariIni,
+              libur,
+              pilih: sql`${employees.id} as id, ${employees.name} as name, ${employees.division} as division`,
+              groupBy: sql`${employees.id}, ${employees.name}, ${employees.division}`,
+              where: and(eq(employees.active, true), divWhere)!,
+              // rekap mengelompokkan karyawan, jadi ?sort=masuk tidak punya kolom
+              // untuk diurutkan — jatuh ke nama, sama seperti ?sort yang dikarang
+              orderBy: sql`${sorting.key === "divisi" ? employees.division : employees.name} ${sql.raw(sorting.dir === "desc" ? "desc" : "asc")}`,
+              limit: perPage,
+              offset,
+            }),
           )
-          .where(
-            and(
-              eq(employees.active, true),
-              divFilter === "all"
-                ? undefined
-                : eq(employees.division, divFilter),
-            ),
-          )
-          .groupBy(employees.id, employees.name, employees.division)
-          .orderBy(order)
-          .limit(perPage)
-          .offset(offset)
-      : [];
+        ).rows
+      : []
+  ) as (RekapBaris & { id: number; name: string; division: string })[];
 
   // the recap groups by employee, so its total is simply the head-count
   const recapTotal = counts.total;
@@ -367,11 +381,7 @@ export default async function KehadiranPage({
       sortable: true,
       cell: (r) => (
         <Link
-          href={
-            r.attendanceId
-              ? href(base, { open: String(r.attendanceId) })
-              : `/karyawan?open=${r.id}`
-          }
+          href={href(base, { open: String(r.id) })}
           scroll={false}
           className="flex items-center gap-2.5 hover:underline"
         >
@@ -471,9 +481,9 @@ export default async function KehadiranPage({
     },
     {
       key: "absen",
-      header: "Absen",
+      header: "Tanpa keterangan",
       className: "tnum text-danger text-[13px]",
-      cell: (r) => r.absen,
+      cell: (r) => r.alpa,
     },
     {
       key: "tingkat",
@@ -573,14 +583,28 @@ export default async function KehadiranPage({
           href={href(base, { status: "cuti" })}
           active={statusFilter === "cuti"}
         />
-        <Stat
-          label="Belum absen"
-          value={counts.belum}
-          sub="perlu diingatkan"
-          tone="danger"
-          href={href(base, { status: "belum" })}
-          active={statusFilter === "belum"}
-        />
+        {/* Kartu kelima berganti makna, bukan bertambah jadi keenam: pada tanggal
+            yang sudah lewat tidak ada seorang pun yang masih bisa "belum absen",
+            jadi yang relevan di sana adalah mereka yang tanpa keterangan. */}
+        {date < hariIni ? (
+          <Stat
+            label="Tanpa keterangan"
+            value={counts.alpa}
+            sub="tanpa izin"
+            tone="danger"
+            href={href(base, { status: "alpa" })}
+            active={statusFilter === "alpa"}
+          />
+        ) : (
+          <Stat
+            label="Belum absen"
+            value={counts.belum}
+            sub="perlu diingatkan"
+            tone="warning"
+            href={href(base, { status: "belum" })}
+            active={statusFilter === "belum"}
+          />
+        )}
       </div>
 
       <div className="flex flex-wrap items-start gap-4">
@@ -673,6 +697,7 @@ export default async function KehadiranPage({
             div={divFilter}
             initial={absenteeRows}
             total={absenteeTotal.n}
+            lampau={date < hariIni}
           />
 
           <Panel title={`Sedang cuti / izin (${counts.cuti})`}>

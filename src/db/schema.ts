@@ -91,6 +91,13 @@ export const divisions = pgTable("divisions", {
   shiftStart: time("shift_start"),
   shiftEnd: time("shift_end"),
   lateToleranceMinutes: integer("late_tolerance_minutes"),
+  /**
+   * Hari kerja divisi ini sebagai nomor hari Postgres (0 = Minggu … 6 = Sabtu).
+   * NULL mewarisi default perusahaan (Senin–Jumat, `HARI_KERJA_DEFAULT`), persis
+   * seperti kolom shift di atasnya. Ini yang membuat divisi yang liburnya bukan
+   * Sabtu–Minggu berhenti tercatat "tanpa keterangan" pada hari liburnya sendiri.
+   */
+  workDays: integer("work_days").array(),
 });
 
 /**
