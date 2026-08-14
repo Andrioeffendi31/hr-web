@@ -1,9 +1,16 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { Camera, ExternalLink, MapPin, ShieldAlert } from "lucide-react";
+import {
+  AlertTriangle,
+  Camera,
+  ExternalLink,
+  MapPin,
+  ShieldAlert,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { AttBadge, Avatar } from "@/components/bits";
@@ -18,6 +25,8 @@ import {
   formatJarak,
   jam,
   jarakMeter,
+  jedaJejak,
+  CATATAN_TERTUNDA,
   jejakAbsen,
   overtimeMinutes,
   tanggalPanjang,
@@ -99,6 +108,37 @@ const waktu = (at: Date) =>
     timeZone: "Asia/Jakarta",
   });
 
+/**
+ * Satu lubang pada jejak, sebagai baris di antara dua kejadian.
+ *
+ * Kalimatnya menyebut dua sebab sekaligus karena keduanya memang tidak bisa
+ * dibedakan dari sini: yang membedakan justru ADA-nya baris — fix yang terambil
+ * saat ponsel offline tetap tersimpan dan menyusul dengan waktu pengambilannya
+ * (baris seperti itu bertanda "terkirim menyusul"). Yang tidak menyisakan apa pun
+ * hanyalah aplikasi yang benar-benar berhenti berjalan.
+ */
+function JedaEntry({ menit, tertunda }: { menit?: number; tertunda: boolean }) {
+  if (!menit) return null;
+  return (
+    <li className="relative mb-5">
+      <span
+        aria-hidden
+        className="bg-warning-subtle ring-card absolute top-0.5 left-[-30px] flex size-[18px] items-center justify-center rounded-full ring-2"
+      >
+        <AlertTriangle className="text-warning size-3" aria-hidden />
+      </span>
+      <div className="text-[12.5px] font-medium">
+        Tidak ada catatan selama {durasi(menit)}
+      </div>
+      <p className="text-subtle mt-0.5 text-[11.5px]">
+        {tertunda
+          ? "Ponsel tanpa jaringan — titik sesudahnya terkirim menyusul."
+          : "Aplikasi kemungkinan ditutup, ponsel mati, atau dihentikan penghemat baterai."}
+      </p>
+    </li>
+  );
+}
+
 const koordinat = (lat: string, lng: string) =>
   `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`;
 
@@ -144,6 +184,26 @@ export function AttendanceDetail({
       ).length
     : 0;
   const sedangBekerja = Boolean(d.clockIn && !d.clockOut);
+
+  /**
+   * Lubang pada jejak, dipetakan ke kejadian yang mendahuluinya supaya baris
+   * penjelasnya bisa disisipkan tepat di bawah baris itu.
+   *
+   * Batas kanannya: jam absen keluar, atau sekarang kalau harinya masih berjalan.
+   * Hari yang sudah lewat tanpa absen keluar tidak punya batas yang jujur — jam
+   * sekarang akan mengarang lubang sepanjang berhari-hari — jadi jeda ekornya
+   * memang tidak dinilai.
+   */
+  const jeda = new Map(
+    jedaJejak(
+      d.events.map((e) => e.at),
+      sedangBekerja
+        ? new Date()
+        : d.clockOut
+          ? new Date(`${d.date}T${d.clockOut}+07:00`)
+          : null,
+    ).map((j) => [j.setelah.getTime(), j.menit]),
+  );
   const titik = jejakAbsen(d.events, d.office);
 
   return (
@@ -346,13 +406,18 @@ export function AttendanceDetail({
                 aria-hidden
                 className="bg-border absolute top-1.5 bottom-1.5 left-[8px] w-[2px]"
               />
-              {d.events.map((e) => (
-                <TimelineEntry
-                  key={e.id}
-                  event={e}
-                  name={d.name}
-                  office={d.office}
-                />
+              {d.events.map((e, i) => (
+                <Fragment key={e.id}>
+                  <TimelineEntry event={e} name={d.name} office={d.office} />
+                  <JedaEntry
+                    menit={jeda.get(e.at.getTime())}
+                    // sebab lubangnya terbaca dari titik SESUDAHNYA: kalau ia
+                    // tertunda, fix-nya tetap terambil dan yang hilang cuma sinyal
+                    tertunda={Boolean(
+                      d.events[i + 1]?.note?.includes(CATATAN_TERTUNDA),
+                    )}
+                  />
+                </Fragment>
               ))}
             </ol>
           )}

@@ -376,15 +376,31 @@ elif [ "$(TZ=Asia/Jakarta date +%H)" -lt 03 ]; then
   echo "  skip jejak bertanggal: sebelum 03:00 WIB belum ada ruang 2,5 jam sejak absen masuk"
 else
   # antrean offline: fix yang tertahan 2,7 jam lalu menyusul, kemudian fix baru —
-  # keduanya masuk hanya kalau jeda diukur pada waktu PENGAMBILAN, bukan waktu unggah
+  # keduanya masuk hanya kalau jeda diukur pada waktu PENGAMBILAN, bukan waktu unggah.
+  # `delayed` + `location` ikut dikirim seperti yang dilakukan telepon sungguhan.
+  ANTREBODY="{\"lat\":-6.2249,\"lng\":106.8092,\"at\":\"$(iso 9720)\",\"delayed\":true,\"location\":\"Jalan Sudirman, Jakarta\"}"
   check "fix antrean yang menyusul diterima" 1 \
-    "$(ping 9720 -6.2249 106.8092 | grep -c '"ok":true')"
+    "$(curl -s -b "$PINGJAR" -X POST "$BASE/api/attendance/ping" \
+       -H 'content-type: application/json' -d "$ANTREBODY" \
+       | grep -c '"ok":true')"
   check "fix baru sesudahnya juga diterima" 1 \
     "$(ping 30 -6.2249 106.8092 | grep -c '"ok":true')"
   # ...dan jeda itu tetap menjadi rate limit
   check "fix kedua di jendela yang sama ditolak 409" "Ping terlalu cepat" \
     "$(ping 20 -6.2249 106.8092 | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+  # nama tempat dan lubang jejak terbaca di endpoint detail hari
+  HARIINI="$(TZ=Asia/Jakarta date +%F)"
+  # $PINGJAR, bukan body(): body() memakai sesi admin, dan admin tidak punya
+  # absensi hari ini — endpointnya akan menjawab tentang orang yang salah
+  check "ping menyimpan nama tempatnya" 1 \
+    "$(curl -s -b "$PINGJAR" "$BASE/api/me/attendance/$HARIINI" | grep -c 'Jalan Sudirman, Jakarta')"
+  # absen masuk 00:01 lalu fix pertama 2,7 jam ke belakang dari sekarang: lubangnya
+  # pasti lebih dari 4 jam kalau sekarang lewat pukul 07:00, jadi hanya diperiksa
+  # bahwa medannya ada dan bentuknya benar
+  check "endpoint hari membawa medan jeda" 1 \
+    "$(curl -s -b "$PINGJAR" "$BASE/api/me/attendance/$HARIINI" | grep -c '"jedaSesudah"')"
 fi
+
 # GPS palsu: ping tidak pernah ditolak, tapi barisnya ditandai untuk HR.
 # Karyawan lain, karena ping-ping di atas sudah memakai jendela jeda milik Citra.
 MOCKJAR="$(mktemp)"

@@ -1,4 +1,5 @@
 import { asc, eq } from "drizzle-orm";
+import { Fragment } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -9,14 +10,17 @@ import { AttBadge, Empty, PageHead, Panel } from "@/components/bits";
 import { PetaPanel } from "@/components/peta";
 import {
   type AttStatus,
+  CATATAN_TERTUNDA,
   durasi,
   formatJarak,
   isIsoDate,
   jam,
   jarakMeter,
+  jedaJejak,
   jejakAbsen,
   overtimeMinutes,
   tanggalPanjang,
+  todayWib,
 } from "@/lib/hr";
 import { hariKaryawan } from "@/lib/kehadiran";
 import { cn } from "@/lib/utils";
@@ -99,6 +103,19 @@ export default async function DetailKehadiranPage({
       }
     : null;
   const titik = jejakAbsen(events, kantor);
+
+  /** Lubang pada jejak; batas kanannya jam absen keluar, atau sekarang kalau
+   *  harinya masih berjalan. Lihat komentar kembarannya di drawer HR. */
+  const jeda = new Map(
+    jedaJejak(
+      events.map((e) => e.at),
+      day.clockOut
+        ? new Date(`${day.date}T${day.clockOut}+07:00`)
+        : day.clockIn && day.date === todayWib()
+          ? new Date()
+          : null,
+    ).map((j) => [j.setelah.getTime(), j.menit]),
+  );
 
   const jarakDari = (lat: string | null, lng: string | null) =>
     day.officeLat && lat && lng
@@ -229,58 +246,82 @@ export default async function DetailKehadiranPage({
                   aria-hidden
                   className="bg-border absolute top-6 bottom-6 left-[24px] w-[2px]"
                 />
-                {events.map((e) => {
+                {events.map((e, i) => {
                   const jarak = jarakDari(e.lat, e.lng);
+                  const menit = jeda.get(e.at.getTime());
+                  const tertunda = Boolean(
+                    events[i + 1]?.note?.includes(CATATAN_TERTUNDA),
+                  );
                   return (
-                    <li key={e.id} className="relative mb-5 last:mb-0">
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "absolute top-1 left-[-29px] size-[9px] rounded-full ring-4 ring-[var(--card)]",
-                          KIND_DOT[e.kind],
-                        )}
-                      />
-                      <div className="text-[13px] font-medium">
-                        {KIND_LABEL[e.kind]}
-                        {e.location && (
-                          <span className="text-muted-foreground font-normal">
-                            {" "}
-                            · {e.location}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-subtle tnum mt-0.5 text-[11.5px]">
-                        {waktu(e.at)}
-                        {jarak !== null &&
-                          ` · ${formatJarak(jarak)} dari ${day.officeName}`}
-                      </div>
-                      {e.note && (
-                        <div
+                    <Fragment key={e.id}>
+                      <li className="relative mb-5 last:mb-0">
+                        <span
+                          aria-hidden
                           className={cn(
-                            "mt-1 text-[12px]",
-                            e.kind === "lokasi" && "text-warning font-medium",
+                            "absolute top-1 left-[-29px] size-[9px] rounded-full ring-4 ring-[var(--card)]",
+                            KIND_DOT[e.kind],
                           )}
-                        >
-                          {e.note}
+                        />
+                        <div className="text-[13px] font-medium">
+                          {KIND_LABEL[e.kind]}
+                          {e.location && (
+                            <span className="text-muted-foreground font-normal">
+                              {" "}
+                              · {e.location}
+                            </span>
+                          )}
                         </div>
-                      )}
-                      {/* Karyawan melihat tanda ini juga, bukan hanya HR: catatan
+                        <div className="text-subtle tnum mt-0.5 text-[11.5px]">
+                          {waktu(e.at)}
+                          {jarak !== null &&
+                            ` · ${formatJarak(jarak)} dari ${day.officeName}`}
+                        </div>
+                        {e.note && (
+                          <div
+                            className={cn(
+                              "mt-1 text-[12px]",
+                              e.kind === "lokasi" && "text-warning font-medium",
+                            )}
+                          >
+                            {e.note}
+                          </div>
+                        )}
+                        {/* Karyawan melihat tanda ini juga, bukan hanya HR: catatan
                           yang menuduh seseorang tanpa ia pernah tahu bukan catatan
                           yang bisa ia bantah. */}
-                      {e.suspect && (
-                        <div className="text-danger mt-1 text-[12px] font-medium">
-                          {e.suspect}
-                        </div>
+                        {e.suspect && (
+                          <div className="text-danger mt-1 text-[12px] font-medium">
+                            {e.suspect}
+                          </div>
+                        )}
+                        {e.photoUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={`/api/files/${e.photoUrl}`}
+                            alt={KIND_LABEL[e.kind]}
+                            className="mt-2 w-[92px] rounded-[9px] border object-cover"
+                          />
+                        )}
+                      </li>
+                      {/* Lubang pada jejak, dijelaskan kepada orangnya sendiri — ia
+                        yang paling tahu apakah ponselnya memang mati siang itu. */}
+                      {menit && (
+                        <li className="relative mb-5">
+                          <span
+                            aria-hidden
+                            className="bg-warning absolute top-1 left-[-29px] size-[9px] rounded-full ring-4 ring-[var(--card)]"
+                          />
+                          <div className="text-[12.5px] font-medium">
+                            Tidak ada catatan selama {durasi(menit)}
+                          </div>
+                          <p className="text-subtle mt-0.5 text-[11.5px]">
+                            {tertunda
+                              ? "Ponsel tanpa jaringan — titik sesudahnya terkirim menyusul."
+                              : "Aplikasi kemungkinan ditutup, ponsel mati, atau dihentikan penghemat baterai."}
+                          </p>
+                        </li>
                       )}
-                      {e.photoUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={`/api/files/${e.photoUrl}`}
-                          alt={KIND_LABEL[e.kind]}
-                          className="mt-2 w-[92px] rounded-[9px] border object-cover"
-                        />
-                      )}
-                    </li>
+                    </Fragment>
                   );
                 })}
               </ol>

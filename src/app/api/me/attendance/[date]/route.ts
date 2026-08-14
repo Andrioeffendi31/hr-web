@@ -1,7 +1,15 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { attendanceEvents } from "@/db/schema";
-import { isIsoDate, jam, jarakMeter, resolveShift } from "@/lib/hr";
+import {
+  CATATAN_TERTUNDA,
+  isIsoDate,
+  jam,
+  jarakMeter,
+  jedaJejak,
+  resolveShift,
+  todayWib,
+} from "@/lib/hr";
 import { hariKaryawan } from "@/lib/kehadiran";
 import { Bad, config, withMe } from "@/lib/me";
 
@@ -46,6 +54,24 @@ export const GET = withMe(async (me, _req, ctx) => {
     config(),
   ]);
 
+  /**
+   * Lubang pada jejak, dihitung di sini karena telepon hanya menerima jam dalam
+   * bentuk teks — dan karena aturannya (`jedaJejak`) memang milik lib/hr.ts, bukan
+   * milik salah satu layar. Batas kanannya: jam absen keluar, atau sekarang kalau
+   * harinya masih berjalan; hari lampau yang tak pernah ditutup tidak punya batas
+   * yang jujur, jadi jeda ekornya tidak dinilai.
+   */
+  const jeda = new Map(
+    jedaJejak(
+      events.map((e) => e.at),
+      day.clockOut
+        ? new Date(`${date}T${day.clockOut}+07:00`)
+        : day.clockIn && date === todayWib()
+          ? new Date()
+          : null,
+    ).map((j) => [j.setelah.getTime(), j.menit]),
+  );
+
   return Response.json({
     date: day.date,
     status: day.status,
@@ -71,7 +97,7 @@ export const GET = withMe(async (me, _req, ctx) => {
           radiusM: day.officeRadius!,
         }
       : null,
-    events: events.map((e) => ({
+    events: events.map((e, i) => ({
       id: e.id,
       kind: e.kind,
       /** WIB clock time, formatted here so the phone never re-derives a timezone */
@@ -83,6 +109,17 @@ export const GET = withMe(async (me, _req, ctx) => {
       location: e.location,
       note: e.note,
       suspect: e.suspect,
+      /**
+       * Lubang SESUDAH kejadian ini, kalau ada. `tertunda` dibaca dari titik
+       * berikutnya: fix yang terkirim menyusul membuktikan ponselnya hidup tapi
+       * tanpa sinyal — bukan aplikasi yang berhenti berjalan.
+       */
+      jedaSesudah: jeda.has(e.at.getTime())
+        ? {
+            menit: jeda.get(e.at.getTime())!,
+            tertunda: Boolean(events[i + 1]?.note?.includes(CATATAN_TERTUNDA)),
+          }
+        : null,
       photoKey: e.photoKey,
       /** where it happened; null for a punch written before coordinates were kept */
       lat: e.lat === null ? null : Number(e.lat),

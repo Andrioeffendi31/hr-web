@@ -213,7 +213,8 @@ export function collectiveLeaveDays(
   kerja: readonly number[] = HARI_KERJA_DEFAULT,
 ): number {
   return dates.filter(
-    (d) => d >= joinedAt && kerja.includes(new Date(`${d}T00:00:00Z`).getUTCDay()),
+    (d) =>
+      d >= joinedAt && kerja.includes(new Date(`${d}T00:00:00Z`).getUTCDay()),
   ).length;
 }
 
@@ -542,6 +543,55 @@ export const jamWib = (at: Date) =>
     minute: "2-digit",
     timeZone: "Asia/Jakarta",
   });
+
+/**
+ * Jeda pada jejak yang cukup panjang untuk berarti sesuatu.
+ *
+ * Empat jam, bukan tiga: intervalnya sendiri tiga jam dan penjadwal Android
+ * menggeser wake-up sesukanya, jadi tiga jam lewat sedikit adalah hari yang normal.
+ * Empat jam berarti satu wake-up penuh terlewat.
+ */
+export const JEDA_JEJAK_MENIT = 240;
+
+/**
+ * Catatan pada ping yang diambil saat ponsel offline dan baru terkirim belakangan.
+ *
+ * Satu konstanta karena tiga tempat membacanya: route ping yang menulisnya, dan
+ * dua tampilan yang memakainya untuk memilih kalimat pada lubang di depannya —
+ * lubang yang diikuti ping tertunda berarti tidak ada sinyal, bukan aplikasi mati.
+ */
+export const CATATAN_TERTUNDA =
+  "Terkirim menyusul setelah ponsel kembali online";
+
+/**
+ * Lubang pada jejak lokasi — periode ketika telepon tidak melaporkan apa pun.
+ *
+ * Sejak antrean offline ada, kehilangan sinyal TIDAK menghasilkan lubang: fix-nya
+ * tetap diambil dan menyusul dengan waktu pengambilannya sendiri (baris seperti itu
+ * ditandai "terkirim menyusul"). Lubang yang tersisa karena itu berarti tidak ada
+ * fix yang pernah diambil sama sekali — aplikasinya tidak berjalan: ditutup paksa,
+ * ponselnya mati, atau dihentikan penghemat baterai OEM.
+ *
+ * `akhir` adalah batas kanan hari itu: jam absen keluar, atau sekarang kalau harinya
+ * masih berjalan. Null berarti tidak ada batas yang diketahui, dan jeda terakhirnya
+ * tidak dihitung — hari yang belum selesai tanpa jam sekarang bukan hari yang bisa
+ * dinilai.
+ */
+export function jedaJejak(
+  waktu: Date[],
+  akhir: Date | null,
+  minMenit: number = JEDA_JEJAK_MENIT,
+): { setelah: Date; menit: number }[] {
+  const titik = [...waktu].sort((a, b) => a.getTime() - b.getTime());
+  const jeda: { setelah: Date; menit: number }[] = [];
+  for (let i = 0; i < titik.length; i++) {
+    const b = i + 1 < titik.length ? titik[i + 1] : akhir;
+    if (!b) continue;
+    const menit = Math.round((b.getTime() - titik[i].getTime()) / 60000);
+    if (menit >= minMenit) jeda.push({ setelah: titik[i], menit });
+  }
+  return jeda;
+}
 
 /**
  * Attendance events as map markers, in chronological order.

@@ -5,6 +5,7 @@ import { requireUser } from "@/auth";
 import { db } from "@/db";
 import { attendance, attendanceEvents, officeLocations } from "@/db/schema";
 import {
+  CATATAN_TERTUNDA,
   formatJarak,
   jarakMeter,
   KECEPATAN_MUSTAHIL,
@@ -54,6 +55,13 @@ const body = z.object({
    * lihat blok di atas.
    */
   mocked: z.coerce.boolean().optional(),
+  /**
+   * Fix ini diambil saat telepon offline dan baru terkirim sekarang, dari antrean.
+   * Dicatat karena inilah yang membedakan dua sebab jejak bolong: tidak ada sinyal
+   * (fix-nya tetap terambil, hanya terlambat sampai) dari aplikasi yang memang
+   * berhenti berjalan (tidak ada fix sama sekali). Bagi HR keduanya sangat berbeda.
+   */
+  delayed: z.coerce.boolean().optional(),
 });
 
 /** 2.5 h, not 3 h: a phone's background scheduler drifts, and rejecting a
@@ -76,7 +84,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return Response.json({ error: "Koordinat tidak valid" }, { status: 400 });
   }
-  const { lat, lng, location, mocked } = parsed.data;
+  const { lat, lng, location, mocked, delayed } = parsed.data;
   const today = todayWib();
 
   const [att] = await db
@@ -231,8 +239,14 @@ export async function POST(req: Request) {
       lng: String(lng),
       location: location ?? null,
       // only when it is worth saying: the drawer already renders the distance for
-      // every ping, so a note repeating it would be noise. This one flags it.
-      note: outside ? `Di luar radius ${att.officeName}` : null,
+      // every ping, so a note repeating it would be noise. These two are.
+      note:
+        [
+          outside ? `Di luar radius ${att.officeName}` : null,
+          delayed ? CATATAN_TERTUNDA : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || null,
       suspect,
     })
     .returning({ id: attendanceEvents.id, at: attendanceEvents.at });

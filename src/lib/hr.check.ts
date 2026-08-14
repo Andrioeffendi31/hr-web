@@ -12,6 +12,7 @@ import {
   isIsoDate,
   isoFromDate,
   jarakMeter,
+  jedaJejak,
   jejakAbsen,
   KECEPATAN_MUSTAHIL,
   kecepatanKmJam,
@@ -315,6 +316,36 @@ assert.equal(formatJarak(4750), "4,8 km");
     { lat: -7.2575, lng: 112.7521, at: t(9) },
   );
   assert.equal(kembar, 0, "pembagian nol tidak boleh menuduh");
+}
+
+// jeda jejak lokasi: lubang yang cukup panjang untuk berarti aplikasinya mati
+{
+  const t = (jam: number, menit = 0) =>
+    new Date(Date.UTC(2026, 7, 14, jam - 7, menit)); // WIB → UTC
+  // absen masuk 08:00, ping 11:00 dan 14:00, absen keluar 17:00 — hari yang normal
+  const rapat = [t(8), t(11), t(14)];
+  assert.deepEqual(jedaJejak(rapat, t(17)), [], "interval 3 jam bukan jeda");
+
+  // absen masuk 02:05, ping 02:05, lalu diam sampai 11:35 — kasus di tangkapan layar
+  const bolong = [t(2, 5), t(2, 5), t(11, 35)];
+  const jeda = jedaJejak(bolong, t(17));
+  assert.equal(jeda.length, 2, "satu lubang pagi, satu lubang sore");
+  assert.equal(jeda[0].menit, 570, "02:05 → 11:35 = 9 jam 30 menit");
+  assert.equal(jeda[1].menit, 325, "11:35 → 17:00 = 5 jam 25 menit");
+
+  // hari yang masih berjalan tanpa batas kanan: jeda terakhirnya tidak dinilai
+  assert.equal(
+    jedaJejak([t(8), t(11)], null).length,
+    0,
+    "tanpa akhir, jeda ekor tidak dihitung",
+  );
+
+  // urutan masuk tidak harus terurut — yang dinilai adalah garis waktunya
+  assert.deepEqual(jedaJejak([t(14), t(8)], t(14)), jedaJejak([t(8), t(14)], t(14)));
+  assert.equal(jedaJejak([t(8), t(14)], t(14))[0].menit, 360);
+
+  // satu titik saja, dan harinya sudah ditutup: jarak ke penutupnya tetap terbaca
+  assert.equal(jedaJejak([t(8)], t(17))[0].menit, 540);
 }
 
 // file helpers behind the dropzone and the preview dialog
