@@ -19,18 +19,28 @@ const ADMIN = [
   "/pengaturan",
 ];
 
-/** Everything an employee is allowed to open. */
-const SAYA = [
+/** Everything a non-admin is allowed to open — sekarang tinggal dua. */
+const UMUM = [
+  // reachable by every role on purpose: it is where an account still carrying the
+  // shared import password is sent, so denying it would strand that account
+  "/ganti-sandi",
+  // pendaratan tautan email; publik, dan tujuan homeFor bagi karyawan
+  "/buka/absen",
+  "/buka/pengajuan",
+];
+
+/** Halaman karyawan yang DIHAPUS. Didaftar di sini bukan sebagai peninggalan,
+ *  melainkan sebagai jebakan: menghidupkannya kembali tanpa memikirkan ulang
+ *  kebijakannya akan membuat assert ini gagal, bukan diam-diam terbuka. */
+const DIHAPUS = [
   "/saya",
   "/saya/kehadiran",
   "/saya/kehadiran/2026-08-09",
   "/saya/pengajuan",
   "/saya/berkas",
   "/saya/pengumuman",
+  // konsol web milik HR sepenuhnya; passkey karyawan didaftarkan di aplikasi
   "/profil",
-  // reachable by every role on purpose: it is where an account still carrying the
-  // shared import password is sent, so denying it would strand that account
-  "/ganti-sandi",
 ];
 
 for (const p of ADMIN) {
@@ -40,9 +50,14 @@ for (const p of ADMIN) {
   assert.equal(canAccess(p, "manager"), false, `${p} must deny manager`);
 }
 
-for (const p of SAYA) {
+for (const p of UMUM) {
   for (const role of ROLES)
     assert.ok(canAccess(p, role), `${p} must allow ${role}`);
+}
+
+for (const p of DIHAPUS) {
+  assert.equal(canAccess(p, "employee"), false, `${p} sudah dihapus`);
+  assert.equal(canAccess(p, "manager"), false, `${p} sudah dihapus`);
 }
 
 // a page nobody thought about is admin-only, not public
@@ -51,17 +66,18 @@ assert.equal(
   false,
   "unknown path denies",
 );
-// the prefix is segment-exact: a route merely starting with those letters is not /saya
+// prefix /buka/ harus segment-exact: rute yang kebetulan berawalan sama bukan milik
+// siapa pun, dan `startsWith("/buka")` polos akan menyerahkannya
 assert.equal(
-  canAccess("/sayanganku", "employee"),
+  canAccess("/bukalapak", "employee"),
   false,
   "prefix must be segment-exact",
 );
-// and there is no escape by appending the magic word to an admin path
+// dan tidak ada jalan keluar dengan menempelkan kata ajaibnya ke halaman admin
 assert.equal(
-  canAccess("/kehadiran/saya", "employee"),
+  canAccess("/kehadiran/buka/absen", "employee"),
   false,
-  "no /saya suffix escape",
+  "no /buka suffix escape",
 );
 
 // homeFor must land somewhere its own role may go, or proxy.ts redirect-loops

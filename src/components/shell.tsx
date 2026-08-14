@@ -11,7 +11,6 @@ import {
   CalendarOff,
   Clock,
   FolderClosed,
-  Home,
   KeyRound,
   LogOut,
   MapPin,
@@ -80,29 +79,6 @@ const GROUPS = [
   },
 ] as const;
 
-/**
- * What an employee (or manager) sees instead.
- *
- * A separate array rather than filtering GROUPS: a merged list still forces a
- * per-item decision about which group label it belongs under, so the filter buys
- * nothing and costs a role key on every entry. access.check.ts is what keeps the
- * two lists honest against the policy.
- */
-const SAYA_GROUPS = [
-  {
-    label: "Saya",
-    items: [
-      { href: "/saya", label: "Beranda", icon: Home },
-      { href: "/saya/kehadiran", label: "Kehadiran Saya", icon: Clock },
-      { href: "/saya/pengajuan", label: "Pengajuan", icon: CalendarDays },
-      { href: "/saya/berkas", label: "Berkas Saya", icon: FolderClosed },
-    ],
-  },
-  {
-    label: "Informasi",
-    items: [{ href: "/saya/pengumuman", label: "Pengumuman", icon: Megaphone }],
-  },
-] as const;
 
 const TITLES: Record<string, [string, string]> = {
   "/kehadiran": ["Kehadiran", "papan absensi harian & rekap bulanan"],
@@ -116,11 +92,6 @@ const TITLES: Record<string, [string, string]> = {
   "/berkas": ["Berkas", "dokumen pribadi & perusahaan"],
   "/laporan": ["Laporan", "rekap siap audit, unduh sebagai CSV"],
   "/profil": ["Profil & Keamanan", "passkey dan data kepegawaian Anda"],
-  "/saya": ["Beranda", "absensi dan ringkasan hari ini"],
-  "/saya/kehadiran": ["Kehadiran Saya", "riwayat absensi per bulan"],
-  "/saya/pengajuan": ["Pengajuan", "cuti, lembur, dan riwayatnya"],
-  "/saya/berkas": ["Berkas Saya", "dokumen pribadi & perusahaan"],
-  "/saya/pengumuman": ["Pengumuman", "informasi internal dari HR"],
   "/pengaturan": [
     "Pengaturan",
     "identitas, jadwal kerja & kebijakan perusahaan",
@@ -133,7 +104,7 @@ function NavList({
   liveLabel,
   onNavigate,
 }: {
-  groups: typeof GROUPS | typeof SAYA_GROUPS;
+  groups: typeof GROUPS;
   /** absent for an employee: those counts are company-wide admin data */
   badges?: NavBadges;
   liveLabel?: string;
@@ -215,8 +186,13 @@ export function Shell({
   const { theme, toggleTheme } = useUi();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [title, sub] = TITLES[pathname] ?? ["NanumHR", ""];
+  /**
+   * Konsol ini milik HR sepenuhnya sejak area /saya dihapus: `canAccess` menolak
+   * setiap halaman di bawah (app) untuk peran lain, jadi cabang navigasi karyawan
+   * di sini adalah kode yang tidak bisa lagi dijangkau siapa pun.
+   */
   const isAdmin = user.role === "hr_admin";
-  const groups = isAdmin ? GROUPS : SAYA_GROUPS;
+  const groups = GROUPS;
 
   const brand = (
     <div className="flex items-center gap-2.5 px-2 pt-1 pb-4">

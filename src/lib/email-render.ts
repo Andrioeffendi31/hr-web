@@ -237,7 +237,7 @@ export function isiFor(
         ],
         tombol: {
           label: "Lihat pengajuan saya",
-          url: `${base}/saya/pengajuan`,
+          url: `${base}/buka/pengajuan`,
         },
       };
 
@@ -253,7 +253,7 @@ export function isiFor(
         ],
         tombol: {
           label: "Lihat pengajuan saya",
-          url: `${base}/saya/pengajuan`,
+          url: `${base}/buka/pengajuan`,
         },
       };
 
@@ -265,7 +265,7 @@ export function isiFor(
           "HR meminta perbaikan sebelum pengajuan ini bisa diputuskan. Silakan perbaiki lalu kirim ulang.",
           ...(c.note ? [`Yang perlu diperbaiki: ${String(c.note)}`] : []),
         ],
-        tombol: { label: "Perbaiki pengajuan", url: `${base}/saya/pengajuan` },
+        tombol: { label: "Perbaiki pengajuan", url: `${base}/buka/pengajuan` },
       };
 
     case "attendance_reminder": {
@@ -277,7 +277,7 @@ export function isiFor(
           `Sampai saat ini belum ada catatan absen masuk untuk ${tgl}. Kalau Anda sedang bekerja, jangan lupa absen lewat aplikasi.`,
           "Kalau Anda cuti, izin, atau sakit, ajukan lewat menu Pengajuan supaya kehadiran Anda tercatat benar.",
         ],
-        tombol: { label: "Buka NanumHR", url: `${base}/saya` },
+        tombol: { label: "Absen sekarang", url: `${base}/buka/absen` },
       };
     }
 
@@ -289,7 +289,7 @@ export function isiFor(
           ...(c.title ? [String(c.title)] : []),
           "Ada pengumuman baru yang perlu Anda baca.",
         ],
-        tombol: { label: "Baca pengumuman", url: `${base}/saya/pengumuman` },
+        tombol: { label: "Baca pengumuman", url: `${base}/buka/pengumuman` },
       };
 
     default:

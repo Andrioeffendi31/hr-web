@@ -39,7 +39,9 @@ export const config = {
   // them would silently break passkey enrolment in the mobile app.
   matcher: [
     // lupa-sandi and atur-sandi are public for the same reason login is: they are
-    // how somebody who cannot sign in gets back in.
-    "/((?!login|lupa-sandi|atur-sandi|api|\\.well-known|_next/static|_next/image|favicon.ico).*)",
+    // how somebody who cannot sign in gets back in. `buka` joins them: it is the
+    // landing page for every emailed link, opened from an inbox on devices that
+    // have never signed in — and it shows nobody's data.
+    "/((?!login|lupa-sandi|atur-sandi|buka|api|\\.well-known|_next/static|_next/image|favicon.ico).*)",
   ],
 };

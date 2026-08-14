@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { canAccess, type Role } from "@/lib/access";
+import { canAccess, homeFor, type Role } from "@/lib/access";
 
 /**
  * The real guard for every admin page.
@@ -28,6 +28,7 @@ export default async function AdminLayout({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (!canAccess("/kehadiran", session.user.role as Role)) redirect("/saya");
+  const peran = session.user.role as Role;
+  if (!canAccess("/kehadiran", peran)) redirect(homeFor(peran));
   return children;
 }

@@ -6,9 +6,12 @@
  *
  * The policy is a **prefix, not a list**. A list has to be edited every time a
  * page is added, and it defaults to whatever the author remembered; a prefix
- * defaults to *deny* and never needs editing. It also mirrors the directory
- * split — admin pages live under `app/(app)/(admin)/`, employee pages under
- * `app/(app)/saya/` — so the file tree and the policy cannot drift apart.
+ * defaults to *deny* and never needs editing.
+ *
+ * Sejak area /saya dihapus, konsol web ini milik HR sepenuhnya: kehadiran, cuti,
+ * lembur, dan berkas karyawan dikerjakan di aplikasi ponsel, dan setengah salinan
+ * di web hanya menawarkan jalan yang tidak bisa diselesaikan — absen di browser
+ * yang tidak pernah dipakai siapa pun tetap menuntut selfie dan izin lokasi.
  *
  * `manager` is deliberately identical to `employee`. Approvals happen in the
  * admin console and no code has ever checked for that role (PRD §4 keeps it
@@ -17,24 +20,22 @@
 export type Role = "hr_admin" | "manager" | "employee";
 
 /**
- * `/profil` and `/ganti-sandi` are the pages both sides share: each only ever
- * reads or writes the session's own employee row, so neither needs a role. The
- * second one has to be reachable by everybody in particular — it is where an
- * account carrying the shared import password is sent, and denying it to any role
- * would strand exactly the people who cannot use the rest of the app yet.
+ * Yang tersisa untuk peran selain HR, dan alasan keduanya:
  *
- * The `/saya` check is segment-exact on purpose — `startsWith("/saya")` alone
- * would also match `/sayanganku`, handing an employee any future route whose
- * name merely begins with those four letters.
+ * `/ganti-sandi` harus bisa dibuka siapa pun — ke sanalah akun yang masih memakai
+ * sandi impor bersama dikirim, dan menutupnya justru mengurung orang yang belum
+ * bisa memakai apa pun.
+ *
+ * `/buka/...` adalah halaman pendaratan setiap tautan email. Ia tidak memuat data
+ * siapa-siapa dan memang publik (dikecualikan dari matcher proxy); disebut di sini
+ * supaya `homeFor` di bawah punya tujuan yang sah menurut aturan ini sendiri.
+ *
+ * Segment-exact, bukan `startsWith("/buka")` polos — yang terakhir juga akan cocok
+ * dengan `/bukalapak` dan menyerahkan rute mana pun yang kebetulan berawalan sama.
  */
 export function canAccess(pathname: string, role: Role): boolean {
   if (role === "hr_admin") return true;
-  return (
-    pathname === "/saya" ||
-    pathname.startsWith("/saya/") ||
-    pathname === "/profil" ||
-    pathname === "/ganti-sandi"
-  );
+  return pathname === "/ganti-sandi" || pathname.startsWith("/buka/");
 }
 
 /**
@@ -46,5 +47,5 @@ export function canAccess(pathname: string, role: Role): boolean {
  * asserts exactly that.
  */
 export function homeFor(role: Role): string {
-  return role === "hr_admin" ? "/kehadiran" : "/saya";
+  return role === "hr_admin" ? "/kehadiran" : "/buka/absen";
 }

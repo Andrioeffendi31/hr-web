@@ -297,7 +297,7 @@ check "bad page is 400" 400 "$(code "$BASE/api/feed/pengumuman?page=0")"
 check "feed needs a session" 403 \
   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/feed/pengumuman")"
 
-echo "16. karyawan di web: self-service boleh, konsol admin tidak"
+echo "16. karyawan di web: tidak punya halaman apa pun, API tetap miliknya"
 # The whole point of the (admin) route group and lib/access.ts: nine admin pages
 # have no guard of their own and used to rely on the proxy refusing every
 # non-admin. If this section ever goes green-to-red, that guard has come undone.
@@ -313,10 +313,26 @@ check "karyawan signs in" "employee" \
 for p in kehadiran karyawan cuti lembur berkas laporan libur pengumuman divisi lokasi pengaturan; do
   check "karyawan ditolak dari /$p" 307 "$(empcode "$BASE/$p")"
 done
-for p in saya saya/kehadiran saya/pengajuan saya/berkas saya/pengumuman profil; do
-  check "karyawan boleh /$p" 200 "$(empcode "$BASE/$p")"
+# Area /saya dihapus: kehadiran dan pengajuan dikerjakan di aplikasi ponsel, dan
+# separuh salinan di web hanya menawarkan jalan yang tidak bisa diselesaikan.
+#
+# Dua jawaban berbeda, dan keduanya benar. Karyawan mendapat 307: proxy menolaknya
+# sebelum Next sempat mencari rutenya, jadi bookmark lama mendarat di halaman
+# "buka aplikasi" alih-alih di layar 404. Admin — yang boleh membuka apa saja —
+# menembus proxy dan mendapat 404 dari Next, yaitu bukti halamannya benar-benar
+# tidak ada lagi, bukan sekadar tertutup kebijakan.
+for p in saya saya/kehadiran saya/pengajuan saya/berkas saya/pengumuman; do
+  check "karyawan tidak lagi punya /$p" 307 "$(empcode "$BASE/$p")"
+  check "/$p benar-benar dihapus" 404 "$(code "$BASE/$p")"
 done
-check "admin boleh /saya juga" 200 "$(code "$BASE/saya")"
+check "karyawan ditolak dari /profil" 307 "$(empcode "$BASE/profil")"
+# ...dan mendarat di halaman "buka aplikasi", bukan di halaman yang menolaknya lagi
+check "karyawan mendarat di /buka/absen" "/buka/absen" \
+  "$(curl -s -b "$EMPJAR" -o /dev/null -w '%{redirect_url}' "$BASE/" | sed "s|$BASE||")"
+# pendaratan tautan email: publik, tanpa sesi sama sekali
+check "/buka/absen publik" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/buka/absen")"
+check "tujuan yang dikarang 404" 404 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/buka/karangan")"
 # the API layer is the real authorization; the pages above are only the shortcut
 check "karyawan tidak bisa PATCH settings" 403 \
   "$(empcode -X PATCH -H 'Content-Type: application/json' -d '{}' "$BASE/api/settings")"
@@ -326,9 +342,8 @@ check "karyawan tidak bisa menyetujui pengajuan" 403 \
   "$(empcode -X POST -H 'Content-Type: application/json' -d '{}' "$BASE/api/requests")"
 check "karyawan tidak bisa mencari karyawan" 403 "$(empcode "$BASE/api/search?q=a")"
 check "karyawan tetap bisa baca datanya sendiri" 200 "$(empcode "$BASE/api/me")"
-# the sidebar must not carry company-wide counts to somebody who may not see them
-check "beranda karyawan tanpa agregat admin" 0 \
-  "$(curl -s -b "$EMPJAR" "$BASE/saya" | grep -c 'sudah absen masuk hari ini')"
+# sidebar tidak lagi punya cabang karyawan sama sekali — yang menjaganya sekarang
+# adalah access.check.ts, bukan halaman yang harus dibuka untuk diperiksa
 
 echo "17. jejak lokasi: waktu pengambilan, antrean, dan GPS palsu"
 # Citra absen masuk 08:00 pada tanggal HARI INI (seed menulisnya khusus untuk ini —
