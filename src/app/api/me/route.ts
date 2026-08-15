@@ -1,35 +1,25 @@
-import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   announcements,
   attendance,
-  authenticators,
-  employees,
-  leaveRequests,
   officeLocations,
-  overtimeRequests,
 } from "@/db/schema";
 import { initials, resolveShift, tanggalPendek, todayWib } from "@/lib/hr";
 import { leaveBalances } from "@/lib/leave";
 import { config, withMe } from "@/lib/me";
 
-/** Everything the Beranda screen shows, in one request — a phone on 4G pays
- *  more for six round trips than the server pays for six parallel queries. */
+/** Critical data needed to paint the first Home viewport. Large secondary lists
+ *  (the team directory and full announcement bodies) use their own endpoints. */
 export const GET = withMe(async (me) => {
   const today = todayWib();
-  const month = today.slice(0, 7);
   const year = Number(today.slice(0, 4));
 
   const [
     cfg,
     [att],
     balances,
-    [ot],
     anns,
-    team,
-    [pendLeave],
-    [pendOt],
-    passkeys,
     offices,
   ] = await Promise.all([
     config(),
@@ -41,22 +31,6 @@ export const GET = withMe(async (me) => {
     leaveBalances(year, me.id),
     db
       .select({
-        minutes:
-          sql<number>`coalesce(sum(${overtimeRequests.minutes}), 0)`.mapWith(
-            Number,
-          ),
-      })
-      .from(overtimeRequests)
-      .where(
-        and(
-          eq(overtimeRequests.employeeId, me.id),
-          eq(overtimeRequests.status, "disetujui"),
-          gte(overtimeRequests.date, `${month}-01`),
-          lte(overtimeRequests.date, `${month}-31`),
-        ),
-      ),
-    db
-      .select({
         id: announcements.id,
         title: announcements.title,
         category: announcements.category,
@@ -66,51 +40,6 @@ export const GET = withMe(async (me) => {
       .from(announcements)
       .orderBy(desc(announcements.pinned), desc(announcements.createdAt))
       .limit(2),
-    db
-      .select({
-        id: employees.id,
-        name: employees.name,
-        photoKey: employees.photoUrl,
-        status: attendance.status,
-      })
-      .from(employees)
-      .leftJoin(
-        attendance,
-        and(
-          eq(attendance.employeeId, employees.id),
-          eq(attendance.date, today),
-        ),
-      )
-      .where(eq(employees.active, true)),
-    db
-      .select({ n: sql<number>`count(*)`.mapWith(Number) })
-      .from(leaveRequests)
-      .where(
-        and(
-          eq(leaveRequests.employeeId, me.id),
-          // a revision needs the employee to act, so it belongs in their badge —
-          // unlike HR's sidebar count, which stays on `menunggu` alone
-          inArray(leaveRequests.status, ["menunggu", "revisi"]),
-        ),
-      ),
-    db
-      .select({ n: sql<number>`count(*)`.mapWith(Number) })
-      .from(overtimeRequests)
-      .where(
-        and(
-          eq(overtimeRequests.employeeId, me.id),
-          eq(overtimeRequests.status, "menunggu"),
-        ),
-      ),
-    /** The credential ids this account has, not a count: a count says how many
-     *  passkeys exist but not *which* device holds them, so the phone could only
-     *  guess. Given the ids it compares against the one it created itself and
-     *  knows. They are not secret — `allowCredentials` publishes them at every
-     *  login — and there are a handful per person at most. */
-    db
-      .select({ id: authenticators.credentialId })
-      .from(authenticators)
-      .where(eq(authenticators.employeeId, me.id)),
     /** every place this employee may punch from — the phone picks one and the
      *  server re-checks the geofence against whichever it picked */
     db
@@ -119,10 +48,6 @@ export const GET = withMe(async (me) => {
       .where(eq(officeLocations.active, true))
       .orderBy(asc(officeLocations.name)),
   ]);
-
-  const present = team.filter(
-    (t) => t.status === "hadir" || t.status === "wfh" || t.status === "telat",
-  );
 
   return Response.json({
     profile: {
@@ -177,28 +102,24 @@ export const GET = withMe(async (me) => {
       used: balances[0]?.used ?? 0,
       expiresAt: `31 Des ${year}`,
     },
-    overtime: { minutes: ot.minutes, capHours: cfg.weeklyOvertimeCapHours },
-    pendingRequests: pendLeave.n + pendOt.n,
-    passkeys: passkeys.map((k) => k.id),
+    // Total lembur no longer appears on Home. Keep the response field for older
+    // mobile builds without making every launch aggregate a month of requests.
+    overtime: { minutes: 0, capHours: cfg.weeklyOvertimeCapHours },
+    // Loaded by the screens that display them. Keep the response shape stable
+    // while current cold-start avoids querying unrelated tables.
+    pendingRequests: 0,
+    passkeys: [],
     announcements: anns.map((a) => ({
       ...a,
       date: tanggalPendek(a.createdAt.toISOString().slice(0, 10)),
     })),
+    // Team is below the first viewport and has its own endpoint. Returning the
+    // compatibility shape keeps older clients safe without scanning every
+    // employee during the critical bootstrap.
     team: {
-      total: team.length,
-      present: present.length,
-      // lima, bukan empat: baris avatar di Beranda memuat lima wajah lalu sebuah
-      // gelembung "+N" untuk sisanya
-      avatars: present.slice(0, 5).map((t) => ({
-        id: t.id,
-        initials: initials(t.name),
-        /** nama depan saja yang ditampilkan di bawah avatar; nama lengkapnya
-         *  dikirim utuh karena memenggalnya adalah urusan tampilan */
-        name: t.name,
-        /** the same colleague is a photo in the Tim tab; the stack on the Beranda
-         *  should not show them as initials */
-        photoKey: t.photoKey,
-      })),
+      total: 0,
+      present: 0,
+      avatars: [],
     },
   });
 });
