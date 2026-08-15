@@ -14,6 +14,8 @@ assert.equal(allowed("exe", "doc"), false, "executables never pass");
 assert.equal(allowed("php", "doc"), false);
 assert.equal(allowed("pdf", "photo"), false, "a photo slot only takes images");
 assert.equal(allowed("webp", "photo"), true);
+// dokumen juga: unggahan berkas dari ponsel dikompres menjadi WebP lebih dulu
+assert.equal(allowed("webp", "doc"), true);
 assert.equal(allowed("", "doc"), false, "no extension, no upload");
 
 // a name only ever becomes the tail of a key, so it must not carry path syntax

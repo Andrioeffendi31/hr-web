@@ -152,12 +152,12 @@ export function UploadDocument({
 
           <div className="flex flex-col gap-3 py-4">
             <FileDrop
-              accept=".pdf,.csv,.xlsx,.docx,.jpg,.jpeg,.png"
+              accept=".pdf,.csv,.xlsx,.docx,.jpg,.jpeg,.png,.webp"
               maxBytes={100 * 1024 * 1024}
               value={file}
               onFile={setFile}
               disabled={upload.isPending}
-              hint="PDF, CSV, XLSX, DOCX, JPG, atau PNG · maksimal 100 MB"
+              hint="PDF, CSV, XLSX, DOCX, JPG, PNG, atau WebP · maksimal 100 MB"
             />
 
             <div className="text-[12px] font-medium">

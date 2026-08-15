@@ -41,7 +41,10 @@ const GET_TTL = 60;
 
 export type Kind = "doc" | "photo" | "selfie" | "logo" | "lampiran";
 
-const DOC_EXT = ["pdf", "csv", "xlsx", "docx", "jpg", "jpeg", "png"];
+// webp ada di sini, bukan hanya di IMAGE_EXT: aplikasi mobile mengecilkan setiap
+// gambar menjadi WebP sebelum mengunggahnya sebagai dokumen, jadi tanpa baris ini
+// setiap unggahan hasil kompresi ditolak "Tipe file tidak didukung"
+const DOC_EXT = ["pdf", "csv", "xlsx", "docx", "jpg", "jpeg", "png", "webp"];
 const IMAGE_EXT = ["jpg", "jpeg", "png", "webp"];
 
 /** Lowercase extension without the dot, "" when there is none. */
