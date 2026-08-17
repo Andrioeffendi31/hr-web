@@ -4,7 +4,7 @@ import Link from "next/link";
 import { db } from "@/db";
 import { employees } from "@/db/schema";
 import { PageHead, Panel } from "@/components/bits";
-import { DateField } from "@/components/date-field";
+import { DateRangeField } from "@/components/date-range-field";
 import { namaBulan, todayWib } from "@/lib/hr";
 import { rekapSql, type RekapBaris } from "@/lib/kehadiran";
 import { holidaySet } from "@/lib/leave";
@@ -86,33 +86,14 @@ export default async function LaporanPage({
         <form className="flex items-end gap-2">
           <div>
             <label
-              htmlFor="from"
+              htmlFor="periode"
               className="text-muted-foreground mb-1 block text-[11px] font-medium"
             >
-              Dari
+              Periode
             </label>
-            <DateField
-              id="from"
-              name="from"
-              defaultValue={from}
-              max={to}
-              autoSubmit
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="to"
-              className="text-muted-foreground mb-1 block text-[11px] font-medium"
-            >
-              Sampai
-            </label>
-            <DateField
-              id="to"
-              name="to"
-              defaultValue={to}
-              min={from}
-              autoSubmit
-            />
+            {/* satu kontrol, bukan dua: "Dari" dan "Sampai" yang terpisah membuat
+                rentang bulan lalu jadi empat ketukan dan dua kali muat halaman */}
+            <DateRangeField id="periode" from={from} to={to} today={today} />
           </div>
         </form>
       </PageHead>
