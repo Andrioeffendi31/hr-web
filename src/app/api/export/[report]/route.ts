@@ -18,6 +18,7 @@ import {
 } from "@/lib/kehadiran";
 import { holidaySet } from "@/lib/leave";
 import { toCsv } from "@/lib/csv";
+import { REQ_LABEL } from "@/components/bits";
 
 const REPORTS = new Set([
   "kehadiran",
@@ -178,7 +179,7 @@ export async function GET(
       r.startDate,
       r.endDate,
       r.days,
-      r.status,
+      REQ_LABEL[r.status],
       r.delegateName ?? "",
       r.reason,
     ]);
@@ -228,7 +229,7 @@ export async function GET(
       jam(r.endTime),
       durasi(r.minutes),
       r.kind,
-      r.status,
+      REQ_LABEL[r.status],
     ]);
   }
 

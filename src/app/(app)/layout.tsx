@@ -1,4 +1,4 @@
-import { and, count, eq, isNotNull } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { auth, stale } from "@/auth";
 import { db } from "@/db";
@@ -12,6 +12,7 @@ import {
 import { Shell } from "@/components/shell";
 import { type Role } from "@/lib/access";
 import { PERUSAHAAN, todayWib } from "@/lib/hr";
+import { BERJALAN } from "@/lib/leave";
 
 export default async function AppLayout({
   children,
@@ -103,10 +104,11 @@ function loadAdminStats(today: string) {
     db
       .select({ n: count() })
       .from(leaveRequests)
-      .where(eq(leaveRequests.status, "menunggu")),
+      .where(inArray(leaveRequests.status, [...BERJALAN])),
     db
       .select({ n: count() })
       .from(overtimeRequests)
+      // lembur satu tingkat: ia tidak pernah melewati menunggu_pimpinan
       .where(eq(overtimeRequests.status, "menunggu")),
     // "sudah absen masuk" = anyone with a clock-in, which includes telat and
     // wfh. Counting status='hadir' alone under-reported it.

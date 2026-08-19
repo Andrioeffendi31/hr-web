@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { AttBadge, Avatar, Pill } from "@/components/bits";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmployeeForm } from "./employee-form";
+import { type Role } from "@/lib/access";
 import {
   type AttStatus,
   jam,
@@ -30,7 +31,7 @@ export type Detail = {
   joinedAt: string | null;
   workLocation: string;
   active: boolean;
-  role: "hr_admin" | "manager" | "employee";
+  role: Role;
   managerId: number | null;
   photoUrl: string | null;
   managerName: string | null;

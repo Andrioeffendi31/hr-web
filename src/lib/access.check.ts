@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { canAccess, homeFor, type Role } from "./access";
 
-const ROLES: Role[] = ["hr_admin", "manager", "employee"];
+const ROLES: Role[] = ["hr_admin", "pimpinan", "manager", "employee"];
 
 /** Every admin page, i.e. every directory under app/(app)/(admin)/. */
 const ADMIN = [
@@ -45,6 +45,9 @@ const DIHAPUS = [
 
 for (const p of ADMIN) {
   assert.ok(canAccess(p, "hr_admin"), `${p} must allow hr_admin`);
+  // Pimpinan melihat konsol yang sama persis: yang membedakannya wewenang memutus
+  // di tingkat kedua persetujuan cuti, bukan halaman mana yang boleh dibuka
+  assert.ok(canAccess(p, "pimpinan"), `${p} must allow pimpinan`);
   assert.equal(canAccess(p, "employee"), false, `${p} must deny employee`);
   // manager is an employee until somebody builds approvals for it
   assert.equal(canAccess(p, "manager"), false, `${p} must deny manager`);

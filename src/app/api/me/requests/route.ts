@@ -26,17 +26,25 @@ import {
   r2Configured,
 } from "@/lib/r2";
 import { queueEmail } from "@/lib/email";
+import { PERAN_KONSOL } from "@/lib/access";
 
 /** "Pengajuan Saya" (PRD-Mobile §6.3). Duration and balance are computed here,
  *  never taken from the phone — the client only previews them. */
 
 /** A submission is the first event in this app the employee starts and HR must
  *  react to, so the notification goes to the approvers, not back to the sender. */
+/**
+ * Penerima notifikasi pengajuan: admin DAN Pimpinan.
+ *
+ * Namanya tertinggal dari zaman satu peran, tapi isinya sekarang "siapa saja yang
+ * berwenang memutus" — Pimpinan yang tidak pernah diberi tahu adalah tingkat kedua
+ * yang tidak pernah tahu ada yang menunggunya.
+ */
 async function hrAdmins() {
   const rows = await db
     .select({ id: employees.id })
     .from(employees)
-    .where(and(eq(employees.role, "hr_admin"), eq(employees.active, true)));
+    .where(and(inArray(employees.role, [...PERAN_KONSOL]), eq(employees.active, true)));
   return rows.map((r) => r.id);
 }
 
@@ -87,7 +95,11 @@ export const GET = withMe(async (me) => {
       kind: "cuti" as const,
       title: r.type,
       detail: `${rentangTanggal(r.startDate, r.endDate)} · ${r.days} hari`,
-      note: r.decisionNote ?? "Menunggu persetujuan HR",
+      note:
+        r.decisionNote ??
+        (r.status === "menunggu_pimpinan"
+          ? "Disetujui admin · menunggu persetujuan Pimpinan"
+          : "Menunggu persetujuan HR"),
       status: r.status,
       createdAt: r.createdAt,
       days: r.days,
@@ -112,6 +124,7 @@ export const GET = withMe(async (me) => {
       kind: "lembur" as const,
       title: `Lembur ${r.kind.toLowerCase()}`,
       detail: `${tanggalPendek(r.date)} · ${r.startTime.slice(0, 5)}–${r.endTime.slice(0, 5)} · ${durasi(r.minutes)}`,
+      // lembur satu tingkat: tidak ada keadaan antara untuk dijelaskan
       note: r.decisionNote ?? "Menunggu persetujuan HR",
       status: r.status,
       createdAt: r.createdAt,
@@ -444,9 +457,18 @@ const cancel = z.object({
   id: z.coerce.number().int().positive(),
 });
 
-/** Only own requests, and only while still open — `menunggu` or `revisi`. The
- *  where clause is the authorization, so a guessed id from another employee simply
- *  matches nothing. */
+/**
+ * Only own requests, and only while still open. The where clause is the
+ * authorization, so a guessed id from another employee simply matches nothing.
+ *
+ * Cuti yang sudah lolos admin (`menunggu_pimpinan`) MASIH boleh dibatalkan: itu
+ * cuti miliknya sendiri, dan menariknya kembali tidak menghapus keputusan siapa
+ * pun — beda dengan menyuntingnya, yang membuang persetujuan yang sudah diberikan
+ * tanpa ada yang tahu (lihat PUT di atas, yang tetap dua status saja).
+ *
+ * `checked_*` ikut dikosongkan supaya pengajuan yang dibatalkan tidak menyimpan
+ * jejak persetujuan untuk sesuatu yang tidak pernah berlaku.
+ */
 export const PATCH = withMe(async (me, req) => {
   const parsed = cancel.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) throw new Bad("Permintaan tidak valid");
@@ -454,12 +476,21 @@ export const PATCH = withMe(async (me, req) => {
 
   const [row] = await db
     .update(table)
-    .set({ status: "dibatalkan", decisionNote: "Dibatalkan oleh karyawan" })
+    .set({
+      status: "dibatalkan",
+      decisionNote: "Dibatalkan oleh karyawan",
+      ...(parsed.data.kind === "cuti" ? { checkedById: null, checkedAt: null } : null),
+    })
     .where(
       and(
         eq(table.id, parsed.data.id),
         eq(table.employeeId, me.id),
-        inArray(table.status, ["menunggu", "revisi"]),
+        inArray(
+          table.status,
+          parsed.data.kind === "cuti"
+            ? ["menunggu", "revisi", "menunggu_pimpinan"]
+            : ["menunggu", "revisi"],
+        ),
       ),
     )
     .returning({ id: table.id });

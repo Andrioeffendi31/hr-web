@@ -13,6 +13,8 @@
     "db:import": "dotenv -e .env.local -- tsx src/db/import-karyawan.ts",
     "db:push:neon": "dotenv -e .env.neon -- drizzle-kit push",
     "db:import:neon": "dotenv -e .env.neon -- tsx src/db/import-karyawan.ts",
+    "db:sync": "dotenv -e .env.local -- tsx src/db/sync-karyawan.ts",
+    "db:sync:neon": "DATABASE_URL=\"$(grep -h '^DATABASE_URL=' .env.neon | head -1 | cut -d= -f2-)\" dotenv -e .env.local -- tsx src/db/sync-karyawan.ts",
     "db:purge": "dotenv -e .env.local -- tsx src/db/purge.ts",
     "db:purge:neon": "DATABASE_URL=\"$(grep -h '^DATABASE_URL=' .env.neon | head -1 | cut -d= -f2-)\" dotenv -e .env.local -- tsx src/db/purge.ts",
     "db:up": "podman start hr-pg || podman run -d --name hr-pg -e POSTGRES_PASSWORD=hrpass -e POSTGRES_DB=hrapp -p 55432:5432 postgres:16-alpine",

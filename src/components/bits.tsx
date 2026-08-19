@@ -63,14 +63,18 @@ const REQ_TONE = {
   // and two amber pills side by side in the same list say nothing about whose turn
   // it is
   revisi: "primary",
+  // info: sudah lolos satu tanda tangan, tinggal menunggu — bukan lagi antrean
+  // admin (warning) dan belum selesai (success)
+  menunggu_pimpinan: "info",
   disetujui: "success",
   ditolak: "danger",
   dibatalkan: "neutral",
 } as const;
 
-const REQ_LABEL = {
+export const REQ_LABEL = {
   menunggu: "Menunggu",
   revisi: "Perlu revisi",
+  menunggu_pimpinan: "Menunggu pimpinan",
   disetujui: "Disetujui",
   ditolak: "Ditolak",
   dibatalkan: "Dibatalkan",

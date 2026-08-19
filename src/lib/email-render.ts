@@ -268,6 +268,22 @@ export function isiFor(
         tombol: { label: "Perbaiki pengajuan", url: `${base}/buka/pengajuan` },
       };
 
+    /**
+     * Ke Pimpinan, bukan ke pengaju: satu admin sudah memeriksa, dan pengajuannya
+     * berhenti di sini sampai Pimpinan memutus. Tombolnya menuju konsol web —
+     * persetujuan tingkat kedua tidak ada di aplikasi ponsel.
+     */
+    case "request_perlu_pimpinan":
+      return {
+        judul: `Pengajuan ${jenis(c.kind).toLowerCase()} menunggu persetujuan Anda`,
+        paragraf: [
+          panggil,
+          "Sebuah pengajuan cuti sudah lolos pemeriksaan admin dan menunggu persetujuan akhir Anda. Tanpa itu, cutinya belum berlaku.",
+          ...(c.note ? [`Catatan admin: ${String(c.note)}`] : []),
+        ],
+        tombol: { label: "Buka antrean cuti", url: `${base}/cuti` },
+      };
+
     case "attendance_reminder": {
       const tgl = c.date ? tanggalPanjang(String(c.date)) : "hari ini";
       return {

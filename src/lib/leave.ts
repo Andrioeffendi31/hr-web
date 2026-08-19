@@ -17,6 +17,16 @@ import {
   todayWib,
 } from "./hr";
 
+/**
+ * Status yang berarti "pengajuan masih berjalan" — belum final.
+ *
+ * Satu daftar, karena empat tempat menanyakannya: lencana sidebar, dua hitungan di
+ * /api/search, dan kartu "Menunggu persetujuan" di /lembur. Sebelum ada tingkat
+ * kedua semuanya menulis `= 'menunggu'`, dan yang lupa diperbarui akan membuat
+ * antrean Pimpinan tidak terlihat di navigasi.
+ */
+export const BERJALAN = ["menunggu", "menunggu_pimpinan"] as const;
+
 export type LeaveBalance = {
   id: number;
   name: string;

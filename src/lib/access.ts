@@ -16,8 +16,24 @@
  * `manager` is deliberately identical to `employee`. Approvals happen in the
  * admin console and no code has ever checked for that role (PRD §4 keeps it
  * schema-ready but unbuilt), so there is nothing extra to grant yet.
+ *
+ * `pimpinan` sebaliknya: hak AKSESnya sama persis dengan `hr_admin` — bedanya bukan
+ * halaman mana yang boleh dibuka, melainkan wewenang memutus di tingkat kedua
+ * persetujuan cuti. Itu urusan api/requests, bukan urusan berkas ini.
  */
-export type Role = "hr_admin" | "manager" | "employee";
+export type Role = "hr_admin" | "manager" | "employee" | "pimpinan";
+
+/**
+ * Peran yang boleh membuka konsol web sepenuhnya.
+ *
+ * Sebuah himpunan, bukan `role === "hr_admin"` yang tersebar: perbandingan
+ * langsung itulah yang membuat peran baru diam-diam ditolak dari mana-mana tanpa
+ * satu pun galat kompilasi.
+ */
+export const PERAN_KONSOL = ["hr_admin", "pimpinan"] as const;
+
+export const bolehKonsol = (role: Role): boolean =>
+  (PERAN_KONSOL as readonly string[]).includes(role);
 
 /**
  * Yang tersisa untuk peran selain HR, dan alasan keduanya:
@@ -34,7 +50,7 @@ export type Role = "hr_admin" | "manager" | "employee";
  * dengan `/bukalapak` dan menyerahkan rute mana pun yang kebetulan berawalan sama.
  */
 export function canAccess(pathname: string, role: Role): boolean {
-  if (role === "hr_admin") return true;
+  if (bolehKonsol(role)) return true;
   return pathname === "/ganti-sandi" || pathname.startsWith("/buka/");
 }
 
@@ -45,7 +61,31 @@ export function canAccess(pathname: string, role: Role): boolean {
  * Whatever this returns must itself satisfy `canAccess` for that role, or the
  * proxy redirects to a page it will deny and the browser loops. access.check.ts
  * asserts exactly that.
+ *
+ * Sebuah `Record<Role, string>` yang lengkap, bukan ternary — dan ini disengaja:
+ * sebelum ini tidak ada SATU PUN `Record<Role, …>` di repo, sehingga menambah
+ * nilai peran lolos kompilasi lalu salah diam-diam di enam tempat. Sekarang peran
+ * berikutnya tidak bisa ditambahkan tanpa memutuskan ke mana ia mendarat.
  */
+const RUMAH: Record<Role, string> = {
+  hr_admin: "/kehadiran",
+  pimpinan: "/kehadiran",
+  manager: "/buka/absen",
+  employee: "/buka/absen",
+};
+
 export function homeFor(role: Role): string {
-  return role === "hr_admin" ? "/kehadiran" : "/buka/absen";
+  return RUMAH[role];
 }
+
+/**
+ * Nama peran untuk dibaca manusia. `Record<Role, string>` lengkap, alasan yang
+ * sama seperti RUMAH di atas: sebelumnya labelnya ditulis sebagai rantai ternary
+ * tiga cabang di halaman profil, sehingga peran keempat akan tampil "Karyawan".
+ */
+export const LABEL_PERAN: Record<Role, string> = {
+  hr_admin: "HR Admin",
+  pimpinan: "Pimpinan",
+  manager: "Atasan",
+  employee: "Karyawan",
+};

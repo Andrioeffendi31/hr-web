@@ -15,7 +15,10 @@
 export type Karyawan = {
   name: string;
   email: string;
-  role: "hr_admin" | "employee";
+  role: "hr_admin" | "pimpinan" | "employee";
+  /** Jabatan, kalau memang diketahui. Sheet tidak memuatnya, jadi hampir semua
+   *  baris membiarkannya kosong dan HR mengisinya lewat /karyawan. */
+  position?: string | null;
   birthPlace: string | null;
   birthDate: string | null;
   address: string | null;
@@ -385,5 +388,26 @@ export const KARYAWAN: Karyawan[] = [
     phone: "",
     emergencyName: null,
     emergencyPhone: null,
+  },
+  /**
+   * Akun pemilik. Data pribadinya sengaja berisi nilai yang JELAS mengada-ada
+   * ("Jl. Contoh No. 1", 1 Januari 1990) — bukan tanggal dan alamat yang tampak
+   * masuk akal, karena data karangan yang menyamar sebagai data sungguhan adalah
+   * yang paling sulit ditemukan lagi nanti. Agamanya dibiarkan kosong sesuai
+   * permintaan; kolomnya memang boleh null.
+   */
+  {
+    name: "Admin Nanum",
+    email: "admin.nanum@gmail.com",
+    role: "pimpinan",
+    position: "Owner",
+    birthPlace: "Jakarta",
+    birthDate: "1990-01-01",
+    address: "Jl. Contoh No. 1, Jakarta",
+    gender: "Laki-laki",
+    religion: null,
+    phone: "081200000000",
+    emergencyName: "Kontak Darurat",
+    emergencyPhone: "081200000001",
   },
 ];

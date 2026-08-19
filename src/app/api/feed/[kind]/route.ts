@@ -24,7 +24,14 @@ import { FEED_PAGE } from "@/lib/paging";
 const query = z.object({
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   status: z
-    .enum(["menunggu", "revisi", "disetujui", "ditolak", "dibatalkan"])
+    .enum([
+      "menunggu",
+      "revisi",
+      "menunggu_pimpinan",
+      "disetujui",
+      "ditolak",
+      "dibatalkan",
+    ])
     .optional(),
   date: z
     .string()

@@ -10,6 +10,7 @@ import { FileDrop } from "@/components/file-drop";
 import { ComboboxField } from "@/components/combobox-field";
 import { DateField } from "@/components/date-field";
 import { SelectField } from "@/components/select-field";
+import { LABEL_PERAN, type Role } from "@/lib/access";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +23,7 @@ export type EmployeeInput = {
   nik: string;
   name: string;
   email: string;
-  role: "hr_admin" | "manager" | "employee";
+  role: Role;
   division: string | null;
   position: string | null;
   contractType: "Tetap" | "Kontrak" | null;
@@ -400,11 +401,12 @@ export function EmployeeForm({
                       id="role"
                       name="role"
                       defaultValue={initial?.role ?? "employee"}
-                      options={[
-                        { value: "employee", label: "Karyawan" },
-                        { value: "manager", label: "Manager" },
-                        { value: "hr_admin", label: "HR Admin" },
-                      ]}
+                      // dari LABEL_PERAN: peran yang ada di enum tapi tidak ada
+                      // di sini adalah peran yang tidak bisa diberikan siapa pun
+                      options={Object.entries(LABEL_PERAN).map(([value, label]) => ({
+                        value,
+                        label,
+                      }))}
                       className="mt-1 w-full"
                     />
                   </div>

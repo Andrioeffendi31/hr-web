@@ -5,11 +5,13 @@ import { employees, settings } from "@/db/schema";
 import { isiFor, renderHtml, renderText } from "./email-render";
 import { baseUrl } from "./url";
 
-type Template =
+export type Template =
   | "request_submitted"
   | "request_disetujui"
   | "request_ditolak"
   | "request_revision"
+  /** ke Pimpinan: satu admin sudah menyetujui, tingkat kedua menunggu */
+  | "request_perlu_pimpinan"
   | "attendance_reminder"
   | "announcement_new"
   | "password_reset";
@@ -19,6 +21,7 @@ const SUBJECTS: Record<Template, string> = {
   request_disetujui: "Pengajuan Anda disetujui",
   request_ditolak: "Pengajuan Anda ditolak",
   request_revision: "Pengajuan Anda perlu direvisi",
+  request_perlu_pimpinan: "Pengajuan menunggu persetujuan Anda",
   attendance_reminder: "Anda belum absen masuk hari ini",
   announcement_new: "Pengumuman baru dari HR",
   password_reset: "Atur ulang kata sandi NanumHR",

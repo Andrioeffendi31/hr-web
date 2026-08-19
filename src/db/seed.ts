@@ -18,6 +18,7 @@ import {
   overtimeRequests,
   settings,
 } from "./schema";
+import { type Role } from "../lib/access";
 import {
   attendanceStatus,
   overtimeMinutes,
@@ -337,8 +338,29 @@ async function main() {
         name,
         email: email(name),
         passwordHash,
-        role: (i === 0 ? "hr_admin" : i === 7 ? "manager" : "employee") as
-          "hr_admin" | "manager" | "employee",
+        /**
+         * Indeks 1 dijadikan Pimpinan supaya persetujuan cuti dua tingkat bisa
+         * diuji sungguhan: tanpa satu pun Pimpinan di seed, smoke tidak punya cara
+         * membuktikan bahwa tingkat kedua benar-benar wajib.
+         */
+        /**
+         * Indeks 5 (Fajar Nugroho) dijadikan Pimpinan supaya persetujuan cuti dua
+         * tingkat bisa diuji sungguhan — tanpa satu pun Pimpinan di seed, smoke
+         * tidak punya cara membuktikan tingkat kedua benar-benar wajib.
+         *
+         * Bukan indeks 1: itu Bagas Prasetyo, fixture KARYAWAN yang dipakai seluruh
+         * uji otorisasi peran di smoke.sh. Menaikkan perannya akan membuat seksi itu
+         * hijau karena alasan yang salah.
+         */
+        role: (
+          i === 0
+            ? "hr_admin"
+            : i === 5
+              ? "pimpinan"
+              : i === 7
+                ? "manager"
+                : "employee"
+        ) as Role,
         division,
         position,
         contractType,

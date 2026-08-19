@@ -8,6 +8,15 @@ import { FeedFooter } from "@/components/feed-footer";
 import { useInfiniteFeed } from "@/components/use-infinite-feed";
 import { deductsBalance, initials, rentangTanggal, ukuranFile } from "@/lib/hr";
 
+/** Nilai `request_status`, disebut satu kali di sisi klien. */
+export type StatusPengajuan =
+  | "menunggu"
+  | "revisi"
+  | "menunggu_pimpinan"
+  | "disetujui"
+  | "ditolak"
+  | "dibatalkan";
+
 export type LeaveRow = {
   id: number;
   type: "Cuti Tahunan" | "Cuti Sakit" | "Izin Khusus";
@@ -15,7 +24,7 @@ export type LeaveRow = {
   endDate: string;
   days: number;
   reason: string;
-  status: "menunggu" | "revisi" | "disetujui" | "ditolak" | "dibatalkan";
+  status: StatusPengajuan;
   decisionNote: string | null;
   createdAt: string;
   name: string;
@@ -38,10 +47,13 @@ export function LeaveQueue({
   status,
   initial,
   initialHasMore,
+  pimpinan,
 }: {
   status: string;
   initial: LeaveRow[];
   initialHasMore: boolean;
+  /** true kalau yang membuka halaman ini Pimpinan — penentu tombol mana yang muncul */
+  pimpinan: boolean;
 }) {
   const { items, sentinelRef, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useInfiniteFeed<LeaveRow>({
@@ -145,15 +157,27 @@ export function LeaveQueue({
               </p>
             )}
 
-            {/* a revision is waiting on the employee, but HR may still decide the
-                original as it stands — the note is a request, not a lock */}
-            {(r.status === "menunggu" || r.status === "revisi") && (
+            {/* Siapa yang melihat menentukan tombolnya, bukan hanya statusnya:
+                admin memutus tingkat pertama, Pimpinan menutup yang kedua. Baris
+                yang menunggu Pimpinan tidak memberi admin tombol apa pun — kalau
+                tidak, ia akan menekan lalu mendapat 409 tanpa tahu sebabnya.
+
+                Revisi menunggu karyawan, tapi admin tetap boleh memutus yang asli
+                sebagaimana adanya — catatannya permintaan, bukan kunci. */}
+            {(pimpinan
+              ? r.status === "menunggu" || r.status === "menunggu_pimpinan"
+              : r.status === "menunggu" || r.status === "revisi") && (
               <div className="mt-3">
                 <DecideButtons
                   kind="cuti"
                   id={r.id}
                   name={r.name}
-                  allowRevision
+                  // Pimpinan selalu menutup; admin pada `menunggu` hanya meneruskan
+                  tahap={pimpinan ? "final" : "teruskan"}
+                  // Minta revisi hanya masuk akal sebelum ada tanda tangan sama
+                  // sekali — dan server menolaknya sesudah itu. Menampilkan tombol
+                  // yang pasti dijawab 409 adalah cara terburuk menyampaikan aturan.
+                  allowRevision={r.status === "menunggu"}
                 />
               </div>
             )}

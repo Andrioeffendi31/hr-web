@@ -10,12 +10,16 @@ import { todayWib } from "@/lib/hr";
 import { leaveBalances, withRemaining } from "@/lib/leave";
 import { FEED_PAGE } from "@/lib/paging";
 import { cn } from "@/lib/utils";
+import { auth } from "@/auth";
 
 const TABS = [
   { v: "menunggu", label: "Menunggu" },
   /** waiting on the employee, not on HR — visible so a revision cannot be
    *  forgotten by both sides at once */
   { v: "revisi", label: "Perlu revisi" },
+  /** lolos admin, menunggu Pimpinan — antrean milik tingkat kedua, dan tanpa tab
+   *  sendiri barisnya tidak terlihat oleh siapa pun */
+  { v: "menunggu_pimpinan", label: "Menunggu pimpinan" },
   { v: "disetujui", label: "Disetujui" },
   { v: "ditolak", label: "Ditolak" },
 ] as const;
@@ -26,8 +30,11 @@ export default async function CutiPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const sp = await searchParams;
-  const tab = (TABS.find((t) => t.v === sp.tab)?.v ?? "menunggu") as
-    "menunggu" | "revisi" | "disetujui" | "ditolak";
+  const tab = TABS.find((t) => t.v === sp.tab)?.v ?? "menunggu";
+  // Pimpinan melihat tombol yang berbeda; perannya dibaca dari sesi, dan
+  // requireAdmin di endpoint yang benar-benar menegakkannya
+  const sesi = await auth();
+  const pimpinan = sesi?.user?.role === "pimpinan";
   const today = todayWib();
   const year = Number(today.slice(0, 4));
 
@@ -81,6 +88,7 @@ export default async function CutiPage({
             status={tab}
             initial={rows}
             initialHasMore={countOf(tab) > rows.length}
+            pimpinan={pimpinan}
           />
         </div>
 

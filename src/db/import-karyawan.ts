@@ -87,8 +87,9 @@ async function main() {
         phone: k.phone,
         emergencyName: k.emergencyName,
         emergencyPhone: k.emergencyPhone,
-        // division / position / contractType / joinedAt stay NULL — not in the
-        // sheet, and a guess here would drive the wrong shift and leave quota
+        position: k.position ?? null,
+        // division / contractType / joinedAt stay NULL — not in the sheet, and a
+        // guess here would drive the wrong shift and leave quota
       })),
     )
     .returning({ id: employees.id, role: employees.role });
@@ -99,11 +100,22 @@ async function main() {
   // manual = 27. Angkanya ditulis eksplisit, bukan KARYAWAN.length: gunanya justru
   // sebagai tripwire kalau transkripsi sheet menggeser atau menghilangkan baris,
   // dan membandingkan data dengan dirinya sendiri tidak membuktikan apa pun.
-  assert.equal(rows.length, 27, "expected 26 from the sheet + 1 admin");
+  assert.equal(
+    rows.length,
+    28,
+    "expected 26 from the sheet + 1 admin + 1 pimpinan",
+  );
   assert.equal(
     rows.filter((r) => r.role === "hr_admin").length,
     3,
     "expected 3 HR admins",
+  );
+  // Pimpinan adalah penyetuju tingkat kedua cuti, dan tanpa satu pun di antaranya
+  // tidak ada cuti yang bisa dituntaskan. Angkanya di-assert, bukan diasumsikan.
+  assert.equal(
+    rows.filter((r) => r.role === "pimpinan").length,
+    1,
+    "expected exactly 1 Pimpinan",
   );
   assert.equal(
     new Set(KARYAWAN.map((k) => k.email.toLowerCase())).size,

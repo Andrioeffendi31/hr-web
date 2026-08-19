@@ -8,6 +8,7 @@ import {
   overtimeRequests,
 } from "@/db/schema";
 import { todayWib } from "@/lib/hr";
+import { BERJALAN } from "@/lib/leave";
 
 const LIMIT = 8;
 
@@ -79,7 +80,7 @@ export async function GET(req: Request) {
       .where(
         and(
           inArray(leaveRequests.employeeId, ids),
-          eq(leaveRequests.status, "menunggu"),
+          inArray(leaveRequests.status, [...BERJALAN]),
         ),
       )
       .groupBy(leaveRequests.employeeId),
@@ -92,6 +93,7 @@ export async function GET(req: Request) {
       .where(
         and(
           inArray(overtimeRequests.employeeId, ids),
+          // lembur satu tingkat, jadi "menunggu" memang seluruh antreannya
           eq(overtimeRequests.status, "menunggu"),
         ),
       )

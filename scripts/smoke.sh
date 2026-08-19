@@ -71,17 +71,58 @@ check "csv has a row per employee" 1 \
 check "kehadiran export" 200 "$(code "$BASE/api/export/kehadiran?date=2026-07-30")"
 check "unknown report is 404" 404 "$(code "$BASE/api/export/tidakada")"
 
+# Status dari badan SUKSES saja: `{"ok":true,"status":"…"}`. Ditambatkan di awal
+# dengan sengaja — badan 409 juga memuat "status" (keadaan pengajuan saat itu), jadi
+# pola yang tidak ditambatkan membaca penolakan sebagai persetujuan.
+statusOk() { sed -n 's/^{"ok":true,"status":"\([^"]*\)".*/\1/p'; }
+
 echo "7. approve a pending overtime request"
 PENDING="$(body "$BASE/lembur" | grep -o 'Bagas Prasetyo' | head -1)"
 check "pending request visible" "Bagas Prasetyo" "$PENDING"
 check "approve returns disetujui" "disetujui" \
   "$(body -X POST -H 'Content-Type: application/json' \
       -d '{"kind":"lembur","id":1,"action":"disetujui"}' \
-      "$BASE/api/requests" | grep -o 'disetujui' | head -1)"
+      "$BASE/api/requests" | statusOk)"
 check "invalid payload rejected" 400 \
   "$(code -X POST -H 'Content-Type: application/json' -d '{"kind":"nope"}' "$BASE/api/requests")"
 check "decision is persisted, not just echoed" "Disetujui" \
   "$(body "$BASE/lembur" | grep -o 'Disetujui' | head -1)"
+
+echo "7b. cuti: dua tingkat, dan tingkat kedua milik Pimpinan"
+# Lembur di atas tetap satu tingkat — sekali ketuk admin langsung "disetujui".
+# Cuti tidak: ia berhenti di "menunggu_pimpinan" sampai Pimpinan memutus, dan
+# itulah yang membuat "wajib" berarti wajib.
+PIMJAR="$(mktemp)"
+PIMCSRF="$(curl -s -b "$PIMJAR" -c "$PIMJAR" "$BASE/api/auth/csrf" | sed 's/.*"csrfToken":"\([^"]*\)".*/\1/')"
+curl -s -b "$PIMJAR" -c "$PIMJAR" -o /dev/null \
+  -d "csrfToken=$PIMCSRF" -d "email=${PIMEMAIL:-fajar.nugroho@nanumindahsejati.co.id}" \
+  -d "password=$PASS" "$BASE/api/auth/callback/credentials"
+check "pimpinan signs in" "pimpinan" \
+  "$(curl -s -b "$PIMJAR" "$BASE/api/auth/session" | grep -o 'pimpinan' | head -1)"
+
+putus() { # jar kind id action
+  curl -s -b "$1" -X POST -H 'Content-Type: application/json' \
+    -d "{\"kind\":\"$2\",\"id\":$3,\"action\":\"$4\"}" "$BASE/api/requests"
+}
+kode() { curl -s -o /dev/null -w '%{http_code}' -b "$1" -X POST \
+  -H 'Content-Type: application/json' \
+  -d "{\"kind\":\"$2\",\"id\":$3,\"action\":\"$4\"}" "$BASE/api/requests"; }
+
+# id 1 = pengajuan cuti pertama seed (Citra Maharani, status menunggu)
+check "admin menyetujui cuti → menunggu pimpinan" "menunggu_pimpinan" \
+  "$(putus "$JAR" cuti 1 disetujui | statusOk)"
+# inilah intinya: admin TIDAK bisa menuntaskan sendiri
+check "admin tidak bisa menuntaskan sendiri" 409 "$(kode "$JAR" cuti 1 disetujui)"
+check "pimpinan menuntaskan" "disetujui" \
+  "$(putus "$PIMJAR" cuti 1 disetujui | statusOk)"
+# dan keputusan yang sudah final tidak bisa ditimpa — bug lama yang ikut tertutup
+check "keputusan final tidak bisa diputus ulang" 409 "$(kode "$PIMJAR" cuti 1 disetujui)"
+# Pimpinan dari 'menunggu' menutup dua tingkat sekali ketuk (id 2 = cuti Dimas)
+check "pimpinan menutup dua tingkat sekaligus" "disetujui" \
+  "$(putus "$PIMJAR" cuti 2 disetujui | statusOk)"
+# label tingkat kedua terlihat di halaman: tab-nya ada dan barisnya bisa ditemukan
+check "tab 'Menunggu pimpinan' ada di /cuti" 1 \
+  "$(body "$BASE/cuti" | grep -c 'Menunggu pimpinan')"
 
 echo "8. search API"
 first_name() { grep -o '"name":"[^"]*"' | head -1 | cut -d'"' -f4; }

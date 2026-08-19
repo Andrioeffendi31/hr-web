@@ -41,11 +41,22 @@ export function DecideButtons({
   id,
   name,
   allowRevision,
+  tahap,
 }: {
   kind: "cuti" | "lembur";
   id: number;
   name: string;
   allowRevision?: boolean;
+  /**
+   * Tingkat mana yang akan ditutup ketukan ini.
+   *
+   * "teruskan" = tingkat pertama cuti, pengajuannya lanjut ke Pimpinan.
+   * "final"    = keputusan terakhir (Pimpinan, atau lembur yang satu tingkat).
+   *
+   * Labelnya berbeda karena akibatnya berbeda: "Setujui" yang sama untuk dua hal
+   * yang berbeda membuat orang menandatangani sesuatu tanpa tahu ia menutup apa.
+   */
+  tahap?: "teruskan" | "final";
 }) {
   const router = useRouter();
   const m = useMutation({
@@ -67,7 +78,11 @@ export function DecideButtons({
         onClick={() => run("disetujui")}
         className="h-8 text-[12.5px]"
       >
-        Setujui
+        {tahap === "teruskan"
+          ? "Setujui & teruskan"
+          : tahap === "final"
+            ? "Setujui final"
+            : "Setujui"}
       </Button>
       <ReasonDialog
         trigger={

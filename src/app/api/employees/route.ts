@@ -7,6 +7,10 @@ import { db } from "@/db";
 import { auditLog, employees } from "@/db/schema";
 import { cekSandi, isIsoDate } from "@/lib/hr";
 import { duplicate, fkViolation } from "@/lib/pg";
+import { LABEL_PERAN, type Role } from "@/lib/access";
+
+/** Semua nilai peran yang sah, dari satu sumber. */
+const PERAN = Object.keys(LABEL_PERAN) as Role[];
 
 /**
  * An unfilled field arrives as "" from the form and has to reach the column as
@@ -51,7 +55,9 @@ const base = {
   nik: z.string().trim().min(3).max(32),
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(160),
-  role: z.enum(["hr_admin", "manager", "employee"]),
+  // diturunkan dari LABEL_PERAN, bukan ditulis ulang: daftar kedua yang
+  // ditulis tangan adalah daftar yang akan tertinggal saat peran bertambah
+  role: z.enum(PERAN as [Role, ...Role[]]),
   /**
    * Employment data is optional, matching the columns.
    *

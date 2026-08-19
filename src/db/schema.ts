@@ -14,7 +14,17 @@ import {
 } from "drizzle-orm/pg-core";
 import { PERUSAHAAN } from "@/lib/hr";
 
-export const roleEnum = pgEnum("role", ["hr_admin", "manager", "employee"]);
+export const roleEnum = pgEnum("role", [
+  "hr_admin",
+  /**
+   * Penyetuju akhir. Hak aksesnya sama dengan `hr_admin`; yang membedakannya
+   * adalah tingkat kedua persetujuan cuti, yang wajib dan hanya bisa ditutup
+   * olehnya (lihat api/requests/route.ts).
+   */
+  "pimpinan",
+  "manager",
+  "employee",
+]);
 export const contractEnum = pgEnum("contract_type", ["Tetap", "Kontrak"]);
 /** Closed at two, so the column can reject the source data's spelling variants
  *  ("Laki - Laki") instead of storing them. Values are display-ready on purpose —
@@ -38,6 +48,11 @@ export const requestStatusEnum = pgEnum("request_status", [
    * not know they were asked for anything.
    */
   "revisi",
+  /**
+   * Sudah disetujui satu admin, menunggu Pimpinan — tingkat kedua yang wajib untuk
+   * cuti. Hanya cuti yang pernah melewati keadaan ini; lembur satu tingkat.
+   */
+  "menunggu_pimpinan",
   "disetujui",
   "ditolak",
   "dibatalkan",
@@ -273,8 +288,19 @@ export const leaveRequests = pgTable("leave_requests", {
   attachmentSize: integer("attachment_size"),
   status: requestStatusEnum("status").notNull().default("menunggu"),
   decisionNote: text("decision_note"),
+  /** Keputusan AKHIR — untuk cuti berarti Pimpinan. */
   decidedById: integer("decided_by_id"),
   decidedAt: timestamp("decided_at", { withTimezone: true }),
+  /**
+   * Jejak tingkat PERTAMA: admin yang memeriksa lebih dulu.
+   *
+   * Dua kolom sendiri, bukan menumpang `decided_by_id`: satu trio tidak bisa
+   * menyimpan dua tanda tangan, dan persetujuan Pimpinan akan menimpa nama admin
+   * yang memeriksa. Kalau Pimpinan memutus sendirian, kedua pasang kolom memuat id
+   * yang sama — catatan jujur bahwa satu orang menutup dua tingkat.
+   */
+  checkedById: integer("checked_by_id"),
+  checkedAt: timestamp("checked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

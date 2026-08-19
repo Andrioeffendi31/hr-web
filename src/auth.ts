@@ -6,6 +6,7 @@ import type { AuthenticationResponseJSON } from "@simplewebauthn/types";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { bolehKonsol, type Role } from "@/lib/access";
 import { db } from "@/db";
 import { authenticators, employees } from "@/db/schema";
 import { rpFrom, takeChallenge } from "@/lib/webauthn";
@@ -14,7 +15,7 @@ declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      role: "hr_admin" | "manager" | "employee";
+      role: Role;
       division: string;
       position: string;
       /**
@@ -176,7 +177,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // lib/me.ts, (app)/layout.tsx and requireAdmin().
       session.user.pwdAt = (token.pwdAt as number) ?? 0;
       session.user.id = token.uid as string;
-      session.user.role = token.role as "hr_admin" | "manager" | "employee";
+      session.user.role = token.role as Role;
       session.user.division = token.division as string;
       session.user.position = token.position as string;
       return session;
@@ -193,8 +194,15 @@ export async function requireUser() {
   return session.user;
 }
 
-/** Throws unless the caller is HR Admin. Every admin mutation calls this —
- *  authorization lives on the server, never in the UI (PRD §7). */
+/**
+ * Throws unless the caller is HR Admin **or Pimpinan**. Every admin mutation calls
+ * this — authorization lives on the server, never in the UI (PRD §7).
+ *
+ * Mengembalikan `role` dari BARIS DATABASE, bukan dari token. Bedanya penting sejak
+ * ada dua tingkat persetujuan: token adalah snapshot 30 hari, jadi seseorang yang
+ * pekan lalu Pimpinan lalu diturunkan menjadi admin masih membawa klaim lama —
+ * dan dengan klaim itu ia akan menutup tingkat kedua yang bukan lagi wewenangnya.
+ */
 export async function requireAdmin() {
   const session = await auth();
   if (!session?.user) throw new Error("Belum masuk");
@@ -219,13 +227,16 @@ export async function requireAdmin() {
     .where(eq(employees.id, Number(session.user.id)))
     .limit(1);
 
-  if (!row?.active || row.role !== "hr_admin")
-    throw new Error("Hanya HR Admin yang boleh melakukan aksi ini");
+  // Pimpinan ikut lolos: hak aksesnya sama dengan admin, dan pembeda wewenangnya
+  // (tingkat kedua persetujuan cuti) diputuskan oleh pemanggil lewat `role` yang
+  // dikembalikan di bawah — bukan oleh gerbang ini.
+  if (!row?.active || !bolehKonsol(row.role))
+    throw new Error("Hanya HR Admin atau Pimpinan yang boleh melakukan aksi ini");
   if (row.must) throw new Error("Buat kata sandi baru dulu untuk melanjutkan");
   if (stale(row.changedAt, session.user.pwdAt))
     throw new Error("Sesi berakhir, silakan masuk lagi");
 
-  return session.user;
+  return { ...session.user, role: row.role };
 }
 
 /**

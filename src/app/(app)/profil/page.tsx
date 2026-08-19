@@ -11,6 +11,7 @@ import Link from "next/link";
 import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { tanggalTahun, umur } from "@/lib/hr";
+import { LABEL_PERAN } from "@/lib/access";
 
 export const metadata = { title: "Profil — NanumHR" };
 
@@ -142,11 +143,7 @@ export default async function ProfilPage() {
             <div className="flex items-center justify-between gap-3 border-t px-4 py-3">
               <span className="text-muted-foreground text-[12.5px]">Peran</span>
               <Pill tone="primary">
-                {me.role === "hr_admin"
-                  ? "HR Admin"
-                  : me.role === "manager"
-                    ? "Atasan"
-                    : "Karyawan"}
+                {LABEL_PERAN[me.role]}
               </Pill>
             </div>
           </Panel>
