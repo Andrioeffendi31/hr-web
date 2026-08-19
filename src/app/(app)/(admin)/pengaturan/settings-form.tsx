@@ -25,6 +25,7 @@ type SettingsValue = {
   shiftStart: string;
   shiftEnd: string;
   lateToleranceMinutes: number;
+  trackingSince: string | null;
   baseLeaveQuota: number;
   weeklyOvertimeCapHours: number;
   /** id of the office the app offers first; "" when none is chosen */
@@ -237,6 +238,20 @@ export function SettingsForm({
               defaultValue={initial.lateToleranceMinutes}
             />
           </div>
+          <div className="mt-4 border-t pt-4">
+            <Field
+              label="Mulai mencatat kehadiran"
+              name="trackingSince"
+              type="date"
+              defaultValue={initial.trackingSince ?? ""}
+            />
+            <p className="text-subtle mt-2 text-[11.5px] leading-relaxed">
+              Hari kerja sebelum tanggal ini tidak dinilai: tidak dihitung tanpa
+              keterangan, dan tidak masuk penyebut rekap bulanan. Kosongkan kalau
+              aplikasi ini memang sudah mencatat sejak hari pertama.
+            </p>
+          </div>
+
           <p className="text-subtle mt-3 text-[11.5px] leading-relaxed">
             Contoh: jam masuk 08:00 dengan toleransi 15 menit berarti absen
             setelah 08:15 berstatus terlambat.{" "}

@@ -42,3 +42,6 @@ next-env.d.ts
 
 # keep the template committed, secrets stay local
 !.env.example
+
+# daftar kunci objek R2 yang dihapus skrip db:purge — memuat nama berkas lampiran
+purge-keys-*.txt

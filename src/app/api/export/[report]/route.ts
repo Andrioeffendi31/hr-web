@@ -10,7 +10,12 @@ import {
   overtimeRequests,
 } from "@/db/schema";
 import { ATT_LABEL, durasi, jam, todayWib } from "@/lib/hr";
-import { rekapSql, statusHarianSql, type RekapBaris } from "@/lib/kehadiran";
+import {
+  mulaiCatat,
+  rekapSql,
+  statusHarianSql,
+  type RekapBaris,
+} from "@/lib/kehadiran";
 import { holidaySet } from "@/lib/leave";
 import { toCsv } from "@/lib/csv";
 
@@ -64,7 +69,7 @@ export async function GET(
         clockOut: attendance.clockOut,
         // aturan yang sama dengan papan /kehadiran — CSV yang berbeda dari layar
         // yang mengekspornya lebih buruk daripada tidak ada CSV sama sekali
-        status: sql<string>`${statusHarianSql(date, todayWib(), await holidaySet(Number(date.slice(0, 4))))}`,
+        status: sql<string>`${statusHarianSql(date, todayWib(), await holidaySet(Number(date.slice(0, 4))), true, await mulaiCatat())}`,
         location: attendance.location,
       })
       .from(employees)
@@ -232,6 +237,7 @@ export async function GET(
     const data = (
       await db.execute(
         rekapSql({
+          sejak: await mulaiCatat(),
           dari: from,
           sampai: to < hariIni ? to : hariIni,
           hariIni,

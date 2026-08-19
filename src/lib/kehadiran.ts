@@ -7,6 +7,7 @@ import {
   employees,
   leaveRequests,
   officeLocations,
+  settings,
 } from "@/db/schema";
 import { HARI_KERJA_DEFAULT, todayWib } from "./hr";
 import { holidaySet } from "./leave";
@@ -27,6 +28,23 @@ import { holidaySet } from "./leave";
  * langsung dari pengajuan yang disetujui, jadi tidak ada lagi baris yang perlu
  * ditulis dan tidak ada lagi yang salah tuduh.
  */
+
+/**
+ * Sejak kapan aplikasi ini mencatat kehadiran (`settings.tracking_since`), atau
+ * null kalau tanpa batas.
+ *
+ * Dibaca per permintaan, bukan dititipkan lewat argumen dari halaman ke halaman:
+ * satu select baris tunggal jauh lebih murah daripada satu parameter yang kelak
+ * lupa diteruskan di satu tempat — dan tempat yang lupa itulah yang akan menuduh
+ * orang untuk hari yang tidak pernah direkam.
+ */
+export async function mulaiCatat(): Promise<string | null> {
+  const [row] = await db
+    .select({ sejak: settings.trackingSince })
+    .from(settings)
+    .limit(1);
+  return row?.sejak ?? null;
+}
 
 /** Jenis cuti yang DISETUJUI dan mencakup tanggal ini, atau NULL. */
 export const cutiPadaTanggal = (tanggal: Tanggal): SQL<string | null> => sql`(
@@ -78,6 +96,8 @@ export function statusHarianSql(
    *  Hanya perlu kalau kuerinya ikut memuat hari libur (riwayat karyawan
    *  memuatnya kalau ada absennya). */
   hariKerja: SQL | boolean = true,
+  /** `settings.tracking_since` — hari sebelum ini tidak dinilai sama sekali. */
+  sejak: string | null = null,
 ): SQL<string> {
   // Dua pertanyaan terpisah: apakah hari itu hari kerja ORANG INI, dan apakah
   // harinya sudah lewat. Tanggal literal sudah diketahui nomor harinya di JS, jadi
@@ -94,6 +114,16 @@ export function statusHarianSql(
     typeof tanggal === "string"
       ? sql.raw(tanggal < hariIni ? "true" : "false")
       : sql`${tanggal} < ${hariIni}::date`;
+  /**
+   * Sebelum aplikasi ini mulai mencatat. Diperiksa SESUDAH baris tersimpan dan
+   * SESUDAH cuti: kalau ternyata ada catatannya (mis. diimpor dari sistem lama),
+   * catatan itu yang benar — batas ini hanya menjawab hari yang kosong.
+   */
+  const belumDicatat = !sejak
+    ? sql`false`
+    : typeof tanggal === "string"
+      ? sql.raw(tanggal < sejak ? "true" : "false")
+      : sql`${tanggal} < ${sejak}::date`;
   const cuti = cutiPadaTanggal(tanggal);
   return sql`case
     -- Baris tersimpan menang, KECUALI kalau isinya 'belum_absen': baris seperti itu
@@ -105,6 +135,10 @@ export function statusHarianSql(
     when ${cuti} = 'Cuti Sakit'  then 'sakit'
     when ${cuti} = 'Izin Khusus' then 'izin'
     when ${cuti} is not null      then 'cuti'
+    -- Aplikasi belum ada di sana: hari itu tidak dinilai, tidak dituduh, dan tidak
+    -- masuk penyebut rekap. Tanpa cabang ini, sistem yang baru dipasang melaporkan
+    -- seluruh karyawan tanpa keterangan untuk setiap hari kerja di masa lalu.
+    when ${belumDicatat} then 'belum_dicatat'
     -- Hari libur divisinya (atau libur nasional) bukan hari yang bisa dibolos, dan
     -- juga bukan hari yang perlu ditagih absennya.
     when not (${kerja}) then 'libur'
@@ -160,6 +194,8 @@ export function rekapSql(o: {
   hariIni: string;
   libur: Set<string>;
   /** Kolom pengelompokan, mis. sql`${employees.id}, ${employees.name}`. */
+  /** `settings.tracking_since`; hari sebelumnya tidak masuk penyebut */
+  sejak?: string | null;
   pilih: SQL;
   groupBy: SQL;
   where?: SQL;
@@ -168,7 +204,7 @@ export function rekapSql(o: {
   offset?: number;
 }): SQL {
   const hari = sql`hk.d`;
-  const st = statusHarianSql(hari, o.hariIni);
+  const st = statusHarianSql(hari, o.hariIni, new Set(), true, o.sejak ?? null);
   const g = grupSql(st);
   return sql`
     select ${o.pilih},
@@ -184,6 +220,7 @@ export function rekapSql(o: {
       -- LATERAL, jadi baris ini boleh menyebut employees di atasnya: penyebutnya
       -- hari kerja ORANG ITU, bukan hari kerja rata-rata perusahaan
       where ${hariKerjaSql(dowSql(sql`d`))}
+        ${o.sejak ? sql`and d::date >= ${o.sejak}::date` : sql``}
         ${
           o.libur.size
             ? sql`and d::date not in (${sql.join(
@@ -220,8 +257,9 @@ export async function bulanKaryawan(employeeId: number, month: string) {
   const akhir = `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
   const hariIni = todayWib();
   const libur = await holidaySet(y);
+  const sejak = await mulaiCatat();
   const kerja = sql`hk.kerja`;
-  const st = statusHarianSql(sql`hk.d`, hariIni, libur, kerja);
+  const st = statusHarianSql(sql`hk.d`, hariIni, libur, kerja, sejak);
 
   const rows = (
     await db.execute(sql`
@@ -286,7 +324,7 @@ export async function bulanKaryawan(employeeId: number, month: string) {
  */
 export async function hariKaryawan(employeeId: number, tanggal: string) {
   const libur = await holidaySet(Number(tanggal.slice(0, 4)));
-  const st = statusHarianSql(tanggal, todayWib(), libur);
+  const st = statusHarianSql(tanggal, todayWib(), libur, true, await mulaiCatat());
   const [row] = await db
     .select({
       id: attendance.id,

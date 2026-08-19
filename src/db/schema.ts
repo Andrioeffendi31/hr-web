@@ -470,6 +470,20 @@ export const settings = pgTable("settings", {
   shiftEnd: time("shift_end").notNull().default("17:00:00"),
   lateToleranceMinutes: integer("late_tolerance_minutes").notNull().default(15),
   /**
+   * Sejak kapan aplikasi ini benar-benar mencatat kehadiran.
+   *
+   * Hari kerja SEBELUM tanggal ini tidak dinilai sama sekali: tidak dituduh tanpa
+   * keterangan, tidak masuk penyebut rekap. Tanpa batas ini, sistem yang baru
+   * dipasang — atau yang datanya baru dikosongkan — akan melaporkan seluruh
+   * karyawan sebagai tanpa keterangan untuk setiap hari kerja di masa lalu, dan
+   * rekap bulan-bulan sebelumnya membaca 0% kehadiran. Keduanya bukan fakta
+   * tentang orangnya, melainkan tentang aplikasinya yang belum ada di sana.
+   *
+   * NULL berarti tanpa batas — nilai yang benar untuk pemasangan yang memang
+   * mencatat sejak hari pertama.
+   */
+  trackingSince: date("tracking_since"),
+  /**
    * The office the phone offers first.
    *
    * The single office point that used to live here became the `office_locations`

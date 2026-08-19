@@ -269,6 +269,13 @@ check "yang cuti tidak ada di feed belum-absen" 0 \
 # ditagih absen; dan 26 Juli (Minggu) justru hari kerjanya.
 check "divisi tidak ditagih absen pada hari liburnya" 0 \
   "$(body "$BASE/api/feed/belum-absen?date=2026-07-24" | grep -c 'Operations')"
+# Batas "mulai mencatat": hari kerja sebelum settings.tracking_since tidak dinilai.
+# Seed tidak mengisi kolomnya (NULL = tanpa batas), jadi di sini yang diuji adalah
+# bahwa perilaku LAMA tetap utuh saat batasnya kosong — cabang barunya diuji oleh
+# assert di hr.check.ts, tempat aturannya tinggal.
+check "tanpa batas, hari lampau tetap dinilai" 1 \
+  "$(body "$BASE/kehadiran?date=2026-07-16" | grep -c 'Tanpa keterangan')"
+
 check "hari libur divisi tampil sebagai Libur" 3 \
   "$(body "$BASE/kehadiran?date=2026-07-24" | grep -o '>Libur<' | wc -l | tr -d ' ')"
 

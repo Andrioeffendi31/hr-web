@@ -577,6 +577,41 @@ assert.equal(ukuranFile(1.5 * 1024 * 1024), "1,5 MB");
   );
 }
 
+// batas "mulai mencatat": hari sebelum aplikasi ada tidak boleh menuduh siapa pun
+{
+  const shift = { start: "08:00", toleranceMinutes: 15 };
+  const dasar = { hariIni: "2026-08-20", clockIn: null, shift, sejak: "2026-08-20" };
+
+  // hari kerja lampau yang jatuh sebelum batas: tidak dituduh
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-19" }),
+    "belum_dicatat",
+    "sebelum batas: bukan tuduhan",
+  );
+  // tanpa batas, hari yang sama tetap tanpa keterangan — inilah keadaan sebelumnya
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-19", sejak: null }),
+    "tanpa_keterangan",
+    "tanpa batas: perilaku lama utuh",
+  );
+  // catatan yang benar-benar ada menang atas batas: absen masuk tetap hadir
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-19", clockIn: "07:55" }),
+    "hadir",
+    "catatan sungguhan menang atas batas",
+  );
+  // begitu juga cuti yang disetujui pada hari sebelum batas
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-19", cuti: "Cuti Tahunan" }),
+    "cuti",
+    "cuti disetujui menang atas batas",
+  );
+  // tepat pada tanggal batas, penilaian sudah berlaku
+  assert.equal(statusHarian({ ...dasar, tanggal: "2026-08-20" }), "belum_absen", "hari batas");
+  // dan hari yang tidak dinilai tidak masuk ember mana pun
+  assert.equal(statusGroup("belum_dicatat"), "libur", "tidak masuk kartu apa pun");
+}
+
 // statusGroup: nilai baru TIDAK boleh jatuh ke ember cuti lewat fallthrough
 {
   assert.equal(statusGroup("tanpa_keterangan"), "alpa", "bukan 'cuti' — itu kebalikannya");

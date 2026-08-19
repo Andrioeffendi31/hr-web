@@ -30,6 +30,7 @@ export default async function PengaturanPage() {
     // fall back to the first location, so a company that never chose still shows
     // the app the same office the app would have shown anyway
     defaultLocationId: String(row?.defaultLocationId ?? locations[0]?.id ?? ""),
+    trackingSince: row?.trackingSince ?? null,
   };
 
   return (

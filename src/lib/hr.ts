@@ -28,6 +28,13 @@ export const ATT_LABEL = {
    */
   libur: "Libur",
   /**
+   * Hari kerja yang jatuh sebelum `settings.tracking_since` — aplikasi belum
+   * mencatat apa pun saat itu. Bukan "Libur" (itu bohong: harinya hari kerja) dan
+   * bukan "Tanpa keterangan" (itu menuduh orang untuk hari yang tidak pernah
+   * direkam siapa pun).
+   */
+  belum_dicatat: "Belum dicatat",
+  /**
    * Hari kerja yang sudah lewat, tanpa catatan masuk dan tanpa izin yang
    * disetujui. Sengaja faktual, bukan "Mangkir": sistem tidak bisa membedakan
    * orang yang bolos dari orang yang masuk tapi lupa absen — keduanya terlihat
@@ -47,7 +54,10 @@ export type AttStatus = keyof typeof ATT_LABEL;
  * tipe ini yang membuat compiler menolak percobaan menyimpannya — bukan constraint
  * database yang baru ketahuan saat runtime di produksi.
  */
-export type StoredAttStatus = Exclude<AttStatus, "tanpa_keterangan" | "libur">;
+export type StoredAttStatus = Exclude<
+  AttStatus,
+  "tanpa_keterangan" | "libur" | "belum_dicatat"
+>;
 
 /**
  * Groups the raw statuses into the buckets the stat cards filter by.
@@ -62,7 +72,9 @@ export function statusGroup(s: AttStatus) {
   if (s === "telat") return "telat";
   if (s === "belum_absen") return "belum";
   if (s === "tanpa_keterangan") return "alpa";
-  if (s === "libur") return "libur";
+  // seember dengan `libur`: dua-duanya hari yang tidak dinilai, jadi keduanya
+  // tidak boleh muncul di kartu mana pun maupun di panel tindak lanjut
+  if (s === "libur" || s === "belum_dicatat") return "libur";
   return "cuti"; // cuti / izin / sakit
 }
 
@@ -170,9 +182,10 @@ export function leaveQuota(joinedAt: string, today: string, base = 12): number {
  * Urutannya yang penting, bukan sekadar daftar syarat:
  *   1. sudah absen        → hadir/telat/wfh, apa pun yang lain
  *   2. cuti disetujui     → cuti/izin/sakit; izin selalu menang atas tuduhan
- *   3. bukan hari kerja   → null, hari itu tidak masuk hitungan sama sekali
- *   4. hari ini / nanti   → belum_absen; orangnya masih mungkin datang
- *   5. sisanya            → tanpa_keterangan
+ *   3. sebelum tracking   → belum_dicatat; aplikasinya belum ada di sana
+ *   4. bukan hari kerja   → null, hari itu tidak masuk hitungan sama sekali
+ *   5. hari ini / nanti   → belum_absen; orangnya masih mungkin datang
+ *   6. sisanya            → tanpa_keterangan
  *
  * Langkah 2 sebelum 5 itulah yang membuat orang yang cutinya disetujui tidak
  * pernah tertuduh, dan langkah 4 yang membuat aplikasi tidak menghakimi hari yang
@@ -189,14 +202,28 @@ export function statusHarian(input: {
   libur?: Set<string>;
   /** hari kerja divisinya; kosong = Senin–Jumat */
   hariKerja?: readonly number[];
+  /** `settings.tracking_since`; hari sebelumnya tidak dinilai */
+  sejak?: string | null;
   shift: { start: string; toleranceMinutes: number };
 }): AttStatus | null {
-  const { tanggal, hariIni, clockIn, cuti, wfh, libur, shift, hariKerja } =
-    input;
+  const {
+    tanggal,
+    hariIni,
+    clockIn,
+    cuti,
+    wfh,
+    libur,
+    shift,
+    hariKerja,
+    sejak,
+  } = input;
 
   if (clockIn)
     return attendanceStatus(clockIn, shift.start, shift.toleranceMinutes, wfh);
   if (cuti) return statusDariCuti(cuti);
+  // sesudah absen dan cuti, sebelum segalanya yang lain: kalau ada catatannya,
+  // catatan itu yang benar — batas ini hanya menjawab hari yang kosong
+  if (sejak && tanggal < sejak) return "belum_dicatat";
   if (!isHariKerja(tanggal, libur, hariKerja)) return null;
   if (tanggal >= hariIni) return "belum_absen";
   return "tanpa_keterangan";

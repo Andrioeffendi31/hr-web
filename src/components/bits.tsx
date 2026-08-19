@@ -48,6 +48,9 @@ const ATT_TONE: Record<AttStatus, Tone> = {
   belum_absen: "warning",
   tanpa_keterangan: "danger",
   libur: "neutral",
+  // netral, bukan peringatan: tidak ada yang perlu ditindaklanjuti dari hari
+  // yang aplikasinya sendiri belum mencatat apa pun
+  belum_dicatat: "neutral",
 };
 
 export const AttBadge = ({ status }: { status: AttStatus }) => (

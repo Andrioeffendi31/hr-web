@@ -6,7 +6,7 @@ import { employees } from "@/db/schema";
 import { PageHead, Panel } from "@/components/bits";
 import { DateRangeField } from "@/components/date-range-field";
 import { namaBulan, todayWib } from "@/lib/hr";
-import { rekapSql, type RekapBaris } from "@/lib/kehadiran";
+import { mulaiCatat, rekapSql, type RekapBaris } from "@/lib/kehadiran";
 import { holidaySet } from "@/lib/leave";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +62,7 @@ export default async function LaporanPage({
   const byDivision = (
     await db.execute(
       rekapSql({
+        sejak: await mulaiCatat(),
         dari: from,
         sampai: to < today ? to : today,
         hariIni: today,

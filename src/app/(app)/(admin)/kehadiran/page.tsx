@@ -33,6 +33,7 @@ import {
 } from "@/lib/hr";
 import {
   adaCurigaSql,
+  mulaiCatat,
   cutiDitolak,
   grupSql,
   rekapSql,
@@ -121,7 +122,8 @@ export default async function KehadiranPage({
   // Aturannya sendiri ada di lib/kehadiran.ts, dipakai bersama dengan feed
   // "belum absen" yang dulu menyimpan salinan SQL-nya sendiri.
   const libur = await holidaySet(Number(date.slice(0, 4)));
-  const statusText = statusHarianSql(date, hariIni, libur);
+  const sejak = await mulaiCatat();
+  const statusText = statusHarianSql(date, hariIni, libur, true, sejak);
   const GROUP_SQL = grupSql(statusText);
   /**
    * Isi panel tindak lanjut di bawah papan. Bukan `GROUP_SQL.belum` saja: pada
@@ -354,6 +356,7 @@ export default async function KehadiranPage({
       ? (
           await db.execute(
             rekapSql({
+              sejak,
               dari: monthStart,
               sampai: date < hariIni ? date : hariIni,
               hariIni,
