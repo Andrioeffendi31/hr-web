@@ -35,13 +35,36 @@ import { deleteObject, r2Configured } from "../lib/r2";
 
 const HAPUS = process.argv.includes("--hapus");
 
+/**
+ * `--hanya=cuti` / `--hanya=kehadiran,lembur` membatasi sasarannya.
+ *
+ * Tanpa itu ketiganya dikosongkan. Dengan itu, penjaga "tabel di luar cakupan tidak
+ * berubah" ikut menyesuaikan diri sendiri — tabel yang tidak jadi sasaran otomatis
+ * masuk daftar yang wajib utuh, jadi pembatasan sasaran tidak melemahkan buktinya.
+ */
+const DOMAIN = {
+  kehadiran: ["attendance_events", "attendance"],
+  cuti: ["leave_requests"],
+  lembur: ["overtime_requests"],
+} as const;
+
+const pilihan = (process.argv
+  .find((a) => a.startsWith("--hanya="))
+  ?.slice("--hanya=".length)
+  .split(",")
+  .map((x) => x.trim())
+  .filter(Boolean) ?? Object.keys(DOMAIN)) as (keyof typeof DOMAIN)[];
+
+const asing = pilihan.filter((d) => !(d in DOMAIN));
+if (asing.length) {
+  console.error(
+    `\nDomain tidak dikenal: ${asing.join(", ")}. Pilihannya: ${Object.keys(DOMAIN).join(", ")}\n`,
+  );
+  process.exit(1);
+}
+
 /** Tabel yang dikosongkan, anak sebelum induk. */
-const TARGET = [
-  "attendance_events",
-  "attendance",
-  "leave_requests",
-  "overtime_requests",
-] as const;
+const TARGET = pilihan.flatMap((d) => DOMAIN[d]);
 
 /** Tabel yang WAJIB tidak berubah. Dihitung sebelum dan sesudah, lalu dibandingkan
  *  — satu-satunya bukti bahwa penghapusan tidak melebar. */
@@ -54,15 +77,22 @@ const SELAMAT = [
   "settings",
   "leave_adjustments",
   "audit_log",
+  // domain yang TIDAK jadi sasaran kali ini wajib utuh juga — itulah yang membuat
+  // `--hanya=` bisa dipercaya, bukan sekadar dipersempit
+  ...Object.entries(DOMAIN)
+    .filter(([d]) => !pilihan.includes(d as keyof typeof DOMAIN))
+    .flatMap(([, t]) => t),
 ] as const;
 
 /** Kolom yang menyimpan kunci objek R2 milik ketiga domain ini. Lembur tidak punya
  *  lampiran sama sekali, jadi ia tidak muncul di sini. */
-const KOLOM_R2 = [
-  { tabel: "attendance", kolom: "selfie_url" },
-  { tabel: "attendance_events", kolom: "photo_url" },
-  { tabel: "leave_requests", kolom: "attachment_key" },
-] as const;
+const KOLOM_R2 = (
+  [
+    { tabel: "attendance", kolom: "selfie_url" },
+    { tabel: "attendance_events", kolom: "photo_url" },
+    { tabel: "leave_requests", kolom: "attachment_key" },
+  ] as const
+).filter((k) => (TARGET as readonly string[]).includes(k.tabel));
 
 async function hitung(tabel: readonly string[]) {
   const out: Record<string, number> = {};
@@ -106,6 +136,7 @@ async function main() {
   console.log(`  Target   : ${host}  ${neon ? "← PRODUKSI (Neon)" : "(lokal)"}`);
   console.log(`  R2       : ${r2Configured() ? "terkonfigurasi" : "TIDAK ADA"}`);
   console.log(`  Mode     : ${HAPUS ? "HAPUS SUNGGUHAN" : "jalan kering (tidak mengubah apa pun)"}`);
+  console.log(`  Sasaran  : ${pilihan.join(", ")}`);
   console.log("=".repeat(64));
 
   if (!r2Configured()) {

@@ -18,6 +18,7 @@ import {
   kecepatanKmJam,
   leaveQuota,
   overtimeMinutes,
+  pulangCepat,
   previewKind,
   remainingLeave,
   rentangTanggal,
@@ -84,6 +85,12 @@ assert.equal(
   "anniversary not yet passed",
 );
 assert.equal(leaveQuota("2024-07-19", "2026-07-30"), 13, "2y just passed");
+// kuota dasar 0 = nol, tanpa bonus masa kerja: "jatah dikosongkan" harus tetap
+// berlaku sesudah HR mengisi tanggal mulai kerja, bukan tumbuh kembali sendiri
+assert.equal(leaveQuota("2015-01-01", "2026-07-30", 0), 0, "dasar 0 → nol meski 11 tahun");
+assert.equal(leaveQuota("2025-06-02", "2026-07-30", 0), 0, "dasar 0 → nol");
+// dan kuota dasar lain tetap mendapat bonusnya
+assert.equal(leaveQuota("2015-01-01", "2026-07-30", 5), 10, "dasar 5 + 5 bonus");
 
 // balance: quota + carry-over − pengajuan − cuti bersama
 assert.equal(remainingLeave(12, 0, 0, 0), 12, "fresh year");
@@ -110,6 +117,17 @@ assert.equal(
 assert.equal(attendanceStatus("08:26", "08:00:00", 15), "telat");
 assert.equal(attendanceStatus(null, "08:00:00", 15), "belum_absen");
 assert.equal(attendanceStatus("09:00", "08:00:00", 15, true), "wfh");
+
+// pulang cepat, terhadap shift 08:00–17:00 dan shift malam 22:00–06:00
+const siang = { start: "08:00", end: "17:00" };
+const malam = { start: "22:00", end: "06:00" };
+assert.equal(pulangCepat("17:00:00", siang), false, "tepat akhir shift");
+assert.equal(pulangCepat("16:00", siang), true);
+assert.equal(pulangCepat("18:30", siang), false, "lembur, bukan pulang cepat");
+assert.equal(pulangCepat(null, siang), false, "belum absen keluar");
+assert.equal(pulangCepat("05:00", malam), true, "shift malam, sejam lebih awal");
+assert.equal(pulangCepat("06:00", malam), false, "shift malam, tepat waktu");
+assert.equal(pulangCepat("07:00", malam), false, "shift malam, lembur sejam");
 
 // per-division shift resolution, against the company default
 const defaultShift = {
@@ -500,6 +518,22 @@ assert.equal(ukuranFile(1.5 * 1024 * 1024), "1,5 MB");
   assert.equal(
     statusHarian({ ...dasar, tanggal: "2026-08-18", clockIn: "08:30" }),
     "telat",
+  );
+  // alasannya diterima admin: harinya terbaca hadir, sementara yang tersimpan
+  // tetap 'telat' — cermin cabang teratas statusHarianSql()
+  assert.equal(
+    statusHarian({
+      ...dasar,
+      tanggal: "2026-08-18",
+      clockIn: "08:30",
+      dimaafkan: true,
+    }),
+    "hadir",
+  );
+  assert.equal(
+    statusHarian({ ...dasar, tanggal: "2026-08-18", clockIn: "07:55", dimaafkan: true }),
+    "hadir",
+    "pemutihan tidak mengubah yang sudah hadir",
   );
 
   // 2. cuti disetujui SELALU menang atas tuduhan — inti fitur ini

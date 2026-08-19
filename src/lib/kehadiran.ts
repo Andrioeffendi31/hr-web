@@ -126,6 +126,11 @@ export function statusHarianSql(
       : sql`${tanggal} < ${sejak}::date`;
   const cuti = cutiPadaTanggal(tanggal);
   return sql`case
+    -- Keterlambatan yang alasannya diterima admin. Di ATAS cabang berikutnya,
+    -- karena cabang itu mengembalikan kolom mentah dan akan menang. Barisnya
+    -- tetap 'telat' di database — yang berubah hanyalah apa yang dibaca setiap
+    -- papan, rekap, laporan dan riwayat, yaitu semua yang memanggil fungsi ini.
+    when ${attendance.status} = 'telat' and ${attendance.reviewOk} then 'hadir'
     -- Baris tersimpan menang, KECUALI kalau isinya 'belum_absen': baris seperti itu
     -- tidak memuat informasi apa pun (tidak ada jam masuk) dan hanya dibuat oleh
     -- seed. Membiarkannya menang berarti hari kerja yang sudah lewat tetap tampil
@@ -335,6 +340,11 @@ export async function hariKaryawan(employeeId: number, tanggal: string) {
       location: attendance.location,
       note: attendance.note,
       selfieKey: attendance.selfieUrl,
+      lateReason: attendance.lateReason,
+      earlyReason: attendance.earlyReason,
+      reviewOk: attendance.reviewOk,
+      reviewNote: attendance.reviewNote,
+      reviewedAt: attendance.reviewedAt,
       officeName: officeLocations.name,
       officeLat: officeLocations.lat,
       officeLng: officeLocations.lng,

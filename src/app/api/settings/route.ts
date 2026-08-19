@@ -30,7 +30,13 @@ const body = z
       .union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal harus YYYY-MM-DD"), z.literal("")])
       .optional()
       .transform((v) => (v === "" || v === undefined ? null : v)),
-    baseLeaveQuota: z.coerce.number().int().min(1).max(60),
+    /**
+     * 0 sah: itu berarti belum ada jatah cuti tahunan sama sekali, dan HR
+     * menetapkannya nanti. Sebelumnya min(1) — sehingga keadaan "jatah dikosongkan"
+     * bisa ada di database tapi TIDAK bisa disimpan lewat halaman Pengaturan, dan
+     * HR yang menekan Simpan justru mendapat galat validasi.
+     */
+    baseLeaveQuota: z.coerce.number().int().min(0).max(60),
     weeklyOvertimeCapHours: z.coerce.number().int().min(1).max(40),
     // the office *point* moved to its own table (/api/locations) once one company
     // could have more than one; what stays here is which of them is primary.

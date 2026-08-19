@@ -328,6 +328,40 @@ check "hari tanpa baris absensi tetap bisa dibuka" 1 \
   "$(body "$BASE/kehadiran?date=2026-07-16&open=$(body "$BASE/api/search?q=Joko" | sed 's/.*"id":\([0-9]*\).*/\1/')" \
      | grep -c 'Tanpa bukti pendukung')"
 
+# Alasan terlambat + pemutihannya. Fixture seed pada 2026-07-30: Bagas menulis
+# alasan yang BELUM ditinjau (tetap terlambat), Gita alasannya sudah DITERIMA.
+# Yang diuji di sini adalah hal yang membedakan rancangannya dari "timpa saja":
+# statusnya di database tetap 'telat', dan yang berubah hanya apa yang dibaca.
+# Papan 2026-07-30 dipatok seed: tepat dua orang terlambat (Bagas, Gita), dan
+# Gita sudah diputihkan — jadi filternya harus menyisakan satu, bukan dua.
+check "filter telat menyisakan satu orang" 1 \
+  "$(body "$BASE/kehadiran?status=telat&date=2026-07-30" \
+     | grep -oE '[0-9]+–[0-9]+ dari [0-9]+' | head -1 | sed 's/.*dari //')"
+check "yang belum ditinjau tetap terlambat" 1 \
+  "$(body "$BASE/kehadiran?status=telat&date=2026-07-30" | grep -c 'Bagas Prasetyo')"
+# inti fiturnya: sudah diputihkan, jadi ia keluar dari ember terlambat...
+check "yang diputihkan tidak lagi terlambat" 0 \
+  "$(body "$BASE/kehadiran?status=telat&date=2026-07-30" | grep -c 'Gita Permata')"
+# ...dan masuk ke ember hadir, tanpa satu baris pun statusnya ditulis ulang
+check "yang diputihkan terbaca hadir" 1 \
+  "$(body "$BASE/kehadiran?status=hadir&date=2026-07-30" | grep -c 'Gita Permata')"
+# papan menandai alasan yang menunggu keputusan, supaya tidak perlu dicari
+check "papan menandai alasan belum ditinjau" 1 \
+  "$([ "$(body "$BASE/kehadiran?date=2026-07-30" | grep -c 'Ada alasan yang belum ditinjau')" -ge 1 ] && echo 1 || echo 0)"
+# laporan keterlambatan membaca kolom status MENTAH, jadi ia satu-satunya yang
+# harus menyaring pemutihan sendiri — dan satu-satunya yang bisa diam-diam salah
+KETCSV="$(body "$BASE/api/export/keterlambatan?from=2026-07-30&to=2026-07-30")"
+check "laporan keterlambatan menghitung yang belum ditinjau" 1 \
+  "$(printf '%s' "$KETCSV" | grep 'Bagas Prasetyo' | cut -d, -f4 | tr -d '\r')"
+check "laporan keterlambatan melewati yang diputihkan" 0 \
+  "$(printf '%s' "$KETCSV" | grep 'Gita Permata' | cut -d, -f4 | tr -d '\r')"
+check "tinjauan menolak id yang tidak ada" 404 \
+  "$(code -X POST -H 'Content-Type: application/json' -d '{"id":999999,"ok":true}' \
+     "$BASE/api/attendance/review")"
+check "menolak alasan tanpa catatan ditolak" 400 \
+  "$(code -X POST -H 'Content-Type: application/json' -d '{"id":1,"ok":false}' \
+     "$BASE/api/attendance/review")"
+
 echo "15. feed API for infinite scroll"
 feed() { body "$BASE/api/feed/$1"; }
 check "pengumuman page 1 has items" 1 \
@@ -389,6 +423,10 @@ check "karyawan tidak bisa POST employees" 403 \
 check "karyawan tidak bisa menyetujui pengajuan" 403 \
   "$(empcode -X POST -H 'Content-Type: application/json' -d '{}' "$BASE/api/requests")"
 check "karyawan tidak bisa mencari karyawan" 403 "$(empcode "$BASE/api/search?q=a")"
+# memutihkan keterlambatannya sendiri adalah tepat hal yang tidak boleh bisa
+check "karyawan tidak bisa memutihkan telatnya sendiri" 403 \
+  "$(empcode -X POST -H 'Content-Type: application/json' -d '{"id":1,"ok":true}' \
+     "$BASE/api/attendance/review")"
 check "karyawan tetap bisa baca datanya sendiri" 200 "$(empcode "$BASE/api/me")"
 # sidebar tidak lagi punya cabang karyawan sama sekali — yang menjaganya sekarang
 # adalah access.check.ts, bukan halaman yang harus dibuka untuk diperiksa

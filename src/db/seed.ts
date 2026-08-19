@@ -2,7 +2,7 @@
  *  Run: npm run db:seed  (idempotent — truncates first) */
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "./index";
 import {
   announcements,
@@ -386,6 +386,38 @@ async function main() {
       locationId: clockIn ? officeFor(location ?? null) : null,
     })),
   );
+
+  /**
+   * Dua fixture alasan keterlambatan, di kedua sisi tinjauan admin:
+   * Bagas menulis alasan yang BELUM ditinjau (harinya tetap terbaca terlambat,
+   * dan papan menandainya perlu dilihat), Gita alasannya sudah DITERIMA — hari
+   * itu terbaca "hadir" sementara kolom statusnya tetap 'telat'. Pemutihan yang
+   * tidak punya fixture adalah pemutihan yang tidak bisa diuji.
+   */
+  await db
+    .update(attendance)
+    .set({ lateReason: "Banjir di Kalimalang, jalan ditutup satu jam." })
+    .where(
+      and(
+        eq(attendance.employeeId, idOf("Bagas Prasetyo")),
+        eq(attendance.date, TODAY),
+      ),
+    );
+  await db
+    .update(attendance)
+    .set({
+      lateReason: "Mengantar anak ke rumah sakit, ada surat dokternya.",
+      reviewOk: true,
+      reviewedById: idOf("Andini Rahmawati"),
+      reviewedAt: new Date(`${TODAY}T09:15:00+07:00`),
+      reviewNote: "Sesuai surat dokter yang dikirim.",
+    })
+    .where(
+      and(
+        eq(attendance.employeeId, idOf("Gita Permata")),
+        eq(attendance.date, TODAY),
+      ),
+    );
 
   /**
    * Satu orang yang absen masuk pada tanggal HARI INI yang sebenarnya, bukan pada

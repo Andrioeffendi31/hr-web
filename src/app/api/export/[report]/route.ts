@@ -109,8 +109,12 @@ export async function GET(
         nik: employees.nik,
         name: employees.name,
         division: employees.division,
+        // `review_ok is not true` bukan `is false`: yang belum ditinjau masih
+        // terhitung terlambat. Satu-satunya kueri di aplikasi ini yang membaca
+        // kolom status mentah, jadi satu-satunya yang harus menyaring pemutihan
+        // sendiri — statusHarianSql() sudah melakukannya untuk semua yang lain.
         telat:
-          sql<number>`count(*) filter (where ${attendance.status} = 'telat')`.mapWith(
+          sql<number>`count(*) filter (where ${attendance.status} = 'telat' and ${attendance.reviewOk} is not true)`.mapWith(
             Number,
           ),
         hari: sql<number>`count(${attendance.id})`.mapWith(Number),

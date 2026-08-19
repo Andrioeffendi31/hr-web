@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, or, sql } from "drizzle-orm";
-import { MapPin, ShieldAlert } from "lucide-react";
+import { alias } from "drizzle-orm/pg-core";
+import { MapPin, MessageSquareWarning, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
 import {
@@ -157,6 +158,8 @@ export default async function KehadiranPage({
     location: attendance.location,
     selfieUrl: attendance.selfieUrl,
     curiga: adaCurigaSql,
+    /** ada alasan yang ditulis karyawan dan belum diputus admin */
+    perluTinjau: sql<boolean>`(${attendance.lateReason} is not null or ${attendance.earlyReason} is not null) and ${attendance.reviewOk} is null`,
   };
   const [
     [counts],
@@ -275,6 +278,7 @@ export default async function KehadiranPage({
    * ?open yang tidak dikenal meninggalkan `detail` null dan daftar tampil seperti biasa.
    */
   const openId = sp.open ? Number(sp.open) : null;
+  const peninjau = alias(employees, "peninjau");
   let detail: DayDetail | null = null;
   if (openId) {
     const [row] = await db
@@ -290,6 +294,12 @@ export default async function KehadiranPage({
         status: sql<string>`${statusText}`.as("status"),
         location: attendance.location,
         selfieUrl: attendance.selfieUrl,
+        lateReason: attendance.lateReason,
+        earlyReason: attendance.earlyReason,
+        reviewOk: attendance.reviewOk,
+        reviewNote: attendance.reviewNote,
+        reviewedAt: attendance.reviewedAt,
+        reviewedBy: peninjau.name,
         officeName: officeLocations.name,
         officeLat: officeLocations.lat,
         officeLng: officeLocations.lng,
@@ -303,6 +313,9 @@ export default async function KehadiranPage({
       // the office this day was punched against — left, because a WFH day and any
       // row from before locations existed simply has none
       .leftJoin(officeLocations, eq(officeLocations.id, attendance.locationId))
+      // siapa yang meninjau alasannya; left, karena sebagian besar hari tidak
+      // punya alasan untuk ditinjau
+      .leftJoin(peninjau, eq(peninjau.id, attendance.reviewedById))
       .where(and(eq(employees.id, openId), eq(employees.active, true)))
       .limit(1);
 
@@ -401,6 +414,12 @@ export default async function KehadiranPage({
                 <ShieldAlert
                   className="text-danger size-3.5 shrink-0"
                   aria-label="Ada titik lokasi yang mencurigakan"
+                />
+              )}
+              {r.perluTinjau && (
+                <MessageSquareWarning
+                  className="text-warning size-3.5 shrink-0"
+                  aria-label="Ada alasan yang belum ditinjau"
                 />
               )}
             </span>

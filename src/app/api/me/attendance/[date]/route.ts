@@ -86,6 +86,18 @@ export const GET = withMe(async (me, _req, ctx) => {
      *  keterangan, bukan status kedua */
     ditolak: day.ditolak,
     /**
+     * Alasan yang ia tulis sendiri di titik absen, dan apa yang admin putuskan
+     * atasnya. `reviewOk: true` berarti hari ini sudah terbaca hadir di
+     * `status` di atas — kolom mentahnya tetap 'telat', dan telepon tidak perlu
+     * tahu itu.
+     */
+    lateReason: day.lateReason,
+    earlyReason: day.earlyReason,
+    review:
+      day.reviewOk === null || day.reviewOk === undefined
+        ? null
+        : { ok: day.reviewOk, note: day.reviewNote, at: day.reviewedAt },
+    /**
      * The same office as a point, so the phone can draw the day rather than only
      * list it. Added alongside `office` rather than replacing it: a shipped build
      * reads that string, and an installed app is not something we get to migrate.

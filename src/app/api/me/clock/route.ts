@@ -13,6 +13,7 @@ import {
   formatJarak,
   jarakMeter,
   jam,
+  pulangCepat,
   resolveShift,
   todayWib,
 } from "@/lib/hr";
@@ -53,6 +54,15 @@ const body = z.object({
    * klaim yang koordinatnya diketahui karangan tidak punya alasan untuk diterima.
    */
   mocked: z.enum(["1", "0"]).optional(),
+  /**
+   * Alasan absen di luar jamnya — WAJIB kalau harinya memang di luar jam, dan
+   * yang menentukan itu server ini, bukan jam di ponsel: `lateReason` dituntut
+   * saat status yang dihitung di bawah keluar 'telat', `earlyReason` saat
+   * `pulangCepat()` benar. Ambangnya sama dengan alasan pengajuan cuti/lembur
+   * (api/me/requests) supaya tidak ada aturan kedua untuk hal yang sama.
+   */
+  lateReason: z.string().trim().min(5, "alasan minimal 5 karakter").max(500).optional(),
+  earlyReason: z.string().trim().min(5, "alasan minimal 5 karakter").max(500).optional(),
 });
 
 export const POST = withMe(async (me, req) => {
@@ -63,7 +73,17 @@ export const POST = withMe(async (me, req) => {
   if (!parsed.success) {
     throw new Bad(parsed.error.issues[0]?.message ?? "Permintaan tidak valid");
   }
-  const { action, lat, lng, location, wfh, locationId, mocked } = parsed.data;
+  const {
+    action,
+    lat,
+    lng,
+    location,
+    wfh,
+    locationId,
+    mocked,
+    lateReason,
+    earlyReason,
+  } = parsed.data;
 
   /**
    * The selfie is mandatory for both punches, and it is checked here — before the
@@ -191,17 +211,37 @@ export const POST = withMe(async (me, req) => {
     );
   }
 
+  /**
+   * Alasan wajib, diperiksa dari status yang dihitung server sendiri dan SEBELUM
+   * satu baris pun ditulis.
+   *
+   * WFH otomatis bebas dari alasan keterlambatan, dan bukan karena ada cabang
+   * khusus di sini: `attendanceStatus` mengembalikan 'wfh', bukan 'telat'. Satu
+   * sumber kebenaran, jadi aturan absennya tidak bisa menyimpang dari aturan
+   * statusnya.
+   */
+  const shift = resolveShift(me, cfg);
+  const status = attendanceStatus(
+    now,
+    shift.start,
+    shift.toleranceMinutes,
+    isWfh,
+  );
+  if (action === "in" && status === "telat" && !lateReason) {
+    throw new Bad(
+      `Terlambat dari shift ${shift.start}. Isi alasan keterlambatan dulu`,
+    );
+  }
+  if (action === "out" && pulangCepat(now, shift) && !earlyReason) {
+    throw new Bad(
+      `Shift baru selesai ${shift.end}. Isi alasan pulang cepat dulu`,
+    );
+  }
+
   const label = location ?? office?.name ?? me.workLocation;
   let attendanceId: number;
 
   if (action === "in") {
-    const shift = resolveShift(me, cfg);
-    const status = attendanceStatus(
-      now,
-      shift.start,
-      shift.toleranceMinutes,
-      isWfh,
-    );
     const values = {
       employeeId: me.id,
       date: today,
@@ -211,6 +251,7 @@ export const POST = withMe(async (me, req) => {
       lat: String(lat),
       lng: String(lng),
       locationId: office?.id ?? null,
+      lateReason: lateReason ?? null,
     };
     const [row] = existing
       ? await db
@@ -227,7 +268,7 @@ export const POST = withMe(async (me, req) => {
     attendanceId = existing!.id;
     await db
       .update(attendance)
-      .set({ clockOut: now })
+      .set({ clockOut: now, earlyReason: earlyReason ?? null })
       .where(eq(attendance.id, attendanceId));
   }
 

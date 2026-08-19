@@ -17,6 +17,8 @@ import { AttBadge, Avatar } from "@/components/bits";
 import { PetaPanel } from "@/components/peta";
 import { FileDrop } from "@/components/file-drop";
 import { FilePreview } from "@/components/file-preview";
+import { ReasonDialog } from "@/components/reason-dialog";
+import { Button } from "@/components/ui/button";
 import { SelfieCell } from "./selfie-cell";
 import {
   type AttStatus,
@@ -26,6 +28,7 @@ import {
   jam,
   jarakMeter,
   jedaJejak,
+  jamWib,
   CATATAN_TERTUNDA,
   jejakAbsen,
   overtimeMinutes,
@@ -76,6 +79,14 @@ export type DayDetail = {
   /** the office this day was punched against; null for WFH and for rows written
    *  before locations existed, in which case there is no distance to report */
   office: Office | null;
+  /** alasan yang ditulis karyawan di titik absen, wajib saat di luar jamnya */
+  lateReason: string | null;
+  earlyReason: string | null;
+  /** null = belum ditinjau · true = diterima (telat diputihkan) · false = ditolak */
+  reviewOk: boolean | null;
+  reviewNote: string | null;
+  reviewedAt: Date | null;
+  reviewedBy: string | null;
 };
 
 const KIND_LABEL = {
@@ -246,6 +257,8 @@ export function AttendanceDetail({
               </p>
             </div>
           )}
+
+          <KartuAlasan d={d} />
 
           <div className="grid grid-cols-3 gap-2.5">
             {[
@@ -441,6 +454,133 @@ export function AttendanceDetail({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Alasan karyawan + keputusan admin atasnya.
+ *
+ * Memutihkan TIDAK menulis ulang status hari itu: yang dikirim hanyalah keputusan,
+ * dan statusnya dihitung ulang dari situ setiap kali dibaca (lib/kehadiran.ts).
+ * Karena itu keputusan yang salah bisa dibalik dengan menekan tombol yang lain —
+ * tidak ada yang perlu dipulihkan.
+ */
+function KartuAlasan({ d }: { d: DayDetail }) {
+  const router = useRouter();
+  const m = useMutation({
+    mutationFn: async (input: { ok: boolean; note: string }) => {
+      const res = await fetch("/api/attendance/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: d.attendanceId,
+          ok: input.ok,
+          note: input.note || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const { error } = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(error ?? "Gagal menyimpan tinjauan");
+      }
+      return input;
+    },
+    onSuccess: ({ ok }) => {
+      toast.success(
+        ok
+          ? `Keterlambatan ${d.name} diputihkan`
+          : `Alasan ${d.name} ditolak`,
+      );
+      router.refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!d.attendanceId || (!d.lateReason && !d.earlyReason)) return null;
+
+  const diputihkan = d.reviewOk === true && d.status === "hadir";
+
+  return (
+    <div
+      className={cn(
+        "mb-3 rounded-[11px] border p-3",
+        d.reviewOk === null
+          ? "bg-warning-subtle border-warning/30"
+          : d.reviewOk
+            ? "bg-success-subtle border-success/30"
+            : "bg-surface-2",
+      )}
+    >
+      <div className="text-[12.5px] font-medium">
+        {d.reviewOk === null
+          ? "Alasan menunggu tinjauan"
+          : d.reviewOk
+            ? "Alasan diterima"
+            : "Alasan ditolak"}
+      </div>
+
+      {d.lateReason && (
+        <p className="mt-1 text-[12px]">
+          <span className="text-subtle">Terlambat:</span> {d.lateReason}
+        </p>
+      )}
+      {d.earlyReason && (
+        <p className="mt-1 text-[12px]">
+          <span className="text-subtle">Pulang cepat:</span> {d.earlyReason}
+        </p>
+      )}
+
+      {d.reviewOk !== null && (
+        <p className="text-muted-foreground mt-1.5 text-[11.5px]">
+          {d.reviewedBy ?? "Admin"}
+          {d.reviewedAt
+            ? ` · ${d.reviewedAt.toLocaleDateString("id-ID", { day: "numeric", month: "short", timeZone: "Asia/Jakarta" })} ${jamWib(d.reviewedAt)}`
+            : ""}
+          {d.reviewNote ? ` · ${d.reviewNote}` : ""}
+        </p>
+      )}
+      {/* Yang tersimpan tetap 'telat' — dikatakan terus-terang, supaya tidak ada
+          yang menyangka catatannya hilang. */}
+      {diputihkan && (
+        <p className="text-subtle mt-1 text-[11px]">
+          Tercatat hadir; keterlambatannya tetap tersimpan.
+        </p>
+      )}
+
+      <div className="mt-2.5 flex gap-2">
+        <ReasonDialog
+          trigger={
+            <Button size="sm" disabled={m.isPending || d.reviewOk === true}>
+              Putihkan
+            </Button>
+          }
+          title="Putihkan keterlambatan"
+          description={`Hari ini akan terbaca hadir untuk ${d.name}. Statusnya tetap tersimpan sebagai terlambat.`}
+          label="Catatan"
+          placeholder="Misal: sesuai bukti yang dikirim"
+          confirmLabel="Putihkan"
+          onSubmit={(note) => m.mutate({ ok: true, note })}
+        />
+        <ReasonDialog
+          trigger={
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={m.isPending || d.reviewOk === false}
+            >
+              Tolak alasan
+            </Button>
+          }
+          title="Tolak alasan"
+          description={`${d.name} tetap tercatat terlambat, dan melihat catatan Anda di aplikasinya.`}
+          label="Alasan penolakan"
+          required
+          confirmLabel="Tolak"
+          onSubmit={(note) => m.mutate({ ok: false, note })}
+        />
+      </div>
+    </div>
   );
 }
 

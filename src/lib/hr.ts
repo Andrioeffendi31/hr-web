@@ -164,8 +164,19 @@ export function workingDays(
   return n;
 }
 
-/** Base quota + 1 extra day per completed 2 years of tenure (PRD §6.2). */
+/**
+ * Base quota + 1 extra day per completed 2 years of tenure (PRD §6.2).
+ *
+ * Kuota dasar 0 berarti NOL, tanpa bonus masa kerja.
+ *
+ * Tanpa aturan ini, "jatah cuti dikosongkan" hanya bertahan selama kolom
+ * `joined_at` masih kosong: begitu HR mengisi tanggal mulai kerja — yang memang
+ * diminta halaman /karyawan — setiap orang diam-diam mendapat satu hari per dua
+ * tahun masa kerja lagi, padahal perusahaan menyatakan tidak memberi jatah apa pun.
+ * Bonus masa kerja adalah tambahan atas sebuah jatah, bukan jatah dengan sendirinya.
+ */
 export function leaveQuota(joinedAt: string, today: string, base = 12): number {
+  if (base <= 0) return 0;
   const j = new Date(`${joinedAt}T00:00:00Z`);
   const t = new Date(`${today}T00:00:00Z`);
   let years = t.getUTCFullYear() - j.getUTCFullYear();
@@ -204,6 +215,8 @@ export function statusHarian(input: {
   hariKerja?: readonly number[];
   /** `settings.tracking_since`; hari sebelumnya tidak dinilai */
   sejak?: string | null;
+  /** `attendance.review_ok` — alasan keterlambatannya sudah diterima admin */
+  dimaafkan?: boolean;
   shift: { start: string; toleranceMinutes: number };
 }): AttStatus | null {
   const {
@@ -216,10 +229,20 @@ export function statusHarian(input: {
     shift,
     hariKerja,
     sejak,
+    dimaafkan,
   } = input;
 
-  if (clockIn)
-    return attendanceStatus(clockIn, shift.start, shift.toleranceMinutes, wfh);
+  if (clockIn) {
+    const s = attendanceStatus(
+      clockIn,
+      shift.start,
+      shift.toleranceMinutes,
+      wfh,
+    );
+    // Pemutihan: alasannya diterima, jadi harinya terbaca hadir. Yang tersimpan
+    // tetap 'telat' — cerminan cabang teratas statusHarianSql().
+    return s === "telat" && dimaafkan ? "hadir" : s;
+  }
   if (cuti) return statusDariCuti(cuti);
   // sesudah absen dan cuti, sebelum segalanya yang lain: kalau ada catatannya,
   // catatan itu yang benar — batas ini hanya menjawab hari yang kosong
@@ -264,6 +287,30 @@ export function overtimeMinutes(startTime: string, endTime: string): number {
   };
   const diff = m(endTime) - m(startTime);
   return diff >= 0 ? diff : diff + 24 * 60; // crosses midnight
+}
+
+/**
+ * Keluar sebelum shiftnya selesai — satu-satunya definisi "pulang cepat" di
+ * aplikasi ini, dan alasan mengapa /api/me/clock menuntut alasannya.
+ *
+ * Diukur sebagai sisa waktu dari jam keluar sampai akhir shift, memakai
+ * `overtimeMinutes` yang sudah aman melintasi tengah malam. Sisanya harus lebih
+ * dari nol (tepat di akhir shift bukan pulang cepat) DAN tidak lebih panjang
+ * dari shiftnya sendiri — batas kedua itu yang membedakan "keluar 16:00 dari
+ * shift 08:00–17:00" (satu jam lebih awal) dari "keluar 18:00" (satu jam lembur,
+ * yang kalau hanya sisanya dihitung akan terbaca 23 jam lebih awal).
+ *
+ * Tidak ada toleransi: di aplikasi ini toleransi hanya didefinisikan untuk
+ * keterlambatan, dan tidak ada seorang pun yang pernah menetapkan angkanya
+ * untuk sisi yang lain.
+ */
+export function pulangCepat(
+  clockOut: string | null,
+  shift: { start: string; end: string },
+): boolean {
+  if (!clockOut) return false;
+  const sisa = overtimeMinutes(clockOut, shift.end);
+  return sisa > 0 && sisa <= overtimeMinutes(shift.start, shift.end);
 }
 
 /** Late once clock-in passes shift start + tolerance. */

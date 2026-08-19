@@ -223,6 +223,39 @@ export const attendance = pgTable(
       // history can be deactivated; only one nobody ever used can be deleted.
       onDelete: "restrict",
     }),
+    /**
+     * Alasan yang WAJIB diisi karyawan saat absen di luar jamnya: terlambat
+     * (`late_reason`) atau keluar sebelum shiftnya selesai (`early_reason`).
+     * Kewajibannya ditegakkan di /api/me/clock, yang satu-satunya tahu shift
+     * divisi dan toleransinya.
+     *
+     * Bukan `note` di atas: kolom itu dipakai sebagai keterangan umum hari itu
+     * (api/me/team menampilkannya sebagai baris detail karyawan di papan
+     * atasannya), dan alasan pribadi tidak seharusnya muncul di situ.
+     */
+    lateReason: text("late_reason"),
+    earlyReason: text("early_reason"),
+    /**
+     * Tinjauan admin atas alasan di atas — satu keputusan untuk harinya, bukan
+     * satu per alasan.
+     *
+     * NULL = belum ditinjau · true = diterima · false = ditolak.
+     *
+     * `review_ok = true` MEMUTIHKAN keterlambatan: `status` tetap 'telat' di
+     * baris ini, tapi statusHarianSql() membacanya sebagai 'hadir'. Tidak ada
+     * satu pun jalur yang menimpa `status` — buktinya disimpan, keputusannya
+     * ditambahkan di sebelahnya, dan karena itu keputusan yang salah bisa
+     * dibalik tanpa ada yang hilang.
+     */
+    reviewOk: boolean("review_ok"),
+    reviewedById: integer("reviewed_by_id").references(() => employees.id, {
+      // set null: karyawan yang keluar tidak membawa serta keputusan yang
+      // pernah ia buat atas hari orang lain
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    /** Catatan admin. Wajib saat menolak, opsional saat memutihkan. */
+    reviewNote: text("review_note"),
   },
   (t) => [uniqueIndex("attendance_emp_date").on(t.employeeId, t.date)],
 );
