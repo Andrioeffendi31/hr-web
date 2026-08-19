@@ -113,6 +113,8 @@ async function fetchLeavePage(
       type: leaveRequests.type,
       startDate: leaveRequests.startDate,
       endDate: leaveRequests.endDate,
+      startTime: leaveRequests.startTime,
+      endTime: leaveRequests.endTime,
       days: leaveRequests.days,
       reason: leaveRequests.reason,
       status: leaveRequests.status,

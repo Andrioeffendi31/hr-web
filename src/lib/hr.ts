@@ -117,10 +117,13 @@ export function isHariKerja(
 /** Jenis pengajuan cuti → status kehadiran yang ditampilkan pada hari itu.
  *  Pemetaan ini tersirat di mana-mana tapi belum pernah ditulis. */
 export function statusDariCuti(
-  type: "Cuti Tahunan" | "Cuti Sakit" | "Izin Khusus",
+  type: "Cuti Tahunan" | "Cuti Sakit" | "Izin Khusus" | "Izin Setengah Hari",
 ): AttStatus {
   if (type === "Cuti Sakit") return "sakit";
-  if (type === "Izin Khusus") return "izin";
+  // izin setengah hari ikut 'izin': pada hari itu ia HANYA terbaca kalau
+  // orangnya tidak absen sama sekali — begitu ada absennya, baris absensi yang
+  // menang dan harinya terbaca hadir (lihat urutan cabang di lib/kehadiran.ts)
+  if (type === "Izin Khusus" || type === "Izin Setengah Hari") return "izin";
   return "cuti";
 }
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -208,7 +211,12 @@ export function statusHarian(input: {
   hariIni: string;
   clockIn: string | null;
   /** jenis cuti yang DISETUJUI dan mencakup tanggal ini, kalau ada */
-  cuti?: "Cuti Tahunan" | "Cuti Sakit" | "Izin Khusus" | null;
+  cuti?:
+    | "Cuti Tahunan"
+    | "Cuti Sakit"
+    | "Izin Khusus"
+    | "Izin Setengah Hari"
+    | null;
   wfh?: boolean;
   libur?: Set<string>;
   /** hari kerja divisinya; kosong = Senin–Jumat */
@@ -287,6 +295,43 @@ export function overtimeMinutes(startTime: string, endTime: string): number {
   };
   const diff = m(endTime) - m(startTime);
   return diff >= 0 ? diff : diff + 24 * 60; // crosses midnight
+}
+
+/**
+ * Shift efektif pada hari yang izin setengah harinya sudah DISETUJUI.
+ *
+ * Ini satu-satunya tempat yang menerjemahkan "izin 08.00–12.00" menjadi angka
+ * yang dipakai aturan kehadiran, dan sengaja bekerja dengan menggeser BATASNYA,
+ * bukan dengan menambah status baru: orang yang masuk 12.00 sesudah izin pagi
+ * memang hadir, bukan terlambat, dan bukan setengah-izin.
+ *
+ * - Izin yang menutup awal hari (mulai ≤ jam masuk shift) memindahkan batas
+ *   keterlambatan ke jam SELESAI izinnya. Toleransi tetap berlaku dari sana.
+ * - Izin yang menutup akhir hari (selesai ≥ jam pulang shift) memindahkan jam
+ *   pulang ke jam MULAI izinnya, jadi absen keluarnya bukan pulang cepat.
+ * - Izin di tengah hari tidak menggeser apa pun: ia masuk dan pulang seperti
+ *   biasa, dan yang hilang hanya jam di antaranya — yang tidak pernah dinilai
+ *   oleh aturan mana pun di aplikasi ini.
+ *
+ * Izin yang menutup SELURUH shift tidak mungkin sampai ke sini: /api/me/requests
+ * menolaknya dan menyuruh mengajukan Izin Khusus sehari. Kalau tetap terjadi
+ * (mis. shift divisinya diubah sesudah izinnya disetujui), batasnya dibiarkan
+ * apa adanya daripada menghasilkan shift yang mulainya sesudah selesainya.
+ */
+export function geserShift<T extends { start: string; end: string }>(
+  shift: T,
+  izin: { startTime: string; endTime: string } | null,
+): T {
+  if (!izin) return shift;
+  const m = (t: string) => {
+    const [h, min] = t.split(":").map(Number);
+    return h * 60 + min;
+  };
+  const jam = (t: string) => t.slice(0, 5);
+  const start = m(izin.startTime) <= m(shift.start) ? jam(izin.endTime) : shift.start;
+  const end = m(izin.endTime) >= m(shift.end) ? jam(izin.startTime) : shift.end;
+  if (m(start) >= m(end)) return shift;
+  return { ...shift, start, end };
 }
 
 /**

@@ -362,6 +362,30 @@ check "menolak alasan tanpa catatan ditolak" 400 \
   "$(code -X POST -H 'Content-Type: application/json' -d '{"id":1,"ok":false}' \
      "$BASE/api/attendance/review")"
 
+# Izin setengah hari: satu tanggal, dua jam, dan absen masuk yang jauh lewat
+# toleransi tapi TIDAK terlambat. Fixture seed pada 2026-07-30: Indah izin
+# 08.00–12.00 (disetujui) lalu masuk 12.05.
+check "izin setengah hari terbaca hadir, bukan telat" 1 \
+  "$(body "$BASE/kehadiran?status=hadir&date=2026-07-30" | grep -c 'Indah Lestari')"
+check "izin setengah hari tidak masuk ember telat" 0 \
+  "$(body "$BASE/kehadiran?status=telat&date=2026-07-30" | grep -c 'Indah Lestari')"
+# ...dan juga bukan "sedang cuti": orangnya memang masuk dan bekerja separuh hari
+check "izin setengah hari bukan cuti sehari" 0 \
+  "$(body "$BASE/kehadiran?status=cuti&date=2026-07-30" | grep -c 'Indah Lestari')"
+# Penanda di drawer — inilah yang menjelaskan kenapa 12.05 terbaca hadir.
+# Dicocokkan pada PROPS drawernya, bukan pada teksnya: dialognya dirender klien
+# lewat portal, jadi kalimatnya tidak pernah ada di HTML pertama (pelajaran yang
+# sama seperti uji "Tanpa bukti pendukung" di atas).
+check "drawer dibekali jam izinnya" 1 \
+  "$(body "$BASE/kehadiran?date=2026-07-30&open=$(body "$BASE/api/search?q=Indah" | sed 's/.*"id":\([0-9]*\).*/\1/')" \
+     | grep -c 'izin.\{0,3\}:{.\{0,3\}start.\{0,3\}:.\{0,3\}08:00')"
+# jamnya sampai ke antrean admin (kolom Durasi berisi jam, bukan "1 hari kerja")
+check "antrean cuti menampilkan jam izin" 1 \
+  "$(body "$BASE/cuti?tab=disetujui" | grep -c '08:00–12:00')"
+# dan ke CSV, di kolomnya sendiri
+check "ekspor cuti memuat jam izin" 1 \
+  "$(body "$BASE/api/export/cuti?from=2026-07-01&to=2026-07-31" | grep -c '08:00-12:00')"
+
 echo "15. feed API for infinite scroll"
 feed() { body "$BASE/api/feed/$1"; }
 check "pengumuman page 1 has items" 1 \
@@ -424,6 +448,47 @@ check "karyawan tidak bisa menyetujui pengajuan" 403 \
   "$(empcode -X POST -H 'Content-Type: application/json' -d '{}' "$BASE/api/requests")"
 check "karyawan tidak bisa mencari karyawan" 403 "$(empcode "$BASE/api/search?q=a")"
 # memutihkan keterlambatannya sendiri adalah tepat hal yang tidak boleh bisa
+# Izin setengah hari dari sisi karyawan. Bagas punya izin 08.00–11.00 yang
+# DISETUJUI untuk hari ini (seed), jadi shift yang dikirim ke ponselnya harus
+# sudah bergeser — angka itulah yang dipakai layar absen untuk memutuskan kapan
+# field "alasan terlambat" muncul, dan yang membuat masuk jam 11 bukan telat.
+check "shift efektif bergeser oleh izin yang disetujui" '"start":"11:00"' \
+  "$(curl -s -b "$EMPJAR" "$BASE/api/me" | grep -o '"shift":{"start":"[^"]*"' | sed 's/.*{//')"
+check "ponsel diberi tahu izinnya" '"izin":{"start":"08:00","end":"11:00"}' \
+  "$(curl -s -b "$EMPJAR" "$BASE/api/me" | grep -o '"izin":{"start":"[^"]*","end":"[^"]*"}')"
+empbad() { curl -s -b "$EMPJAR" -X POST -F "kind=cuti" -F "type=Izin Setengah Hari" \
+  -F "reason=Kontrol dokter pagi hari" -F "startDate=$1" -F "endDate=$2" \
+  ${3:+-F "startTime=$3"} ${4:+-F "endTime=$4"} "$BASE/api/me/requests"; }
+# hari kerja berikutnya: Sabtu/Minggu ditolak lebih dulu oleh cek hari kerja,
+# jadi uji jam di bawahnya tidak akan pernah tercapai kalau tanggalnya akhir pekan
+BESOK=""
+for n in 1 2 3 4 5 6 7; do
+  D="$(TZ=Asia/Jakarta date -v+${n}d +%F 2>/dev/null || date -d "+$n days" +%F)"
+  W="$(TZ=Asia/Jakarta date -v+${n}d +%u 2>/dev/null || date -d "+$n days" +%u)"
+  [ "$W" -le 5 ] && { BESOK="$D"; break; }
+done
+check "izin setengah hari tanpa jam ditolak" "Isi jam mulai dan jam selesai izin" \
+  "$(empbad "$BESOK" "$BESOK" | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+check "jam selesai sebelum mulai ditolak" "Jam selesai izin harus setelah jam mulai" \
+  "$(empbad "$BESOK" "$BESOK" 13:00 11:00 | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+# izin yang menutup seluruh shift bukan setengah hari — itu izin sehari, dan
+# membiarkannya lolos akan membuat geserShift() tidak punya batas yang tersisa
+check "izin sehari penuh diarahkan ke Izin Khusus" 1 \
+  "$(empbad "$BESOK" "$BESOK" 08:00 17:00 | grep -c 'menutup seluruh shift')"
+check "izin setengah hari lebih dari satu tanggal ditolak" \
+  "Izin setengah hari hanya untuk satu tanggal" \
+  "$(empbad "$BESOK" "2026-12-31" 08:00 12:00 | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+check "izin setengah hari yang sah diterima" '"ok":true' \
+  "$(empbad "$BESOK" "$BESOK" 08:00 12:00 | grep -o '"ok":true')"
+check "jamnya kembali di daftar pengajuan" 1 \
+  "$(curl -s -b "$EMPJAR" "$BASE/api/me/requests" | grep -c '08:00–12:00')"
+check "jam izin ditolak pada jenis lain" \
+  "Jam izin hanya untuk pengajuan Izin Setengah Hari" \
+  "$(curl -s -b "$EMPJAR" -X POST -F "kind=cuti" -F "type=Izin Khusus" \
+     -F "reason=Ada urusan keluarga" -F "startDate=$BESOK" -F "endDate=$BESOK" \
+     -F "startTime=08:00" -F "endTime=12:00" "$BASE/api/me/requests" \
+     | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+
 check "karyawan tidak bisa memutihkan telatnya sendiri" 403 \
   "$(empcode -X POST -H 'Content-Type: application/json' -d '{"id":1,"ok":true}' \
      "$BASE/api/attendance/review")"

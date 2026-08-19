@@ -57,6 +57,40 @@ export const cutiPadaTanggal = (tanggal: Tanggal): SQL<string | null> => sql`(
 )`;
 
 /**
+ * Izin setengah hari yang DISETUJUI pada tanggal itu — jamnya, bukan sekadar
+ * ada-tidaknya.
+ *
+ * Dipakai jalur absen dan bootstrap ponsel untuk menggeser batas keterlambatan
+ * (`geserShift()` di lib/hr.ts). Terpisah dari `cutiPadaTanggal` karena itu
+ * subkueri skalar di dalam kueri papan, sementara ini satu baris untuk satu
+ * orang pada satu hari.
+ */
+export async function izinSetengahHari(employeeId: number, tanggal: string) {
+  const [row] = await db
+    .select({
+      startTime: leaveRequests.startTime,
+      endTime: leaveRequests.endTime,
+    })
+    .from(leaveRequests)
+    .where(
+      and(
+        eq(leaveRequests.employeeId, employeeId),
+        eq(leaveRequests.type, "Izin Setengah Hari"),
+        eq(leaveRequests.status, "disetujui"),
+        lte(leaveRequests.startDate, tanggal),
+        gte(leaveRequests.endDate, tanggal),
+      ),
+    )
+    .orderBy(desc(leaveRequests.id))
+    .limit(1);
+  // jamnya wajib menurut /api/me/requests, tapi kolomnya nullable — baris tanpa
+  // jam tidak boleh menggeser apa pun
+  return row?.startTime && row.endTime
+    ? { startTime: row.startTime, endTime: row.endTime }
+    : null;
+}
+
+/**
  * Hari kerja divisi karyawan pada baris ini; NULL mewarisi default perusahaan,
  * persis seperti jam shift. Subkueri skalar, bukan join, supaya setiap pemanggil
  * `statusHarianSql` tetap menulis kuerinya sendiri tanpa tahu soal tabel divisi —
@@ -139,6 +173,10 @@ export function statusHarianSql(
       then ${attendance.status}::text
     when ${cuti} = 'Cuti Sakit'  then 'sakit'
     when ${cuti} = 'Izin Khusus' then 'izin'
+    -- Izin setengah hari hanya sampai ke sini kalau TIDAK ada absennya sama
+    -- sekali (cabang di atas menang): hari yang diizinkan separuh lalu tidak
+    -- dihadiri separuhnya juga bukan hari yang bisa dituduh tanpa keterangan.
+    when ${cuti} = 'Izin Setengah Hari' then 'izin'
     when ${cuti} is not null      then 'cuti'
     -- Aplikasi belum ada di sana: hari itu tidak dinilai, tidak dituduh, dan tidak
     -- masuk penyebut rekap. Tanpa cabang ini, sistem yang baru dipasang melaporkan
@@ -362,7 +400,11 @@ export async function hariKaryawan(employeeId: number, tanggal: string) {
     .where(eq(employees.id, employeeId))
     .limit(1);
   if (!row) return null;
-  return { ...row, ditolak: await cutiDitolak(employeeId, tanggal) };
+  const [ditolak, izin] = await Promise.all([
+    cutiDitolak(employeeId, tanggal),
+    izinSetengahHari(employeeId, tanggal),
+  ]);
+  return { ...row, ditolak, izin };
 }
 
 /**

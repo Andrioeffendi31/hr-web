@@ -204,11 +204,15 @@ export function isiFor(
     case "request_submitted": {
       const k = jenis(c.kind);
       const durasiTeks =
-        c.days !== undefined
-          ? `${c.days} hari kerja`
-          : c.minutes !== undefined
-            ? durasi(Number(c.minutes))
-            : "—";
+        // izin berjam mengirim `jam`; yang dibaca penyetujunya adalah jam itu,
+        // bukan "1 hari kerja" yang benar secara teknis dan tak berguna
+        c.jam !== undefined
+          ? String(c.jam)
+          : c.days !== undefined
+            ? `${c.days} hari kerja`
+            : c.minutes !== undefined
+              ? durasi(Number(c.minutes))
+              : "—";
       return {
         judul: `Pengajuan ${k.toLowerCase()} baru menunggu persetujuan`,
         paragraf: [

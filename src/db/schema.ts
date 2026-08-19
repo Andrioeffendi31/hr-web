@@ -61,6 +61,12 @@ export const leaveTypeEnum = pgEnum("leave_type", [
   "Cuti Tahunan",
   "Cuti Sakit",
   "Izin Khusus",
+  /**
+   * Izin beberapa jam pada satu hari — karyawannya tetap masuk dan bekerja
+   * separuh harinya. Satu-satunya jenis yang memakai `start_time`/`end_time`,
+   * dan satu-satunya yang menggeser batas keterlambatan di /api/me/clock.
+   */
+  "Izin Setengah Hari",
 ]);
 export const overtimeKindEnum = pgEnum("overtime_kind", [
   "Hari kerja",
@@ -305,6 +311,16 @@ export const leaveRequests = pgTable("leave_requests", {
   type: leaveTypeEnum("type").notNull(),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
+  /**
+   * Jam izin, HANYA untuk `Izin Setengah Hari` (dan karena itu nullable): pada
+   * jenis itu `start_date` = `end_date` dan yang membatasi izinnya adalah dua
+   * jam ini, bukan rentang tanggalnya.
+   *
+   * Keduanya juga yang menggeser batas keterlambatan hari itu — lihat
+   * `geserShift()` di lib/hr.ts, yang dipakai /api/me/clock dan /api/me.
+   */
+  startTime: time("start_time"),
+  endTime: time("end_time"),
   /** working days, computed server-side (PRD §6.2) */
   days: integer("days").notNull(),
   reason: text("reason").notNull(),

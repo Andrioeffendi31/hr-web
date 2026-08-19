@@ -6,7 +6,13 @@ import { Empty, Panel, Pill, ReqBadge } from "@/components/bits";
 import { DecideButtons } from "@/components/decide-buttons";
 import { FeedFooter } from "@/components/feed-footer";
 import { useInfiniteFeed } from "@/components/use-infinite-feed";
-import { deductsBalance, initials, rentangTanggal, ukuranFile } from "@/lib/hr";
+import {
+  deductsBalance,
+  initials,
+  jam,
+  rentangTanggal,
+  ukuranFile,
+} from "@/lib/hr";
 
 /** Nilai `request_status`, disebut satu kali di sisi klien. */
 export type StatusPengajuan =
@@ -19,9 +25,12 @@ export type StatusPengajuan =
 
 export type LeaveRow = {
   id: number;
-  type: "Cuti Tahunan" | "Cuti Sakit" | "Izin Khusus";
+  type: "Cuti Tahunan" | "Cuti Sakit" | "Izin Khusus" | "Izin Setengah Hari";
   startDate: string;
   endDate: string;
+  /** hanya Izin Setengah Hari; HH:MM:SS dari kolom `time` */
+  startTime: string | null;
+  endTime: string | null;
   days: number;
   reason: string;
   status: StatusPengajuan;
@@ -41,6 +50,7 @@ const TYPE_TONE = {
   "Cuti Tahunan": "primary",
   "Cuti Sakit": "info",
   "Izin Khusus": "warning",
+  "Izin Setengah Hari": "warning",
 } as const;
 
 export function LeaveQueue({
@@ -114,8 +124,12 @@ export function LeaveQueue({
               </div>
               <div>
                 <dt className="text-subtle text-[11px]">Durasi</dt>
+                {/* Izin berjam diputuskan berdasarkan jamnya; "1 hari kerja"
+                    benar secara teknis dan tidak berguna bagi yang menyetujui. */}
                 <dd className="tnum text-[12.5px] font-medium">
-                  {r.days} hari kerja
+                  {r.startTime && r.endTime
+                    ? `${jam(r.startTime)}–${jam(r.endTime)}`
+                    : `${r.days} hari kerja`}
                 </dd>
               </div>
               <div>

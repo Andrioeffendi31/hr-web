@@ -17,6 +17,7 @@ import {
   KECEPATAN_MUSTAHIL,
   kecepatanKmJam,
   leaveQuota,
+  geserShift,
   overtimeMinutes,
   pulangCepat,
   previewKind,
@@ -128,6 +129,58 @@ assert.equal(pulangCepat(null, siang), false, "belum absen keluar");
 assert.equal(pulangCepat("05:00", malam), true, "shift malam, sejam lebih awal");
 assert.equal(pulangCepat("06:00", malam), false, "shift malam, tepat waktu");
 assert.equal(pulangCepat("07:00", malam), false, "shift malam, lembur sejam");
+
+/**
+ * Shift efektif pada hari izin setengah hari. Inilah aturan yang membuat "tidak
+ * dianggap terlambat" berlaku, jadi ia diuji di sini — bukan lewat halaman.
+ */
+{
+  const s = { start: "08:00", end: "17:00", toleranceMinutes: 15 };
+  const pagi = { startTime: "08:00:00", endTime: "12:00:00" };
+  const sore = { startTime: "14:00:00", endTime: "17:00:00" };
+  const tengah = { startTime: "11:00:00", endTime: "13:00:00" };
+
+  assert.deepEqual(geserShift(s, null), s, "tanpa izin, shiftnya utuh");
+  assert.deepEqual(
+    geserShift(s, pagi),
+    { start: "12:00", end: "17:00", toleranceMinutes: 15 },
+    "izin pagi memindahkan batas keterlambatan ke jam selesai izin",
+  );
+  assert.deepEqual(
+    geserShift(s, sore),
+    { start: "08:00", end: "14:00", toleranceMinutes: 15 },
+    "izin sore memindahkan jam pulang ke jam mulai izin",
+  );
+  assert.deepEqual(geserShift(s, tengah), s, "izin di tengah hari tidak menggeser apa pun");
+  // izin yang menutup seluruh shift ditolak /api/me/requests; kalau tetap sampai
+  // ke sini, batasnya dibiarkan utuh alih-alih jadi mulai-sesudah-selesai
+  assert.deepEqual(
+    geserShift(s, { startTime: "08:00:00", endTime: "17:00:00" }),
+    s,
+    "izin sehari penuh tidak menghasilkan shift terbalik",
+  );
+
+  // dan inilah yang dijanjikan ke pengguna: masuk 12.05 pada hari izin pagi
+  // adalah HADIR, padahal tanpa izinnya ia terlambat empat jam
+  const efektif = geserShift(s, pagi);
+  assert.equal(
+    attendanceStatus("12:05", efektif.start, efektif.toleranceMinutes),
+    "hadir",
+    "masuk sesudah izin pagi bukan terlambat",
+  );
+  assert.equal(attendanceStatus("12:05", s.start, s.toleranceMinutes), "telat");
+  assert.equal(
+    attendanceStatus("12:20", efektif.start, efektif.toleranceMinutes),
+    "telat",
+    "toleransi tetap berlaku dari batas yang baru",
+  );
+  // pulang 14.00 pada hari izin sore juga bukan pulang cepat
+  assert.equal(pulangCepat("14:00", geserShift(s, sore)), false, "pulang saat izin sore mulai");
+  assert.equal(pulangCepat("14:00", s), true, "tanpa izin, itu pulang cepat");
+}
+
+// izin setengah hari ikut dibaca sebagai 'izin' pada hari yang tidak dihadiri
+assert.equal(statusDariCuti("Izin Setengah Hari"), "izin");
 
 // per-division shift resolution, against the company default
 const defaultShift = {

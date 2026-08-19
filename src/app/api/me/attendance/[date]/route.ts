@@ -85,6 +85,9 @@ export const GET = withMe(async (me, _req, ctx) => {
     /** pengajuan yang ditolak dan mencakup hari ini — konteks untuk hari tanpa
      *  keterangan, bukan status kedua */
     ditolak: day.ditolak,
+    /** izin setengah hari yang disetujui untuk hari ini — inilah sebabnya jam
+     *  masuknya lebih siang dan tetap tercatat hadir */
+    izin: day.izin ? { start: jam(day.izin.startTime), end: jam(day.izin.endTime) } : null,
     /**
      * Alasan yang ia tulis sendiri di titik absen, dan apa yang admin putuskan
      * atasnya. `reviewOk: true` berarti hari ini sudah terbaca hadir di

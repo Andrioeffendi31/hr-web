@@ -11,12 +11,14 @@ import {
 import {
   attendanceStatus,
   formatJarak,
+  geserShift,
   jarakMeter,
   jam,
   pulangCepat,
   resolveShift,
   todayWib,
 } from "@/lib/hr";
+import { izinSetengahHari } from "@/lib/kehadiran";
 import { Bad, config, withMe } from "@/lib/me";
 import {
   MAX_IMAGE,
@@ -220,7 +222,20 @@ export const POST = withMe(async (me, req) => {
    * sumber kebenaran, jadi aturan absennya tidak bisa menyimpang dari aturan
    * statusnya.
    */
-  const shift = resolveShift(me, cfg);
+  /**
+   * Shift efektif, bukan shift divisinya: izin setengah hari yang sudah
+   * DISETUJUI menggeser batas keterlambatan (dan batas pulang cepat) ke jam
+   * izinnya — lihat `geserShift()` di lib/hr.ts.
+   *
+   * Ini satu-satunya tempat jalur absen menyentuh tabel pengajuan, dan ia harus:
+   * tanpa ini, orang yang izinnya sudah disetujui tetap dipaksa menulis alasan
+   * keterlambatan lalu barisnya tercatat 'telat' — dan baris itu MENANG atas
+   * cuti/izin di statusHarianSql, jadi izinnya tidak akan pernah terbaca lagi.
+   */
+  const shift = geserShift(
+    resolveShift(me, cfg),
+    await izinSetengahHari(me.id, today),
+  );
   const status = attendanceStatus(
     now,
     shift.start,

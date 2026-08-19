@@ -5,7 +5,15 @@ import {
   attendance,
   officeLocations,
 } from "@/db/schema";
-import { initials, resolveShift, tanggalPendek, todayWib } from "@/lib/hr";
+import {
+  geserShift,
+  initials,
+  jam,
+  resolveShift,
+  tanggalPendek,
+  todayWib,
+} from "@/lib/hr";
+import { izinSetengahHari } from "@/lib/kehadiran";
 import { leaveBalances } from "@/lib/leave";
 import { config, withMe } from "@/lib/me";
 
@@ -21,6 +29,7 @@ export const GET = withMe(async (me) => {
     balances,
     anns,
     offices,
+    izin,
   ] = await Promise.all([
     config(),
     db
@@ -47,6 +56,7 @@ export const GET = withMe(async (me) => {
       .from(officeLocations)
       .where(eq(officeLocations.active, true))
       .orderBy(asc(officeLocations.name)),
+    izinSetengahHari(me.id, today),
   ]);
 
   return Response.json({
@@ -84,8 +94,20 @@ export const GET = withMe(async (me) => {
       selfieKey: att?.selfieUrl ?? null,
       /** the office chosen at clock-in, so clock-out can follow it without asking */
       officeId: att?.locationId ?? null,
+      /** izin setengah hari yang disetujui untuk hari ini — supaya layarnya bisa
+       *  mengatakan kenapa jam shiftnya hari ini berbeda */
+      izin: izin ? { start: jam(izin.startTime), end: jam(izin.endTime) } : null,
     },
-    shift: resolveShift(me, cfg),
+    /**
+     * Shift EFEKTIF hari ini: kalau ada izin setengah hari yang disetujui,
+     * batasnya sudah digeser di sini.
+     *
+     * Sengaja bukan field kedua di samping shift aslinya. Ponsel memakai angka
+     * ini untuk memutuskan kapan field "alasan terlambat" muncul, dan aturan itu
+     * harus dihitung di satu tempat yang sama dengan yang menegakkannya di
+     * /api/me/clock — bukan disalin ke telepon yang bisa tertinggal versi.
+     */
+    shift: geserShift(resolveShift(me, cfg), izin),
     offices: offices.map((o) => ({
       id: o.id,
       name: o.name,

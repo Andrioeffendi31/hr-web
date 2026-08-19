@@ -420,6 +420,21 @@ async function main() {
     );
 
   /**
+   * Pasangan baris absensi untuk izin setengah hari di atas: masuk 12.05, jauh
+   * lewat toleransi, dan statusnya 'hadir' — persis yang ditulis /api/me/clock
+   * begitu batas keterlambatannya digeser ke jam selesai izin.
+   */
+  await db
+    .update(attendance)
+    .set({ clockIn: "12:05:00", status: "hadir" })
+    .where(
+      and(
+        eq(attendance.employeeId, idOf("Indah Lestari")),
+        eq(attendance.date, TODAY),
+      ),
+    );
+
+  /**
    * Satu orang yang absen masuk pada tanggal HARI INI yang sebenarnya, bukan pada
    * TODAY yang dipatok di atas.
    *
@@ -591,9 +606,12 @@ async function main() {
   const holidaySet = new Set(["2026-08-17", "2026-08-18"]);
   const leaves: {
     name: string;
-    type: "Cuti Tahunan" | "Cuti Sakit" | "Izin Khusus";
+    type: "Cuti Tahunan" | "Cuti Sakit" | "Izin Khusus" | "Izin Setengah Hari";
     start: string;
     end: string;
+    /** hanya Izin Setengah Hari */
+    startTime?: string;
+    endTime?: string;
     delegate: string | null;
     reason: string;
     status: "menunggu" | "disetujui" | "ditolak";
@@ -654,6 +672,40 @@ async function main() {
       status: "ditolak",
       note: "Tanpa bukti pendukung.",
     },
+    /**
+     * Izin setengah hari yang DISETUJUI pada tanggal papan. Indah masuk 12.05 di
+     * bawah — lewat toleransi mana pun — dan tetap tercatat hadir. Inilah satu
+     * fixture yang membuktikan seluruh rantainya: jam izin → shift efektif →
+     * absen bukan telat → papan membaca Hadir.
+     */
+    {
+      name: "Indah Lestari",
+      type: "Izin Setengah Hari",
+      start: TODAY,
+      end: TODAY,
+      startTime: "08:00",
+      endTime: "12:00",
+      delegate: null,
+      reason: "Mengurus akta kelahiran anak di kelurahan.",
+      status: "disetujui",
+    },
+    /**
+     * Dan satu lagi pada tanggal HARI INI yang sebenarnya, supaya /api/me bisa
+     * diuji: shift yang dikirim ke ponsel harus sudah bergeser ke 11:00, karena
+     * angka itulah yang dipakai layar absen untuk memutuskan kapan field alasan
+     * keterlambatan muncul.
+     */
+    {
+      name: "Bagas Prasetyo",
+      type: "Izin Setengah Hari",
+      start: todayWib(),
+      end: todayWib(),
+      startTime: "08:00",
+      endTime: "11:00",
+      delegate: null,
+      reason: "Kontrol dokter pagi, masuk setelah selesai.",
+      status: "disetujui",
+    },
   ];
 
   await db.insert(leaveRequests).values(
@@ -662,6 +714,8 @@ async function main() {
       type: l.type,
       startDate: l.start,
       endDate: l.end,
+      startTime: l.startTime ?? null,
+      endTime: l.endTime ?? null,
       days: workingDays(l.start, l.end, holidaySet),
       reason: l.reason,
       delegateId: l.delegate ? idOf(l.delegate) : null,

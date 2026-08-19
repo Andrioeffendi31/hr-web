@@ -146,6 +146,8 @@ export async function GET(
         type: leaveRequests.type,
         startDate: leaveRequests.startDate,
         endDate: leaveRequests.endDate,
+        startTime: leaveRequests.startTime,
+        endTime: leaveRequests.endTime,
         days: leaveRequests.days,
         status: leaveRequests.status,
         reason: leaveRequests.reason,
@@ -170,6 +172,9 @@ export async function GET(
       "Jenis",
       "Mulai",
       "Selesai",
+      // kolomnya sendiri, bukan disisipkan ke "Jenis": kolom yang isinya
+      // kadang tanggal kadang jam adalah kolom yang tidak bisa disortir
+      "Jam izin",
       "Hari kerja",
       "Status",
       "Pengganti",
@@ -182,6 +187,7 @@ export async function GET(
       r.type,
       r.startDate,
       r.endDate,
+      r.startTime && r.endTime ? `${jam(r.startTime)}-${jam(r.endTime)}` : "",
       r.days,
       REQ_LABEL[r.status],
       r.delegateName ?? "",

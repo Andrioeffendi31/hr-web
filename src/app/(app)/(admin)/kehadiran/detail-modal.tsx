@@ -69,6 +69,9 @@ export type DayDetail = {
   location: string | null;
   selfieUrl: string | null;
   events: AttEvent[];
+  /** izin setengah hari yang DISETUJUI untuk hari ini — inilah sebabnya absen
+   *  masuk yang terlihat siang tetap tercatat hadir */
+  izin: { start: string; end: string } | null;
   /** pengajuan cuti yang ditolak dan mencakup hari ini — konteks, bukan status */
   ditolak: {
     type: string;
@@ -254,6 +257,20 @@ export function AttendanceDetail({
               <p className="text-muted-foreground mt-0.5 text-[11.5px]">
                 {d.ditolak.startDate} s/d {d.ditolak.endDate}
                 {d.ditolak.note ? ` · ${d.ditolak.note}` : ""}
+              </p>
+            </div>
+          )}
+
+          {/* Kenapa hari ini terbaca Hadir padahal masuknya siang: izinnya sudah
+              disetujui, dan batas keterlambatannya digeser ke jam selesai izin. */}
+          {d.izin && (
+            <div className="bg-info-subtle border-info/30 mb-3 rounded-[11px] border p-3">
+              <div className="text-[12.5px] font-medium">
+                Izin setengah hari disetujui
+              </div>
+              <p className="text-muted-foreground mt-0.5 text-[11.5px]">
+                {d.izin.start}–{d.izin.end} · batas keterlambatan hari ini
+                mengikuti jam ini
               </p>
             </div>
           )}

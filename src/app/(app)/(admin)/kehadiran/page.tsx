@@ -37,6 +37,7 @@ import {
   mulaiCatat,
   cutiDitolak,
   grupSql,
+  izinSetengahHari,
   rekapSql,
   statusHarianSql,
   type RekapBaris,
@@ -320,7 +321,7 @@ export default async function KehadiranPage({
       .limit(1);
 
     if (row) {
-      const [events, ditolak] = await Promise.all([
+      const [events, ditolak, izin] = await Promise.all([
         row.attendanceId
           ? db
               .select({
@@ -339,6 +340,7 @@ export default async function KehadiranPage({
               .orderBy(asc(attendanceEvents.at))
           : [],
         cutiDitolak(openId, date),
+        izinSetengahHari(openId, date),
       ]);
 
       detail = {
@@ -347,6 +349,9 @@ export default async function KehadiranPage({
         status: row.status as AttStatus,
         events,
         ditolak,
+        izin: izin
+          ? { start: jam(izin.startTime), end: jam(izin.endTime) }
+          : null,
         office: row.officeLat
           ? {
               name: row.officeName!,

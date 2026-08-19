@@ -8,7 +8,9 @@ import {
   durasi,
   isIsoDate,
   isHariKerja,
+  jam,
   overtimeMinutes,
+  resolveShift,
   rentangTanggal,
   tanggalPendek,
   todayWib,
@@ -94,7 +96,10 @@ export const GET = withMe(async (me) => {
       id: r.id,
       kind: "cuti" as const,
       title: r.type,
-      detail: `${rentangTanggal(r.startDate, r.endDate)} · ${r.days} hari`,
+      detail:
+        r.startTime && r.endTime
+          ? `${tanggalPendek(r.startDate)} · ${jam(r.startTime)}–${jam(r.endTime)}`
+          : `${rentangTanggal(r.startDate, r.endDate)} · ${r.days} hari`,
       note:
         r.decisionNote ??
         (r.status === "menunggu_pimpinan"
@@ -108,6 +113,8 @@ export const GET = withMe(async (me) => {
       type: r.type,
       startDate: r.startDate,
       endDate: r.endDate,
+      startTime: r.startTime ? jam(r.startTime) : undefined,
+      endTime: r.endTime ? jam(r.endTime) : undefined,
       reason: r.reason,
       delegateId: r.delegateId,
       delegateName,
@@ -184,14 +191,69 @@ async function storeAttachment(file: File, requestId: number) {
   };
 }
 
+/**
+ * Aturan jam izin setengah hari — satu tempat, dipakai POST maupun PUT, karena
+ * dua salinan aturan jam adalah dua aturan yang akan berbeda pendapat.
+ *
+ * Yang ditegakkan di sini: jamnya hanya untuk jenis itu, wajib berdua, satu
+ * tanggal saja, selesai sesudah mulai, dan TIDAK boleh menutup seluruh shift —
+ * izin sehari punya jenisnya sendiri, dan izin yang menutup semuanya akan
+ * membuat `geserShift()` tidak punya batas yang tersisa untuk dinilai.
+ */
+function jamIzin(
+  input: {
+    type: string;
+    startDate: string;
+    endDate: string;
+    startTime?: string;
+    endTime?: string;
+  },
+  shift: { start: string; end: string },
+) {
+  const m = (t: string) => {
+    const [h, min] = t.split(":").map(Number);
+    return h * 60 + min;
+  };
+  if (input.type !== "Izin Setengah Hari") {
+    if (input.startTime || input.endTime) {
+      throw new Bad("Jam izin hanya untuk pengajuan Izin Setengah Hari");
+    }
+    return { startTime: null, endTime: null };
+  }
+  const { startTime, endTime } = input;
+  if (!startTime || !endTime) {
+    throw new Bad("Isi jam mulai dan jam selesai izin");
+  }
+  if (input.endDate !== input.startDate) {
+    throw new Bad("Izin setengah hari hanya untuk satu tanggal");
+  }
+  if (m(endTime) <= m(startTime)) {
+    throw new Bad("Jam selesai izin harus setelah jam mulai");
+  }
+  if (m(startTime) <= m(shift.start) && m(endTime) >= m(shift.end)) {
+    throw new Bad(
+      `Izin itu menutup seluruh shift ${shift.start}–${shift.end}. Ajukan Izin Khusus untuk izin sehari`,
+    );
+  }
+  return { startTime, endTime };
+}
+
 const create = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("cuti"),
-    type: z.enum(["Cuti Tahunan", "Cuti Sakit", "Izin Khusus"]),
+    type: z.enum([
+      "Cuti Tahunan",
+      "Cuti Sakit",
+      "Izin Khusus",
+      "Izin Setengah Hari",
+    ]),
     startDate: z.string().refine(isIsoDate, "tanggal mulai harus YYYY-MM-DD"),
     endDate: z.string().refine(isIsoDate, "tanggal selesai harus YYYY-MM-DD"),
     reason: z.string().trim().min(5, "alasan minimal 5 karakter").max(500),
     delegateId: z.coerce.number().int().positive().optional(),
+    /** hanya Izin Setengah Hari; aturannya ditegakkan `jamIzin()` di bawah */
+    startTime: z.string().regex(/^\d{2}:\d{2}$/, "jam mulai harus HH:MM").optional(),
+    endTime: z.string().regex(/^\d{2}:\d{2}$/, "jam selesai harus HH:MM").optional(),
   }),
   z.object({
     kind: z.literal("lembur"),
@@ -225,6 +287,7 @@ export const POST = withMe(async (me, req) => {
       me.workDays ?? undefined,
     );
     if (days < 1) throw new Bad("Rentang tanggal tidak memuat hari kerja");
+    const jamnya = jamIzin(input, resolveShift(me, cfg));
 
     if (input.type === "Cuti Tahunan") {
       const [bal] = await leaveBalances(year, me.id);
@@ -242,6 +305,7 @@ export const POST = withMe(async (me, req) => {
         type: input.type,
         startDate: input.startDate,
         endDate: input.endDate,
+        ...jamnya,
         days,
         reason: input.reason,
         delegateId: input.delegateId ?? null,
@@ -260,7 +324,17 @@ export const POST = withMe(async (me, req) => {
     await queueEmail({
       to: await hrAdmins(),
       template: "request_submitted",
-      context: { kind: "cuti", requestId: row.id, from: me.name, days },
+      context: {
+        kind: "cuti",
+        requestId: row.id,
+        from: me.name,
+        days,
+        // izin berjam: yang perlu dibaca penyetujunya adalah jamnya, bukan
+        // "1 hari kerja" yang secara teknis benar dan sama sekali tidak berguna
+        ...(jamnya.startTime
+          ? { jam: `${jam(jamnya.startTime)}–${jam(jamnya.endTime)}` }
+          : {}),
+      },
     });
     revalidatePath("/cuti");
     return Response.json({ ok: true, id: row.id, days });
@@ -348,11 +422,18 @@ export const POST = withMe(async (me, req) => {
  */
 const edit = z.object({
   id: z.coerce.number().int().positive(),
-  type: z.enum(["Cuti Tahunan", "Cuti Sakit", "Izin Khusus"]),
+  type: z.enum([
+    "Cuti Tahunan",
+    "Cuti Sakit",
+    "Izin Khusus",
+    "Izin Setengah Hari",
+  ]),
   startDate: z.string().refine(isIsoDate, "tanggal mulai harus YYYY-MM-DD"),
   endDate: z.string().refine(isIsoDate, "tanggal selesai harus YYYY-MM-DD"),
   reason: z.string().trim().min(5, "alasan minimal 5 karakter").max(500),
   delegateId: z.coerce.number().int().positive().optional(),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, "jam mulai harus HH:MM").optional(),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, "jam selesai harus HH:MM").optional(),
   /** "1" when the employee removed the existing file without picking a new one */
   removeAttachment: z.string().optional(),
 });
@@ -390,6 +471,7 @@ export const PUT = withMe(async (me, req) => {
     me.workDays ?? undefined,
   );
   if (days < 1) throw new Bad("Rentang tanggal tidak memuat hari kerja");
+  const jamnya = jamIzin(input, resolveShift(me, await config()));
 
   if (input.type === "Cuti Tahunan") {
     /**
@@ -419,6 +501,9 @@ export const PUT = withMe(async (me, req) => {
       type: input.type,
       startDate: input.startDate,
       endDate: input.endDate,
+      // ditulis apa adanya, termasuk null: jenis yang diubah dari izin berjam
+      // menjadi cuti biasa harus ikut membuang jamnya
+      ...jamnya,
       days,
       reason: input.reason,
       delegateId: input.delegateId ?? null,
