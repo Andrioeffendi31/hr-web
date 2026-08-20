@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Paperclip } from "lucide-react";
+import { FileDown, Paperclip } from "lucide-react";
 import { Empty, Panel, Pill, ReqBadge } from "@/components/bits";
 import { DecideButtons } from "@/components/decide-buttons";
 import { FeedFooter } from "@/components/feed-footer";
@@ -44,6 +44,8 @@ export type LeaveRow = {
   attachmentKey: string | null;
   attachmentName: string | null;
   attachmentSize: number | null;
+  /** tanda tangan surat izinnya (lib/surat.ts) — juga yang dikodekan di QR-nya */
+  suratToken: string;
 };
 
 const TYPE_TONE = {
@@ -164,6 +166,19 @@ export function LeaveQueue({
                 </span>
               </a>
             )}
+
+            {/* Surat izin PDF. Anchor biasa, seperti tautan lampiran di atas —
+                rutenya diotorisasi token di path-nya, jadi tidak ada fetch,
+                tidak ada state, dan tautannya bisa dibuka di tab baru atau
+                disalin ke ponsel. Ada pada status apa pun: yang belum disetujui
+                dicap "BELUM DISETUJUI" di suratnya sendiri. */}
+            <a
+              href={`/api/surat/cuti/${r.suratToken}`}
+              className="border-border hover:border-primary hover:text-primary mt-2 flex w-fit items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px] font-medium"
+            >
+              <FileDown className="size-3.5" />
+              Unduh surat izin (PDF)
+            </a>
 
             {r.decisionNote && (
               <p className="text-danger bg-danger-subtle mt-2 rounded-lg px-3 py-2 text-[12.5px]">

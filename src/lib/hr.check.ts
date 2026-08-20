@@ -18,6 +18,9 @@ import {
   kecepatanKmJam,
   leaveQuota,
   geserShift,
+  isoWib,
+  rentangResmi,
+  tanggalResmi,
   overtimeMinutes,
   pulangCepat,
   previewKind,
@@ -181,6 +184,27 @@ assert.equal(pulangCepat("07:00", malam), false, "shift malam, lembur sejam");
 
 // izin setengah hari ikut dibaca sebagai 'izin' pada hari yang tidak dihadiri
 assert.equal(statusDariCuti("Izin Setengah Hari"), "izin");
+
+// bentuk tanggal untuk surat: bulan penuh, tanpa nama hari, dan bulan/tahun
+// hanya diulang kalau rentangnya melintasinya
+assert.equal(tanggalResmi("2026-08-20"), "20 Agustus 2026");
+assert.equal(rentangResmi("2026-08-03", "2026-08-03"), "3 Agustus 2026");
+assert.equal(rentangResmi("2026-08-03", "2026-08-05"), "3 – 5 Agustus 2026");
+assert.equal(
+  rentangResmi("2026-07-30", "2026-08-02"),
+  "30 Juli 2026 – 2 Agustus 2026",
+);
+assert.equal(
+  rentangResmi("2025-12-30", "2026-01-02"),
+  "30 Desember 2025 – 2 Januari 2026",
+  "lintas tahun mengulang keduanya",
+);
+
+// tanggal WIB dari timestamp: keputusan pukul 01:00 WIB masih 18:00 UTC hari
+// sebelumnya, dan toISOString() akan mencetak tanggal yang salah
+assert.equal(isoWib(new Date("2026-08-20T18:00:00Z")), "2026-08-21");
+assert.equal(isoWib(new Date("2026-08-20T16:59:00Z")), "2026-08-20");
+assert.equal(isoWib(new Date("2026-01-01T00:00:00Z")), "2026-01-01");
 
 // per-division shift resolution, against the company default
 const defaultShift = {

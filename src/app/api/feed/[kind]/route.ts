@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { todayWib } from "@/lib/hr";
 import { mulaiCatat, statusHarianSql } from "@/lib/kehadiran";
+import { tokenSurat } from "@/lib/surat";
 import { holidaySet, leaveBalances, withRemaining } from "@/lib/leave";
 import { FEED_PAGE } from "@/lib/paging";
 
@@ -98,7 +99,12 @@ const FEEDS = {
       .limit(limit)
       .offset(offset);
 
-    return withRemaining(rows, year ?? Number(todayWib().slice(0, 4)));
+    return withRemaining(
+      // cermin fetchLeavePage di (admin)/cuti/page.tsx: tombol "Unduh surat"
+      // butuh tokennya, dan halaman kedua antrean lewat sini
+      rows.map((r) => ({ ...r, suratToken: tokenSurat(r.id) })),
+      year ?? Number(todayWib().slice(0, 4)),
+    );
   },
 
   saldo: async ({ limit, offset, year }: Params) =>

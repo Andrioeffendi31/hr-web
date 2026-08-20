@@ -455,6 +455,32 @@ export function rentangTanggal(start: string, end: string) {
     : `${new Date(`${start}T00:00:00Z`).getUTCDate()}–${tanggalPendek(end)}`;
 }
 
+/**
+ * "20 Agustus 2026" — bulan penuh, tanpa nama hari.
+ *
+ * Bentuk untuk dokumen: `tanggalPanjang` membawa nama hari (berguna di drawer,
+ * salah di blok tanda tangan surat) dan `tanggalPendek` memotong bulannya jadi
+ * tiga huruf (berguna di kolom tabel, terbaca seperti draf di atas kop surat).
+ */
+export const tanggalResmi = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return `${d.getUTCDate()} ${MONTHS_ID[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+};
+
+/** "3 – 5 Agustus 2026" · "30 Juli – 2 Agustus 2026" · "3 Agustus 2026".
+ *  Bulan dan tahun hanya diulang kalau memang berbeda. */
+export function rentangResmi(start: string, end: string) {
+  if (start === end) return tanggalResmi(start);
+  const a = new Date(`${start}T00:00:00Z`);
+  const b = new Date(`${end}T00:00:00Z`);
+  const samaBulan =
+    a.getUTCMonth() === b.getUTCMonth() &&
+    a.getUTCFullYear() === b.getUTCFullYear();
+  return samaBulan
+    ? `${a.getUTCDate()} – ${tanggalResmi(end)}`
+    : `${tanggalResmi(start)} – ${tanggalResmi(end)}`;
+}
+
 export const jam = (t: string | null) => (t ? t.slice(0, 5) : "—");
 
 /** "30 Jul 2026" — the year matters for a hire date, unlike an attendance row, and
@@ -654,6 +680,17 @@ const KIND_LABEL_ID = {
   catatan: "Catatan",
   lokasi: "Ping lokasi",
 } as const;
+
+/**
+ * Tanggal WIB dari sebuah `Date`, YYYY-MM-DD.
+ *
+ * `toISOString().slice(0,10)` SALAH untuk ini dan sudah pernah menggeser
+ * tanggal satu hari ke belakang di aplikasi ini: keputusan yang dicatat pukul
+ * 01:00 WIB masih 18:00 UTC hari sebelumnya. en-CA memberi urutan ISO tanpa
+ * perlu menyusun bagiannya sendiri.
+ */
+export const isoWib = (at: Date) =>
+  at.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 
 /** WIB, matching every other time in the app. */
 export const jamWib = (at: Date) =>

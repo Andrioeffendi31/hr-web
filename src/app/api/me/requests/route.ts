@@ -17,6 +17,7 @@ import {
   workingDays,
 } from "@/lib/hr";
 import { holidaySet, leaveBalances } from "@/lib/leave";
+import { tokenSurat } from "@/lib/surat";
 import { Bad, config, withMe } from "@/lib/me";
 import {
   MAX_ATTACHMENT,
@@ -115,6 +116,9 @@ export const GET = withMe(async (me) => {
       endDate: r.endDate,
       startTime: r.startTime ? jam(r.startTime) : undefined,
       endTime: r.endTime ? jam(r.endTime) : undefined,
+      /** tanda tangan surat izinnya; ponsel memakainya sebagai URL unduhan, dan
+       *  QR di suratnya memuat tanda yang sama */
+      suratToken: tokenSurat(r.id),
       reason: r.reason,
       delegateId: r.delegateId,
       delegateName,

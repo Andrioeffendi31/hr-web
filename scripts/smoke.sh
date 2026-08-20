@@ -386,6 +386,42 @@ check "antrean cuti menampilkan jam izin" 1 \
 check "ekspor cuti memuat jam izin" 1 \
   "$(body "$BASE/api/export/cuti?from=2026-07-01&to=2026-07-31" | grep -c '08:00-12:00')"
 
+# Surat izin PDF + QR verifikasi. Tokennya (HMAC, lib/surat.ts) diambil dari
+# halaman antrean, seperti yang dilakukan browser admin.
+SURAT_OK="$(body "$BASE/cuti?tab=disetujui" | grep -o '/api/surat/cuti/[0-9]*-[A-Za-z0-9_-]*' | head -1 | sed 's|.*/||')"
+SURAT_TUNGGU="$(body "$BASE/cuti?tab=menunggu" | grep -o '/api/surat/cuti/[0-9]*-[A-Za-z0-9_-]*' | head -1 | sed 's|.*/||')"
+check "antrean memuat tautan surat" 1 \
+  "$([ -n "$SURAT_OK" ] && echo 1 || echo 0)"
+# TANPA jar: rutenya diotorisasi token, bukan sesi — dan memang harus begitu,
+# karena pembaca PDF Android tidak memegang cookie aplikasinya
+check "surat bisa diunduh tanpa sesi" 200 \
+  "$(curl -s -o /tmp/surat.$$.pdf -w '%{http_code}' "$BASE/api/surat/cuti/$SURAT_OK")"
+check "yang terunduh benar-benar PDF" "%PDF" \
+  "$(head -c 4 /tmp/surat.$$.pdf)"
+check "surat dilayani sebagai application/pdf" "application/pdf" \
+  "$(curl -s -o /dev/null -w '%{content_type}' "$BASE/api/surat/cuti/$SURAT_OK")"
+rm -f /tmp/surat.$$.pdf
+# tanda yang dikutak-kutik: satu karakter terakhir diubah
+check "tanda tangan yang diubah ditolak" 404 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/surat/cuti/${SURAT_OK%?}$([ "${SURAT_OK: -1}" = "A" ] && echo B || echo A)")"
+# nomor pengajuan ditukar tapi tandanya dibiarkan — percobaan paling wajar,
+# karena nomornya terbaca jelas di URL
+check "nomor yang ditukar ditolak" 404 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/surat/cuti/999${SURAT_OK#*-}")"
+check "token ngawur ditolak" 404 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/surat/cuti/bukan-token")"
+
+# Halaman verifikasi: publik (bukan 307/401/403), dan jawabannya dibaca dari
+# status TERKINI, bukan dari apa yang tercetak di kertas
+check "verifikasi publik menjawab sah" 1 \
+  "$(curl -s "$BASE/verifikasi/$SURAT_OK" | grep -c 'Surat ini sah')"
+check "verifikasi yang belum disetujui jujur" 1 \
+  "$(curl -s "$BASE/verifikasi/$SURAT_TUNGGU" | grep -c 'Belum disetujui')"
+check "verifikasi tidak memuat alasan izin" 0 \
+  "$(curl -s "$BASE/verifikasi/$SURAT_TUNGGU" | grep -c 'Alasan')"
+check "verifikasi token ngawur 404" 404 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/verifikasi/bukan-token")"
+
 echo "15. feed API for infinite scroll"
 feed() { body "$BASE/api/feed/$1"; }
 check "pengumuman page 1 has items" 1 \
@@ -488,6 +524,14 @@ check "jam izin ditolak pada jenis lain" \
      -F "reason=Ada urusan keluarga" -F "startDate=$BESOK" -F "endDate=$BESOK" \
      -F "startTime=08:00" -F "endTime=12:00" "$BASE/api/me/requests" \
      | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+
+# Surat izin dari sisi karyawan: tokennya ikut di payload-nya sendiri, dan
+# alasan izin Bagas memuat emoji — kalau `teksAman()` hilang, unduhan ini 500
+SURAT_EMP="$(curl -s -b "$EMPJAR" "$BASE/api/me/requests" | grep -o '"suratToken":"[0-9]*-[A-Za-z0-9_-]*"' | head -1 | cut -d'"' -f4)"
+check "karyawan menerima token suratnya" 1 \
+  "$([ -n "$SURAT_EMP" ] && echo 1 || echo 0)"
+check "alasan ber-emoji tetap bisa dicetak" 200 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/surat/cuti/$SURAT_EMP")"
 
 check "karyawan tidak bisa memutihkan telatnya sendiri" 403 \
   "$(empcode -X POST -H 'Content-Type: application/json' -d '{"id":1,"ok":true}' \

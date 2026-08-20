@@ -703,7 +703,10 @@ async function main() {
       startTime: "08:00",
       endTime: "11:00",
       delegate: null,
-      reason: "Kontrol dokter pagi, masuk setelah selesai.",
+      // emoji-nya SENGAJA: font standar PDF melempar untuk karakter di luar
+      // WinAnsi, jadi satu pengajuan ber-emoji adalah fixture yang membuat
+      // `teksAman()` benar-benar diuji oleh smoke, bukan hanya oleh assert
+      reason: "Kontrol dokter pagi 🏥, masuk setelah selesai.",
       status: "disetujui",
     },
   ];

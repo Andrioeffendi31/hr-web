@@ -8,6 +8,7 @@ import { BalancePanel } from "./balance-panel";
 import { LeaveQueue, type LeaveRow } from "./queue";
 import { todayWib } from "@/lib/hr";
 import { leaveBalances, withRemaining } from "@/lib/leave";
+import { tokenSurat } from "@/lib/surat";
 import { FEED_PAGE } from "@/lib/paging";
 import { cn } from "@/lib/utils";
 import { auth } from "@/auth";
@@ -136,7 +137,14 @@ async function fetchLeavePage(
     .limit(FEED_PAGE);
 
   return withRemaining(
-    rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+    rows.map((r) => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      // dihitung, bukan disimpan (lib/surat.ts) — dan ditempel di KEDUA jalur
+      // antrean: halaman pertama di sini, halaman berikutnya di api/feed/cuti.
+      // Yang terlewat akan membuat tombol unduhnya hilang begitu antrean digulir.
+      suratToken: tokenSurat(r.id),
+    })),
     year,
   );
 }

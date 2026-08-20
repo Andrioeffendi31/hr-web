@@ -46,12 +46,21 @@ export const bolehKonsol = (role: Role): boolean =>
  * siapa-siapa dan memang publik (dikecualikan dari matcher proxy); disebut di sini
  * supaya `homeFor` di bawah punya tujuan yang sah menurut aturan ini sendiri.
  *
+ * `/verifikasi/...` adalah sasaran QR pada surat izin. Pengunjung anonim sudah
+ * lolos lewat matcher proxy, tapi yang paling mungkin memindai surat itu justru
+ * karyawan yang SEDANG login di ponselnya — dan tanpa baris ini ia satu-satunya
+ * orang di dunia yang dialihkan ke /buka/absen alih-alih melihat jawabannya.
+ *
  * Segment-exact, bukan `startsWith("/buka")` polos — yang terakhir juga akan cocok
  * dengan `/bukalapak` dan menyerahkan rute mana pun yang kebetulan berawalan sama.
  */
 export function canAccess(pathname: string, role: Role): boolean {
   if (bolehKonsol(role)) return true;
-  return pathname === "/ganti-sandi" || pathname.startsWith("/buka/");
+  return (
+    pathname === "/ganti-sandi" ||
+    pathname.startsWith("/buka/") ||
+    pathname.startsWith("/verifikasi/")
+  );
 }
 
 /**

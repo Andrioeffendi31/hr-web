@@ -27,6 +27,9 @@ const UMUM = [
   // pendaratan tautan email; publik, dan tujuan homeFor bagi karyawan
   "/buka/absen",
   "/buka/pengajuan",
+  // sasaran QR pada surat izin: dipindai orang luar, tapi juga oleh karyawan
+  // yang sedang login — yang tanpa ini justru satu-satunya yang ditolak
+  "/verifikasi/7-dHym0rFvkkBjoNg3ayrvjA",
 ];
 
 /** Halaman karyawan yang DIHAPUS. Didaftar di sini bukan sebagai peninggalan,
