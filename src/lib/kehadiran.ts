@@ -9,7 +9,7 @@ import {
   officeLocations,
   settings,
 } from "@/db/schema";
-import { HARI_KERJA_DEFAULT, todayWib } from "./hr";
+import { HARI_KERJA_DEFAULT, JEDA_JEJAK_MENIT, todayWib } from "./hr";
 import { holidaySet } from "./leave";
 
 /**
@@ -212,6 +212,38 @@ export type GrupStatus = keyof ReturnType<typeof grupSql>;
 export const adaCurigaSql = sql<boolean>`exists (
   select 1 from ${attendanceEvents} ae
   where ae.attendance_id = ${attendance.id} and ae.suspect is not null
+)`;
+
+/**
+ * Jejak lokasinya berhenti padahal orangnya masih clock in.
+ *
+ * Inilah satu-satunya jawaban yang tersedia untuk kasus yang tidak bisa dicegah:
+ * Android menaruh aplikasi yang di-force-close dalam keadaan *stopped* dan tidak
+ * mengirim broadcast apa pun ke sana — tidak ada layanan, alarm, atau WorkManager
+ * yang bisa menembusnya sampai penggunanya membuka aplikasinya sendiri. Yang
+ * tidak bisa dicegah setidaknya tidak boleh tak terlihat.
+ *
+ * Diturunkan saat dibaca, tanpa kolom baru dan tanpa heartbeat: masih clock in,
+ * dan ping `lokasi` terakhir (atau jam masuknya, kalau belum ada ping sama
+ * sekali) lebih tua dari `JEDA_JEJAK_MENIT` — ambang yang sudah menjadi definisi
+ * "lubang" di lib/hr.ts, yaitu interval ping 3 jam plus kelonggaran penjadwal
+ * Android.
+ *
+ * TIDAK membedakan "aplikasi mati" dari "tanpa sinyal": ponsel yang hidup tapi
+ * offline akan mengirim ping tertundanya begitu ada jaringan, dan sesudah itu
+ * penanda ini padam sendiri. Yang membedakan keduanya adalah drawer, lewat
+ * `CATATAN_TERTUNDA` pada ping sesudah lubangnya.
+ *
+ * Hanya bermakna untuk HARI INI — hari lampau selalu "berhenti" karena harinya
+ * memang sudah selesai. Karena itu pemanggilnya menyertakan `date = hariIni`.
+ */
+export const jejakMatiSql = (menit: number = JEDA_JEJAK_MENIT) => sql<boolean>`(
+  ${attendance.clockIn} is not null and ${attendance.clockOut} is null
+  and coalesce(
+    (select max(ae.at) from ${attendanceEvents} ae
+      where ae.attendance_id = ${attendance.id} and ae.kind = 'lokasi'),
+    (${attendance.date} + ${attendance.clockIn}) at time zone 'Asia/Jakarta'
+  ) < now() - ${sql.raw(`interval '${menit} minutes'`)}
 )`;
 
 /**

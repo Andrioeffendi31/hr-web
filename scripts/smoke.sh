@@ -422,6 +422,20 @@ check "verifikasi tidak memuat alasan izin" 0 \
 check "verifikasi token ngawur 404" 404 \
   "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/verifikasi/bukan-token")"
 
+# Jejak lokasi yang berhenti padahal masih clock in — satu-satunya jawaban untuk
+# aplikasi yang di-force-close, karena Android tidak mengizinkan apa pun berjalan
+# sesudah itu. Fixture seed pada tanggal HARI INI: Hendra ping terakhir 5 jam lalu
+# (lewat ambang 240 menit), Dimas 30 menit lalu.
+HARIINI_WIB="$(TZ=Asia/Jakarta date +%F)"
+check "jejak yang berhenti ditandai di papan" 1 \
+  "$(body "$BASE/kehadiran?date=$HARIINI_WIB&div=Operations" | grep -c 'Jejak lokasi berhenti')"
+# sisi lain ambangnya, dan ini yang mencegahnya terbalik tanpa ada yang memerah
+check "jejak yang masih hidup tidak ditandai" 0 \
+  "$(body "$BASE/kehadiran?date=$HARIINI_WIB&div=Finance" | grep -c 'Jejak lokasi berhenti')"
+# hari yang sudah lewat selalu "berhenti" — menandainya di sana hanya kebisingan
+check "hari lampau tidak ditandai" 0 \
+  "$(body "$BASE/kehadiran?date=2026-07-30" | grep -c 'Jejak lokasi berhenti')"
+
 echo "15. feed API for infinite scroll"
 feed() { body "$BASE/api/feed/$1"; }
 check "pengumuman page 1 has items" 1 \

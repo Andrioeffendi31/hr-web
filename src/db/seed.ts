@@ -451,7 +451,7 @@ async function main() {
     await db
       .insert(attendance)
       .values(
-        ["Citra Maharani", "Dimas Anggara"].map((nama) => ({
+        ["Citra Maharani", "Dimas Anggara", "Hendra Saputra"].map((nama) => ({
           employeeId: idOf(nama),
           date: hariIniAsli,
           // 00:01, bukan 08:00: smoke mengirim fix bertanggal beberapa jam ke
@@ -466,6 +466,60 @@ async function main() {
         })),
       )
       .onConflictDoNothing();
+
+    /**
+     * Fixture "jejak berhenti": dua sisi ambang, dan keduanya perlu ada — kalau
+     * hanya sisi yang menyala yang diuji, ambangnya bisa terbalik tanpa satu pun
+     * uji memerah.
+     *
+     * Hendra: ping terakhir 5 jam lalu → melewati JEDA_JEJAK_MENIT (240) →
+     * ditandai. Dimas: 30 menit lalu → tidak ditandai. Keduanya relatif terhadap
+     * `now()`, jadi hasilnya tidak bergantung pada jam berapa smoke dijalankan.
+     *
+     * Citra sengaja TIDAK diberi ping di sini: bagian 17 smoke menulis ping
+     * untuknya, dan fixture yang ditimpa uji lain bukan fixture.
+     */
+    const jam = (n: number) => new Date(Date.now() - n * 60 * 60_000);
+    const [hendra] = await db
+      .select({ id: attendance.id })
+      .from(attendance)
+      .where(
+        and(
+          eq(attendance.employeeId, idOf("Hendra Saputra")),
+          eq(attendance.date, hariIniAsli),
+        ),
+      )
+      .limit(1);
+    const [dimas] = await db
+      .select({ id: attendance.id })
+      .from(attendance)
+      .where(
+        and(
+          eq(attendance.employeeId, idOf("Dimas Anggara")),
+          eq(attendance.date, hariIniAsli),
+        ),
+      )
+      .limit(1);
+    if (hendra && dimas) {
+      await db.insert(attendanceEvents).values([
+        {
+          attendanceId: hendra.id,
+          kind: "lokasi" as const,
+          at: jam(5),
+          location: "Gudang Cakung",
+          lat: "-6.188900",
+          lng: "106.939400",
+        },
+        {
+          attendanceId: dimas.id,
+          kind: "lokasi" as const,
+          at: jam(0.5),
+          location: "Rumah · Bekasi",
+          lat: "-6.238300",
+          lng: "106.975600",
+        },
+      ]);
+    }
   }
 
   // 60 hari ke belakang (hari kerja masing-masing divisi) supaya rekap bulanan

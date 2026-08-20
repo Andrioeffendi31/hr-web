@@ -1,6 +1,11 @@
 import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { MapPin, MessageSquareWarning, ShieldAlert } from "lucide-react";
+import {
+  MapPin,
+  MessageSquareWarning,
+  ShieldAlert,
+  WifiOff,
+} from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
 import {
@@ -38,6 +43,7 @@ import {
   cutiDitolak,
   grupSql,
   izinSetengahHari,
+  jejakMatiSql,
   rekapSql,
   statusHarianSql,
   type RekapBaris,
@@ -161,6 +167,11 @@ export default async function KehadiranPage({
     curiga: adaCurigaSql,
     /** ada alasan yang ditulis karyawan dan belum diputus admin */
     perluTinjau: sql<boolean>`(${attendance.lateReason} is not null or ${attendance.earlyReason} is not null) and ${attendance.reviewOk} is null`,
+    /** Jejaknya berhenti padahal masih clock in — aplikasinya kemungkinan
+     *  ditutup paksa. Hanya ditanyakan untuk hari ini: hari yang sudah lewat
+     *  selalu "berhenti", dan menandainya di sana hanya akan jadi kebisingan. */
+    jejakMati:
+      date === hariIni ? jejakMatiSql() : sql<boolean>`false`,
   };
   const [
     [counts],
@@ -425,6 +436,12 @@ export default async function KehadiranPage({
                 <MessageSquareWarning
                   className="text-warning size-3.5 shrink-0"
                   aria-label="Ada alasan yang belum ditinjau"
+                />
+              )}
+              {r.jejakMati && (
+                <WifiOff
+                  className="text-danger size-3.5 shrink-0"
+                  aria-label="Jejak lokasi berhenti — aplikasi kemungkinan ditutup paksa"
                 />
               )}
             </span>
