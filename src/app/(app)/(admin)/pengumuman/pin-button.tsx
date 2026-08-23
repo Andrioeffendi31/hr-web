@@ -1,13 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { Pin } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useSegarkanPengumuman } from "./segarkan";
 
 export function PinButton({ id, pinned }: { id: number; pinned: boolean }) {
-  const router = useRouter();
+  const segarkan = useSegarkanPengumuman();
   const m = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/announcements/pin", {
@@ -20,7 +20,7 @@ export function PinButton({ id, pinned }: { id: number; pinned: boolean }) {
     },
     onSuccess: () => {
       toast.success(pinned ? "Sematan dilepas" : "Pengumuman disematkan");
-      router.refresh();
+      segarkan();
     },
     onError: (e: Error) => toast.error(e.message),
   });

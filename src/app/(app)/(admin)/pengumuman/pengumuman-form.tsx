@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { FileDrop } from "@/components/file-drop";
@@ -18,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { shrinkImage } from "@/lib/image";
+import { useSegarkanPengumuman } from "./segarkan";
 
 /** Batas pilihan di sisi klien, BUKAN batas simpannya. Bannernya dikecilkan dulu
  *  di browser, jadi yang mendarat di server hampir selalu ratusan KB; menolak foto
@@ -63,19 +63,7 @@ export function PengumumanForm({ initial }: { initial?: PengumumanAwal }) {
   // banner lama dibuang tanpa diganti — keadaan tersendiri, karena "tidak memilih
   // berkas baru" dan "minta hapus yang ada" adalah dua maksud yang berbeda
   const [buangBanner, setBuangBanner] = useState(false);
-  const router = useRouter();
-  const qc = useQueryClient();
-
-  const segarkan = () => {
-    /**
-     * Dua-duanya, dan keduanya perlu. `router.refresh()` menyegarkan komponen
-     * servernya, tapi umpannya dipegang react-query: begitu query-nya ter-mount,
-     * cache-nya menang atas `initialData` dari server, jadi tanpa invalidasi
-     * perubahannya tidak muncul sampai halamannya dimuat ulang penuh.
-     */
-    void qc.invalidateQueries({ queryKey: ["feed", "pengumuman"] });
-    router.refresh();
-  };
+  const segarkan = useSegarkanPengumuman();
 
   const save = useMutation({
     mutationFn: async (form: FormData) => {
@@ -110,7 +98,27 @@ export function PengumumanForm({ initial }: { initial?: PengumumanAwal }) {
   });
 
   const formId = `pengumuman-form-${initial?.id ?? "baru"}`;
-  const bannerLama = initial?.bannerKey && !buangBanner && !banner;
+
+  /**
+   * Pratinjau berkas yang BARU dipilih. `createObjectURL` menahan memori sampai
+   * dicabut, jadi ia dibuat lewat useMemo dan dicabut saat berkasnya berganti —
+   * pola yang sama dipakai FileDrop untuk thumbnail kecilnya.
+   */
+  const urlBaru = useMemo(
+    () => (banner ? URL.createObjectURL(banner) : null),
+    [banner],
+  );
+  useEffect(() => {
+    return () => {
+      if (urlBaru) URL.revokeObjectURL(urlBaru);
+    };
+  }, [urlBaru]);
+
+  const pratinjau =
+    urlBaru ??
+    (initial?.bannerKey && !buangBanner
+      ? `/api/files/${initial.bannerKey}`
+      : null);
 
   return (
     <Dialog
@@ -142,7 +150,7 @@ export function PengumumanForm({ initial }: { initial?: PengumumanAwal }) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[620px]">
         <DialogHeader>
           <DialogTitle>
             {ubah ? "Ubah pengumuman" : "Buat pengumuman"}
@@ -211,40 +219,50 @@ export function PengumumanForm({ initial }: { initial?: PengumumanAwal }) {
             />
           </label>
 
-          <div className="text-[12.5px] font-medium">
-            Banner (opsional)
-            {bannerLama && (
-              <div className="mt-1 flex items-center gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/files/${initial!.bannerKey}`}
-                  alt=""
-                  className="h-12 w-20 rounded-[7px] border object-cover"
-                />
+          <div className="border-border-strong rounded-[11px] border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12.5px] font-medium">Banner (opsional)</span>
+              {pratinjau && (
                 <button
                   type="button"
                   className="text-danger text-[12px] font-medium"
-                  onClick={() => setBuangBanner(true)}
+                  onClick={() => {
+                    setBanner(null);
+                    setBuangBanner(true);
+                  }}
                 >
                   Hapus banner
                 </button>
-              </div>
+              )}
+            </div>
+
+            {pratinjau && (
+              /* Besar dan UTUH — `object-contain` di atas latar netral, karena
+                 banner boleh berbentuk apa saja dan memotongnya di sini berarti
+                 memperlihatkan sesuatu yang berbeda dari yang akan dilihat
+                 karyawan. Sama seperti yang ditampilkan aplikasi. */
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={pratinjau}
+                alt=""
+                className="bg-surface-2 mt-2 max-h-[260px] w-full rounded-[9px] border object-contain"
+              />
             )}
+
             <FileDrop
               accept=".jpg,.jpeg,.png,.webp"
               maxBytes={MAKS_PILIH}
-              value={banner}
               disabled={save.isPending}
               hint={
-                bannerLama
-                  ? "Pilih berkas untuk mengganti · JPG, PNG, atau WEBP"
+                pratinjau
+                  ? "Pilih berkas lain untuk mengganti · JPG, PNG, atau WEBP"
                   : "JPG, PNG, atau WEBP · dikecilkan otomatis, tidak dipotong"
               }
               onFile={(f) => {
                 setBanner(f);
                 if (f) setBuangBanner(false);
               }}
-              className="mt-1"
+              className="mt-2"
             />
           </div>
 

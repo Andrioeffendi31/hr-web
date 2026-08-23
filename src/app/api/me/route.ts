@@ -44,6 +44,9 @@ export const GET = withMe(async (me) => {
         title: announcements.title,
         category: announcements.category,
         pinned: announcements.pinned,
+        // ikut di pratinjau supaya kartu pertama carousel Beranda sudah bergambar
+        // pada cat pertama, sebelum umpan 50 barisnya menyusul
+        bannerKey: announcements.bannerKey,
         createdAt: announcements.createdAt,
       })
       .from(announcements)

@@ -86,23 +86,9 @@ export function AnnouncementFeed({
                   <p className="text-muted-foreground mt-1.5 text-[13px] leading-relaxed">
                     {a.body}
                   </p>
-                  {a.bannerKey && (
-                    /* <img> biasa, bukan next/image: bannernya dialirkan lewat
-                       /api/files yang diotorisasi per permintaan, sama seperti
-                       Avatar di bits.tsx.
-
-                       `h-auto` tanpa object-fit: gambarnya tampil UTUH pada rasio
-                       aslinya, bukan dipotong. `max-h-[70vh]` hanya menjaga foto
-                       potret yang sangat tinggi agar tidak mengusir teks di
-                       bawahnya dari layar — dipasangkan `object-contain` supaya
-                       yang terpotong tetap tidak ada, hanya diperkecil. */
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={`/api/files/${a.bannerKey}`}
-                      alt=""
-                      className="mt-2.5 max-h-[70vh] w-full rounded-[10px] border object-contain"
-                    />
-                  )}
+                  {/* Bannernya sengaja TIDAK ditampilkan di daftar: satu gambar besar per
+                      baris mengubah papan menjadi galeri, dan yang dicari HR di sini
+                      adalah judul dan statusnya. Gambarnya ada di dialog ubah. */}
                   <p className="text-subtle mt-2.5 text-[11.5px]">
                     {a.author ?? "HR"} ·{" "}
                     {new Date(a.createdAt).toLocaleDateString("id-ID", {

@@ -1,16 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { useSegarkanPengumuman } from "./segarkan";
 
 /** Hapus pengumuman. Bannernya ikut terhapus dari object storage oleh rutenya,
  *  dan `announcement_reads` oleh ON DELETE CASCADE. */
 export function HapusButton({ id, title }: { id: number; title: string }) {
-  const router = useRouter();
-  const qc = useQueryClient();
+  const segarkan = useSegarkanPengumuman();
 
   const hapus = useMutation({
     mutationFn: async () => {
@@ -25,8 +24,7 @@ export function HapusButton({ id, title }: { id: number; title: string }) {
     },
     onSuccess: () => {
       toast.success("Pengumuman dihapus");
-      void qc.invalidateQueries({ queryKey: ["feed", "pengumuman"] });
-      router.refresh();
+      segarkan();
     },
     onError: (e: Error) => toast.error(e.message),
   });
