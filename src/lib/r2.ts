@@ -39,7 +39,7 @@ export const MAX_ATTACHMENT = 10 * MB;
 const PUT_TTL = 20 * 60;
 const GET_TTL = 60;
 
-export type Kind = "doc" | "photo" | "selfie" | "logo" | "lampiran";
+export type Kind = "doc" | "photo" | "selfie" | "logo" | "lampiran" | "banner";
 
 // webp ada di sini, bukan hanya di IMAGE_EXT: aplikasi mobile mengecilkan setiap
 // gambar menjadi WebP sebelum mengunggahnya sebagai dokumen, jadi tanpa baris ini
@@ -110,6 +110,18 @@ export function keyFor(
       return `lampiran/${scope}/${uuid}-${safeName(filename)}`;
     case "logo":
       return `logo/${scope}/${uuid}-${safeName(filename)}`;
+    /**
+     * Prefiks sendiri, bukan menumpang `logo/`, supaya rute berkas bisa
+     * memutuskan haknya dari namanya sendiri: banner pengumuman boleh dibaca
+     * siapa pun yang sudah masuk, dan itu keputusan yang pantas ditulis
+     * terang-terangan alih-alih diwarisi diam-diam dari prefiks milik logo.
+     *
+     * UUID per unggahan, sama alasannya dengan `photo`: mengganti banner harus
+     * mengubah URL-nya, kalau tidak gambar lama bertahan selama proxy masih
+     * menyuruh browser menyimpannya.
+     */
+    case "banner":
+      return `banner/${scope}/${uuid}-${safeName(filename)}`;
   }
 }
 

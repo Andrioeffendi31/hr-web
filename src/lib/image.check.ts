@@ -1,6 +1,6 @@
 /** Self-check for the centre-crop arithmetic. Run: npm run check */
 import assert from "node:assert/strict";
-import { cropRect } from "./image";
+import { cropRect, fitWidth, isImageFile, renameExt, shrinkImage, toWebp } from "./image";
 
 const R = 3 / 4; // the selfie ratio, portrait
 
@@ -43,4 +43,58 @@ const sq = cropRect(1000, 1000, R);
 assert.equal(sq.h, 1000);
 assert.equal(sq.w, 750);
 
-console.log("image.check.ts ok");
+// fitWidth: mengecilkan sesuai rasio, dan TIDAK PERNAH membesarkan
+assert.deepEqual(fitWidth(4000, 3000, 1600), { w: 1600, h: 1200 });
+assert.deepEqual(fitWidth(3000, 4000, 1600), { w: 1600, h: 2133 });
+// sudah lebih kecil → dibiarkan apa adanya. Tanpa penjaga ini foto struk 400px
+// akan diregangkan ke 1600px dan berkasnya justru membengkak.
+assert.deepEqual(fitWidth(400, 300, 1600), { w: 400, h: 300 });
+assert.deepEqual(fitWidth(1600, 900, 1600), { w: 1600, h: 900 });
+// gambar yang sangat panjang tidak boleh runtuh menjadi tinggi 0
+assert.deepEqual(fitWidth(10000, 3, 100), { w: 100, h: 1 });
+
+// nama berkas ikut ke kunci objek, jadi ekstensinya harus benar-benar tertukar
+assert.equal(renameExt("Banner Rapat.PNG", "webp"), "Banner Rapat.webp");
+assert.equal(renameExt("tanpa-ekstensi", "webp"), "tanpa-ekstensi.webp");
+assert.equal(renameExt("arsip.tar.gz", "webp"), "arsip.tar.webp");
+assert.equal(renameExt(".gitignore", "webp"), ".gitignore.webp");
+
+// hanya gambar yang boleh masuk canvas; sisanya diunggah apa adanya
+assert.equal(isImageFile(new File([], "foto.JPG")), true);
+assert.equal(isImageFile(new File([], "foto.webp")), true);
+assert.equal(isImageFile(new File([], "kontrak.pdf")), false);
+assert.equal(isImageFile(new File([], "data.xlsx")), false);
+assert.equal(isImageFile(new File([], "tanpa-ekstensi")), false);
+
+/**
+ * Kompresi TIDAK BOLEH menggagalkan unggahan.
+ *
+ * Node tidak punya `createImageBitmap`, jadi menjalankannya di sini menguji persis
+ * cabang yang paling penting sekaligus paling mudah terlupakan: browser yang tidak
+ * bisa memproses gambar harus mengembalikan berkas ASLINYA, bukan melempar. Kalau
+ * penjaga itu hilang, setiap orang di browser lawas berhenti bisa mengunggah foto.
+ *
+ * Dibungkus fungsi, bukan top-level await: berkas ini di-transpile ke CJS oleh tsx.
+ */
+async function cekJatuhCadangan() {
+  const asli = new File([new Uint8Array(64)], "foto.jpg", { type: "image/jpeg" });
+  assert.equal(
+    await toWebp(asli, { ratio: 1, width: 512 }),
+    asli,
+    "toWebp harus mengembalikan berkas asli, bukan melempar",
+  );
+  assert.equal(
+    await shrinkImage(asli),
+    asli,
+    "shrinkImage harus mengembalikan berkas asli, bukan melempar",
+  );
+  // yang bukan gambar tidak pernah disentuh sama sekali
+  const pdf = new File([new Uint8Array(8)], "kontrak.pdf", {
+    type: "application/pdf",
+  });
+  assert.equal(await shrinkImage(pdf), pdf, "dokumen tidak boleh dipaksa ke canvas");
+}
+
+void cekJatuhCadangan().then(() => {
+  console.log("image.check.ts ok");
+});

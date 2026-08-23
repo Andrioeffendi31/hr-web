@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toWebp } from "@/lib/image";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/bits";
 import { FileDrop } from "@/components/file-drop";
@@ -11,6 +12,12 @@ import { ComboboxField } from "@/components/combobox-field";
 import { DateField } from "@/components/date-field";
 import { SelectField } from "@/components/select-field";
 import { LABEL_PERAN, type Role } from "@/lib/access";
+
+/** Batas pilihan di sisi klien, BUKAN batas simpannya. Gambarnya dikecilkan
+ *  dulu di browser, jadi yang mendarat di server hampir selalu ratusan KB;
+ *  menolak foto kamera 12 MP sebelum sempat dikecilkan justru menghapus
+ *  gunanya kompresi ini. Server tetap otoritas terakhirnya (MAX_IMAGE). */
+const MAKS_PILIH = 20 * 1024 * 1024;
 import {
   Dialog,
   DialogContent,
@@ -108,11 +115,14 @@ export function EmployeeForm({
   // Photo goes to object storage, not through /api/employees — the key is derived
   // from the employee id, so it can only be uploaded once the row exists.
   const photo = useMutation({
-    mutationFn: (file: File) => {
+    mutationFn: async (file: File) => {
       const fd = new FormData();
       fd.append("kind", "photo");
       fd.append("employeeId", String(initial!.id));
-      fd.append("file", file);
+      fd.append(
+        "file",
+        await toWebp(file, { ratio: 1, width: 512, quality: 0.7 }),
+      );
       return fetch("/api/files", { method: "POST", body: fd }).then(
         async (res) => {
           const data = (await res.json().catch(() => ({}))) as {
@@ -189,9 +199,9 @@ export function EmployeeForm({
                   Foto profil
                   <FileDrop
                     accept=".jpg,.jpeg,.png,.webp"
-                    maxBytes={1.5 * 1024 * 1024}
+                    maxBytes={MAKS_PILIH}
                     disabled={photo.isPending}
-                    hint="JPG, PNG, atau WEBP · maksimal 1,5 MB"
+                    hint="JPG, PNG, atau WEBP · dikecilkan otomatis sebelum diunggah"
                     className="mt-1"
                     onFile={(f) => f && photo.mutate(f)}
                   />

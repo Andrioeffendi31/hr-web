@@ -12,6 +12,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
+import { shrinkImage } from "@/lib/image";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { AttBadge, Avatar } from "@/components/bits";
 import { PetaPanel } from "@/components/peta";
@@ -35,6 +36,12 @@ import {
   tanggalPanjang,
 } from "@/lib/hr";
 import { cn } from "@/lib/utils";
+
+/** Batas pilihan di sisi klien, BUKAN batas simpannya. Gambarnya dikecilkan
+ *  dulu di browser, jadi yang mendarat di server hampir selalu ratusan KB;
+ *  menolak foto kamera 12 MP sebelum sempat dikecilkan justru menghapus
+ *  gunanya kompresi ini. Server tetap otoritas terakhirnya (MAX_IMAGE). */
+const MAKS_PILIH = 20 * 1024 * 1024;
 
 export type AttEvent = {
   id: number;
@@ -627,7 +634,9 @@ function TimelineEntry({
       const fd = new FormData();
       fd.append("kind", "event");
       fd.append("eventId", String(e.id));
-      fd.append("file", file);
+      // shrinkImage, bukan toWebp: ini foto bukti kehadiran, dan memotong
+      // tengahnya berarti membuang bagian yang justru dicari orang saat memeriksa
+      fd.append("file", await shrinkImage(file, { maxWidth: 1600 }));
       const res = await fetch("/api/files", { method: "POST", body: fd });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Gagal mengunggah foto");
@@ -722,7 +731,7 @@ function TimelineEntry({
           ) : (
             <FileDrop
               accept=".jpg,.jpeg,.png,.webp"
-              maxBytes={1.5 * 1024 * 1024}
+              maxBytes={MAKS_PILIH}
               disabled={up.isPending}
               onFile={(f) => f && up.mutate(f)}
             >

@@ -746,6 +746,68 @@ check "absen ber-GPS palsu ditolak" 400 \
      -F action=in -F lat=-6.2249 -F lng=106.8092 -F locationId=1 -F mocked=1)"
 rm -f "$PINGJAR"
 
+echo "19. buat pengumuman"
+# Hak aksesnya bukan tombol yang disembunyikan, melainkan requireAdmin() di
+# rutenya — jadi yang diuji di sini adalah rutenya, bukan halamannya.
+BANNER="$(mktemp -t banner).png"
+printf 'x' > "$BANNER"
+buat() { # judul [--banner] [field=value ...]
+  local judul="$1"; shift
+  local args=(-F "title=$judul" -F "body=Isi pengumuman uji yang cukup panjang." -F "category=Kebijakan")
+  for a in "$@"; do
+    if [ "$a" = "--banner" ]; then args+=(-F "banner=@$BANNER;type=image/png")
+    else args+=(-F "$a"); fi
+  done
+  curl -s -b "$JAR" -X POST "$BASE/api/announcements" "${args[@]}"
+}
+check "karyawan tidak bisa membuat pengumuman" 403 \
+  "$(curl -s -b "$EMPJAR" -o /dev/null -w '%{http_code}' -X POST "$BASE/api/announcements" \
+     -F "title=Dari karyawan" -F "body=Seharusnya ditolak sebelum apa pun ditulis." -F "category=Kebijakan")"
+check "tanpa sesi juga ditolak" 403 \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/announcements" \
+     -F "title=Anonim" -F "body=Seharusnya ditolak sebelum apa pun ditulis." -F "category=Kebijakan")"
+check "judul terlalu pendek ditolak" "Judul terlalu pendek" \
+  "$(buat "ab" | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+check "kategori di luar daftar ditolak" 400 \
+  "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$BASE/api/announcements" \
+     -F "title=Kategori ngawur" -F "body=Isi pengumuman uji yang cukup panjang." -F "category=Gosip")"
+check "admin bisa membuat pengumuman" 1 "$(buat "Uji pengumuman tanpa banner" | grep -c '"ok":true')"
+# Ponsel membaca umpannya sendiri; medannya harus ada walau isinya null, kalau
+# tidak aplikasi tidak akan pernah tahu ada banner untuk ditampilkan.
+check "ponsel ikut menerima medan bannerKey" 1 \
+  "$(curl -s -b "$EMPJAR" "$BASE/api/me/announcements" | grep -c '"bannerKey"')"
+# Banner bertipe salah ditolak SEBELUM barisnya ditulis — kalau tidak, gambar yang
+# ditolak akan menyisakan pengumuman tanpa gambar yang sudah terlanjur tayang.
+BADBANNER="$(mktemp -t banner).exe"
+printf 'x' > "$BADBANNER"
+check "banner bertipe salah ditolak" "Banner harus JPG, PNG atau WEBP" \
+  "$(curl -s -b "$JAR" -X POST "$BASE/api/announcements" \
+     -F "title=Banner salah tipe" -F "body=Isi pengumuman uji yang cukup panjang." \
+     -F "category=Kebijakan" -F "banner=@$BADBANNER;type=application/octet-stream" \
+     | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+check "pengumuman gagal itu tidak tersimpan" 0 \
+  "$(body "$BASE/api/feed/pengumuman?page=1" | grep -c 'Banner salah tipe')"
+# Jalur banner yang berhasil menulis ke object storage, jadi dijaga sama seperti
+# absen keluar di §18: hanya jalan kalau S3 diarahkan ke stand-in lokal.
+if [ -z "${R2_ENDPOINT:-}" ]; then
+  echo "  skip banner tersimpan: setel R2_ENDPOINT ke S3 lokal supaya unggahannya tidak masuk R2 produksi"
+else
+  check "pengumuman dengan banner diterima" 1 \
+    "$(buat "Uji pengumuman dengan banner" --banner | grep -c '"bannerKey":"banner/')"
+  check "bannerKey ikut di umpan" 1 \
+    "$(body "$BASE/api/feed/pengumuman?page=1" | grep -c '"bannerKey":"banner/')"
+  check "kunci bannernya sampai ke ponsel" 1 \
+    "$(curl -s -b "$EMPJAR" "$BASE/api/me/announcements" | grep -c '"bannerKey":"banner/')"
+  # dan karyawan biasa boleh benar-benar mengambil gambarnya: pengumuman memang
+  # untuk semua orang, jadi prefiks banner/ tidak menanyakan kepemilikan apa pun
+  BKEY="$(curl -s -b "$EMPJAR" "$BASE/api/me/announcements" | grep -o '"bannerKey":"banner/[^"]*"' | head -1 | sed 's/"bannerKey":"//;s/"$//')"
+  check "karyawan boleh membuka bannernya" 200 \
+    "$(curl -s -b "$EMPJAR" -o /dev/null -w '%{http_code}' "$BASE/api/files/$BKEY")"
+  check "tanpa sesi banner ditolak" 401 \
+    "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/files/$BKEY")"
+fi
+rm -f "$BANNER" "$BADBANNER"
+
 rm -f "$JAR" "$BADJAR" "$EMPJAR"
 echo
 [ $fail -eq 0 ] && echo "smoke: all checks passed" || echo "smoke: FAILURES above"

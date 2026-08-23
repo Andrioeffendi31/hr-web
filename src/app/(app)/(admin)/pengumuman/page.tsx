@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { announcementReads, announcements, employees } from "@/db/schema";
 import { PageHead } from "@/components/bits";
 import { FEED_PAGE } from "@/lib/paging";
+import { PengumumanForm } from "./pengumuman-form";
 import { AnnouncementFeed } from "./feed";
 
 export default async function PengumumanPage() {
@@ -16,6 +17,7 @@ export default async function PengumumanPage() {
         category: announcements.category,
         audience: announcements.audience,
         pinned: announcements.pinned,
+        bannerKey: announcements.bannerKey,
         createdAt: announcements.createdAt,
         author: employees.name,
         reads:
@@ -37,7 +39,9 @@ export default async function PengumumanPage() {
       <PageHead
         title="Pengumuman"
         desc={`${total.n} pengumuman aktif untuk ${staff.n} karyawan`}
-      />
+      >
+        <PengumumanForm />
+      </PageHead>
 
       <AnnouncementFeed
         initial={rows.map((r) => ({

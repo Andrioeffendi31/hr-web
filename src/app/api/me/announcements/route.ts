@@ -14,6 +14,9 @@ export const GET = withMe(async () => {
       body: announcements.body,
       category: announcements.category,
       pinned: announcements.pinned,
+      /** kunci objek, bukan URL — telepon merakitnya sendiri menjadi
+       *  `${API}/api/files/<key>` dan mengirim cookienya sebagai header */
+      bannerKey: announcements.bannerKey,
       createdAt: announcements.createdAt,
       author: employees.name,
     })

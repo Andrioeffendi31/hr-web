@@ -4,9 +4,16 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { Camera } from "lucide-react";
 import { toast } from "sonner";
+import { toWebp } from "@/lib/image";
 import { FileDrop } from "@/components/file-drop";
 import { FilePreview } from "@/components/file-preview";
 import { ekstensi } from "@/lib/hr";
+
+/** Batas pilihan di sisi klien, BUKAN batas simpannya. Gambarnya dikecilkan
+ *  dulu di browser, jadi yang mendarat di server hampir selalu ratusan KB;
+ *  menolak foto kamera 12 MP sebelum sempat dikecilkan justru menghapus
+ *  gunanya kompresi ini. Server tetap otoritas terakhirnya (MAX_IMAGE). */
+const MAKS_PILIH = 20 * 1024 * 1024;
 
 /**
  * Selfie for one attendance row: thumbnail when it exists, upload when it does
@@ -33,7 +40,9 @@ export function SelfieCell({
       fd.append("kind", "selfie");
       fd.append("employeeId", String(employeeId));
       fd.append("date", date);
-      fd.append("file", file);
+      // 3:4 720px — angka yang sama dipakai absen.tsx di aplikasi ponsel, supaya
+      // selfie yang diperbaiki admin sebanding dengan yang dikirim karyawannya
+      fd.append("file", await toWebp(file, { ratio: 3 / 4, width: 720 }));
       const res = await fetch("/api/files", { method: "POST", body: fd });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Gagal mengunggah selfie");
@@ -82,7 +91,7 @@ export function SelfieCell({
   return (
     <FileDrop
       accept=".jpg,.jpeg,.png,.webp"
-      maxBytes={1.5 * 1024 * 1024}
+      maxBytes={MAKS_PILIH}
       disabled={up.isPending}
       onFile={(f) => f && up.mutate(f)}
     >

@@ -39,6 +39,18 @@ assert.notEqual(keyFor("photo", "42"), keyFor("photo", "42"));
 // selfie keys stay deterministic: one per punch, and the punch id is in the scope
 assert.equal(keyFor("selfie", "42/2026-08-02"), "selfie/42/2026-08-02");
 
+// banner pengumuman: prefiksnya sendiri — /api/files/[...key] memberi izin baca
+// berdasarkan prefiks itu, jadi kalau ia berubah, gambarnya berhenti tampil
+assert.equal(
+  keyFor("banner", "9", "Banner Rapat.PNG", "u3"),
+  "banner/9/u3-banner-rapat.png",
+);
+assert.notEqual(
+  keyFor("banner", "9", "b.png"),
+  keyFor("banner", "9", "b.png"),
+  "uuid baru tiap unggahan, supaya URL banner pengganti ikut berubah",
+);
+
 // every generated key stays inside its own prefix
 for (const key of [a, keyFor("photo", "7"), keyFor("selfie", "7/2026-08-02")]) {
   assert.ok(!key.split("/").includes(".."), `${key} escapes its prefix`);

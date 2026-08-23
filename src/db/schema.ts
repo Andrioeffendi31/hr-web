@@ -396,6 +396,16 @@ export const announcements = pgTable("announcements", {
   category: annCategoryEnum("category").notNull(),
   audience: text("audience").notNull().default("Semua karyawan"),
   pinned: boolean("pinned").notNull().default(false),
+  /**
+   * Kunci objek R2 untuk foto banner, bukan URL — sama seperti setiap kolom
+   * berkas lain di skema ini. Yang menyajikannya kembali adalah
+   * /api/files/[...key], yang mengizinkan prefiks `banner/` untuk siapa pun yang
+   * sudah masuk: pengumuman memang untuk dibaca semua karyawan.
+   *
+   * Nullable, karena banner itu pelengkap — pengumuman tanpa gambar tetap
+   * pengumuman yang sah.
+   */
+  bannerKey: text("banner_key"),
   authorId: integer("author_id").references(() => employees.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

@@ -54,6 +54,7 @@ const FEEDS = {
         category: announcements.category,
         audience: announcements.audience,
         pinned: announcements.pinned,
+        bannerKey: announcements.bannerKey,
         createdAt: announcements.createdAt,
         author: employees.name,
         reads:

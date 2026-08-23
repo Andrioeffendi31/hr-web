@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { shrinkImage } from "@/lib/image";
 import { Button } from "@/components/ui/button";
 import { ComboboxField } from "@/components/combobox-field";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -89,18 +90,32 @@ export function UploadDocument({
   const upload = useMutation({
     mutationFn: async (v: { file: File; folder: string; ownerId?: number }) => {
       setPct(0);
+      /**
+       * Dikecilkan SEBELUM presign, bukan sesudahnya.
+       *
+       * Presign menitipkan nama dan ukuran berkas untuk menyusun kuncinya dan
+       * memeriksa batasnya, jadi mengompresi sesudah itu berarti kunci dan
+       * ukuran yang sudah ditandatangani menggambarkan berkas yang tidak jadi
+       * dikirim. Yang bukan gambar — PDF, CSV, XLSX, DOCX — dikembalikan apa
+       * adanya oleh shrinkImage.
+       */
+      const file = await shrinkImage(v.file, { maxWidth: 1600 });
+
       const { key, url } = (await json("/api/files/presign", {
         folder: v.folder,
-        filename: v.file.name,
-        size: v.file.size,
+        filename: file.name,
+        size: file.size,
       })) as { key: string; url: string };
 
-      await putWithProgress(url, v.file, setPct);
+      await putWithProgress(url, file, setPct);
 
       return json("/api/files", {
         kind: "doc",
         key,
-        name: v.file.name,
+        // nama berkas HASIL, bukan aslinya: gambar yang dikecilkan tersimpan
+        // sebagai .webp, dan mencatatnya sebagai .jpg akan membuat unduhannya
+        // turun dengan ekstensi yang berbohong tentang isinya
+        name: file.name,
         folder: v.folder,
         ...(v.ownerId && { ownerId: v.ownerId }),
       });
@@ -157,7 +172,7 @@ export function UploadDocument({
               value={file}
               onFile={setFile}
               disabled={upload.isPending}
-              hint="PDF, CSV, XLSX, DOCX, JPG, PNG, atau WebP · maksimal 100 MB"
+              hint="PDF, CSV, XLSX, DOCX, JPG, PNG, atau WebP · maksimal 100 MB · gambar dikecilkan otomatis"
             />
 
             <div className="text-[12px] font-medium">

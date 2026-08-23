@@ -13,11 +13,18 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { shrinkImage } from "@/lib/image";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FileDrop } from "@/components/file-drop";
 import { SelectField } from "@/components/select-field";
 import { cn } from "@/lib/utils";
+
+/** Batas pilihan di sisi klien, BUKAN batas simpannya. Gambarnya dikecilkan
+ *  dulu di browser, jadi yang mendarat di server hampir selalu ratusan KB;
+ *  menolak foto kamera 12 MP sebelum sempat dikecilkan justru menghapus
+ *  gunanya kompresi ini. Server tetap otoritas terakhirnya (MAX_IMAGE). */
+const MAKS_PILIH = 20 * 1024 * 1024;
 
 type SettingsValue = {
   companyName: string;
@@ -93,7 +100,9 @@ export function SettingsForm({
     mutationFn: async (file: File) => {
       const data = new FormData();
       data.append("kind", "logo");
-      data.append("file", file);
+      // shrinkImage, bukan toWebp: logo adalah wordmark, dan memotongnya ke rasio
+      // tetap akan memenggal namanya sendiri. Cukup diturunkan resolusinya.
+      data.append("file", await shrinkImage(file, { maxWidth: 512, quality: 0.8 }));
       return errorFrom(
         await fetch("/api/files", { method: "POST", body: data }),
         "Logo gagal diunggah",
@@ -196,12 +205,12 @@ export function SettingsForm({
               )}
               <FileDrop
                 accept=".jpg,.jpeg,.png,.webp"
-                maxBytes={2 * 1024 * 1024}
+                maxBytes={MAKS_PILIH}
                 disabled={logo.isPending || removeLogo.isPending}
                 hint={
                   logo.isPending
                     ? "Sedang mengunggah logo…"
-                    : "PNG, JPG, atau WEBP · maksimal 2 MB"
+                    : "PNG, JPG, atau WEBP · dikecilkan otomatis, tidak dipotong"
                 }
                 onFile={(file) => file && logo.mutate(file)}
                 className="mt-1"

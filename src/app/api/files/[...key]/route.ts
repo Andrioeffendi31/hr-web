@@ -77,7 +77,13 @@ export async function GET(
     if (!isAdmin && segments[1] !== me) {
       return new Response("Tidak boleh diakses", { status: 403 });
     }
-  } else if (segments[0] !== "photo" && segments[0] !== "logo") {
+  } else if (
+    segments[0] !== "photo" &&
+    segments[0] !== "logo" &&
+    // banner pengumuman: memang untuk dibaca semua karyawan, jadi cukup sudah
+    // masuk — tidak ada baris yang perlu ditanyai kepemilikannya
+    segments[0] !== "banner"
+  ) {
     return new Response("Tidak ditemukan", { status: 404 });
   }
 

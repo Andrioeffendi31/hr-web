@@ -13,6 +13,8 @@ export type Announcement = {
   category: string;
   audience: string;
   pinned: boolean;
+  /** kunci objek R2, bukan URL — dilayani /api/files/[...key] */
+  bannerKey: string | null;
   /** serialised over JSON on page 2+, so treat it as a string */
   createdAt: string;
   author: string | null;
@@ -82,6 +84,17 @@ export function AnnouncementFeed({
                   <p className="text-muted-foreground mt-1.5 text-[13px] leading-relaxed">
                     {a.body}
                   </p>
+                  {a.bannerKey && (
+                    /* <img> biasa, bukan next/image: bannernya dialirkan lewat
+                       /api/files yang diotorisasi per permintaan, sama seperti
+                       Avatar di bits.tsx */
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/api/files/${a.bannerKey}`}
+                      alt=""
+                      className="mt-2.5 max-h-64 w-full rounded-[10px] border object-cover"
+                    />
+                  )}
                   <p className="text-subtle mt-2.5 text-[11.5px]">
                     {a.author ?? "HR"} ·{" "}
                     {new Date(a.createdAt).toLocaleDateString("id-ID", {
