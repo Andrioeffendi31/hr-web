@@ -1,5 +1,5 @@
 import { revalidatePath } from "next/cache";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lte } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/auth";
 import { db } from "@/db";
@@ -117,12 +117,6 @@ export async function POST(req: Request) {
   if (!att?.clockIn) {
     return Response.json({ error: "Belum clock-in hari ini" }, { status: 400 });
   }
-  if (att.clockOut) {
-    return Response.json(
-      { error: "Sudah clock-out hari ini" },
-      { status: 400 },
-    );
-  }
 
   /**
    * Waktu fix ini pada sumbu waktu, dibatasi ke dalam hari kerja yang berjalan.
@@ -147,7 +141,48 @@ export async function POST(req: Request) {
     );
   }
 
-  const [last] = await db
+  /**
+   * Sudah clock-out: yang ditolak adalah fix yang DIAMBIL sesudahnya, bukan yang
+   * baru TERKIRIM sesudahnya.
+   *
+   * Dulu kolom `clock_out` yang terisi menolak keduanya, dan itu membuang persis
+   * data yang paling mahal: telepon yang kehilangan sinyal di tengah shift
+   * mengantre fix-fix yang sah, lalu antrean itu baru terkuras saat sinyalnya
+   * kembali — kerap sesudah orangnya pulang. Semua hilang permanen, dan karena
+   * telepon memperlakukan 400 sebagai terminal, ia sekalian mematikan
+   * pelacakannya sendiri.
+   *
+   * `at` sudah terkurung di [clockIn, sekarang] oleh dua gerbang di atas, jadi
+   * yang tersisa hanya batas atasnya. Toleransi skew yang sama dipakai supaya fix
+   * yang diambil tepat sebelum tombol pulang ditekan tidak jatuh di sisi yang salah.
+   */
+  const selesai = att.clockOut
+    ? new Date(`${today}T${att.clockOut}+07:00`).getTime()
+    : null;
+  if (selesai !== null && at.getTime() > selesai + SKEW_MS) {
+    return Response.json(
+      { error: "Sudah clock-out hari ini" },
+      { status: 400 },
+    );
+  }
+
+  /**
+   * Dua tetangga terdekat `at` pada sumbu waktu PENGAMBILAN — satu di belakang,
+   * satu di depan — bukan satu baris "paling baru".
+   *
+   * Kenapa dua. Sebelumnya jeda diukur sebagai `at - (baris terbaru).at`, dan
+   * selisih itu BERTANDA. Fix antrean yang mendarat sesudah ping yang lebih baru
+   * sudah masuk menghasilkan angka negatif, negatif selalu < MIN_GAP, jadi ia
+   * ditolak 409 — dan `sendPing` di telepon menghitung 409 sebagai "sudah
+   * diterima" lalu menghapusnya dari antrean. Hilang tanpa baris, tanpa jejak,
+   * tanpa satu pun galat yang terlihat HR.
+   *
+   * Dengan tetangga di kedua sisi, gerbangnya menjadi apa yang sebenarnya
+   * dimaksud sejak awal — "tidak boleh ada baris lain dalam radius 2,5 jam dari
+   * titik ini" — dan berlaku sama untuk fix yang datang maju maupun mundur.
+   * Plafon satu baris per 2,5 jam tetap utuh.
+   */
+  const [sebelum] = await db
     .select({
       at: attendanceEvents.at,
       lat: attendanceEvents.lat,
@@ -158,26 +193,36 @@ export async function POST(req: Request) {
       and(
         eq(attendanceEvents.attendanceId, att.id),
         eq(attendanceEvents.kind, "lokasi"),
+        lte(attendanceEvents.at, at),
       ),
     )
     .orderBy(desc(attendanceEvents.at))
     .limit(1);
 
-  if (last) {
-    // Diukur pada sumbu waktu PENGAMBILAN, bukan waktu unggah: itulah yang membuat
-    // tiga fix antrean berjarak 3 jam bisa mendarat sekaligus, tanpa membuka lubang
-    // banjir — `at` terkurung di [clockIn, sekarang], jadi plafonnya tetap satu
-    // baris per 2,5 jam hari kerja berapa pun cepatnya klien menembak.
-    const elapsed = at.getTime() - last.at.getTime();
-    if (elapsed < MIN_GAP_MS) {
-      return Response.json(
-        {
-          error: "Ping terlalu cepat",
-          nextAllowedAt: new Date(last.at.getTime() + MIN_GAP_MS).toISOString(),
-        },
-        { status: 409 },
-      );
-    }
+  const [sesudah] = await db
+    .select({ at: attendanceEvents.at })
+    .from(attendanceEvents)
+    .where(
+      and(
+        eq(attendanceEvents.attendanceId, att.id),
+        eq(attendanceEvents.kind, "lokasi"),
+        gt(attendanceEvents.at, at),
+      ),
+    )
+    .orderBy(asc(attendanceEvents.at))
+    .limit(1);
+
+  const rapat = [sebelum, sesudah].find(
+    (n) => n && Math.abs(at.getTime() - n.at.getTime()) < MIN_GAP_MS,
+  );
+  if (rapat) {
+    return Response.json(
+      {
+        error: "Ping terlalu cepat",
+        nextAllowedAt: new Date(rapat.at.getTime() + MIN_GAP_MS).toISOString(),
+      },
+      { status: 409 },
+    );
   }
 
   /**
@@ -217,8 +262,8 @@ export async function POST(req: Request) {
   // sekali, dan justru ping pertama yang paling mungkin datang dari orang yang baru
   // menyalakan fake-GPS setelah absen di kantor.
   const asal =
-    last?.lat && last.lng
-      ? { lat: Number(last.lat), lng: Number(last.lng), at: last.at }
+    sebelum?.lat && sebelum.lng
+      ? { lat: Number(sebelum.lat), lng: Number(sebelum.lng), at: sebelum.at }
       : att.lat && att.lng
         ? { lat: Number(att.lat), lng: Number(att.lng), at: new Date(mulai) }
         : null;

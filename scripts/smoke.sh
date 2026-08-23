@@ -612,6 +612,34 @@ else
   # ...dan jeda itu tetap menjadi rate limit
   check "fix kedua di jendela yang sama ditolak 409" "Ping terlalu cepat" \
     "$(ping 20 -6.2249 106.8092 | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+  # Fix MUNDUR yang mendarat sesudah dua baris di atas: 5,2 jam ke belakang, jadi
+  # lebih dari 2,5 jam dari tetangga terdekatnya. Dulu jeda diukur sebagai
+  # `at - (baris TERBARU).at` — bertanda — jadi apa pun yang datang mundur
+  # menghasilkan angka negatif, ditolak 409, dan telepon menghitung 409 sebagai
+  # "diterima" lalu menghapusnya dari antrean. Hilang tanpa jejak; ini penjaganya.
+  # Butuh 00:01 + 2,5 jam ruang DI BAWAH titik itu, jadi sebelum 06:00 dilewati.
+  if [ "$(TZ=Asia/Jakarta date +%H)" -lt 06 ]; then
+    echo "  skip fix mundur: sebelum 06:00 WIB belum ada ruang 5,2 jam sejak absen masuk"
+  else
+    MUNDURBODY="{\"lat\":-6.2249,\"lng\":106.8092,\"at\":\"$(iso 18780)\",\"delayed\":true}"
+    check "fix mundur di luar jendela tetap diterima" 1 \
+      "$(curl -s -b "$PINGJAR" -X POST "$BASE/api/attendance/ping" \
+         -H 'content-type: application/json' -d "$MUNDURBODY" \
+         | grep -c '"ok":true')"
+  fi
+  # Tetangga di sisi DEPAN, diuji sendiri supaya benar-benar kueri baru itu yang
+  # menjawab: 7,5 jam ke belakang tidak punya tetangga di belakangnya sama sekali
+  # (absen masuk 00:01), dan berjarak 2,28 jam dari baris 5,2 jam — di bawah
+  # plafon. Sebelum perubahan ini tidak ada satu pun kueri yang melihat ke depan.
+  if [ "$(TZ=Asia/Jakarta date +%H)" -lt 08 ]; then
+    echo "  skip tetangga depan: sebelum 08:00 WIB belum ada ruang 7,5 jam sejak absen masuk"
+  else
+    DEPANBODY="{\"lat\":-6.2249,\"lng\":106.8092,\"at\":\"$(iso 27000)\",\"delayed\":true}"
+    check "fix mundur yang menempel tetangga depan ditolak" "Ping terlalu cepat" \
+      "$(curl -s -b "$PINGJAR" -X POST "$BASE/api/attendance/ping" \
+         -H 'content-type: application/json' -d "$DEPANBODY" \
+         | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+  fi
   # nama tempat dan lubang jejak terbaca di endpoint detail hari
   HARIINI="$(TZ=Asia/Jakarta date +%F)"
   # $PINGJAR, bukan body(): body() memakai sesi admin, dan admin tidak punya
