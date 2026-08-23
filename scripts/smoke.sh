@@ -671,6 +671,75 @@ else
        | sed 's/.*"suspect":"\([^"]*\)".*/\1/')"
 fi
 rm -f "$MOCKJAR"
+echo "18. absen keluar di luar kantor"
+# Sebelum ini jalur ini BUNTU: gerbang geofence di /api/me/clock hanya bersyarat
+# "ada kantornya", dan pada absen keluar kantornya selalu ada — dibaca dari baris
+# absen masuk, bukan dari yang dikirim telepon. Siapa pun yang absen masuk di
+# kantor tidak punya cara mengakhiri harinya dari tempat lain.
+#
+# Selfie wajib untuk setiap punch, dan yang diperiksa hanya NAMA berkas serta
+# ukurannya (extOf + allowed + MAX_IMAGE), bukan isinya — jadi stub satu byte
+# sudah melewati gerbang itu dan kita tidak perlu fixture gambar sungguhan.
+SELFIE="$(mktemp -t selfie).jpg"
+printf 'x' > "$SELFIE"
+# Dimas: seed memberinya absen masuk 00:01 di Kantor Pusat hari ini, tanpa absen
+# keluar — persis keadaan yang dibutuhkan, tanpa perlu punch masuk lebih dulu
+# (punch masuk akan mengunggah selfie ke R2 sungguhan).
+KELUARJAR="$(mktemp)"
+KELUARCSRF="$(curl -s -b "$KELUARJAR" -c "$KELUARJAR" "$BASE/api/auth/csrf" | sed 's/.*"csrfToken":"\([^"]*\)".*/\1/')"
+curl -s -b "$KELUARJAR" -c "$KELUARJAR" -o /dev/null \
+  -d "csrfToken=$KELUARCSRF" -d "email=dimas.anggara@nanumindahsejati.co.id" \
+  -d "password=$PASS" "$BASE/api/auth/callback/credentials"
+# Monas — jauh dari Kantor Pusat seed, pasti di luar radius berapa pun
+JAUH_LAT=-6.1754
+JAUH_LNG=106.8272
+keluar() { # [alasan]
+  curl -s -b "$KELUARJAR" -X POST "$BASE/api/me/clock" \
+    -F action=out -F "lat=$JAUH_LAT" -F "lng=$JAUH_LNG" \
+    -F "selfie=@$SELFIE;type=image/jpeg" ${1:+-F "awayReason=$1"}
+}
+
+DIMASBEKAS="$(curl -s -b "$KELUARJAR" "$BASE/api/me" | grep -c '"clockOut":null')"
+if [ "$DIMASBEKAS" != "1" ]; then
+  echo "  skip absen keluar di luar kantor: Dimas sudah absen keluar · jalankan npm run db:seed dulu"
+else
+  # Ketiga uji di bawah DITOLAK sebelum baris ditulis dan sebelum selfie diunggah,
+  # jadi tidak satu pun menyentuh R2 maupun mengubah data.
+  check "absen keluar di luar kantor tanpa alasan ditolak" "Isi alasan absen keluar di luar kantor dulu" \
+    "$(keluar | sed 's/.*"error":"[^.]*\. \([^"]*\)".*/\1/')"
+  check "alasan terlalu pendek ditolak" "alasan minimal 5 karakter" \
+    "$(keluar "ok" | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+  # Penjaga bahwa kelonggaran ini TIDAK ikut membuka sisi masuk: kehadiran di
+  # kantor adalah fakta yang sedang dibuktikan, dan alasan tidak menggantikannya.
+  # Andini belum punya baris absensi hari ini, jadi ini benar-benar jalur masuk.
+  MASUKJAR="$(mktemp)"
+  MASUKCSRF="$(curl -s -b "$MASUKJAR" -c "$MASUKJAR" "$BASE/api/auth/csrf" | sed 's/.*"csrfToken":"\([^"]*\)".*/\1/')"
+  curl -s -b "$MASUKJAR" -c "$MASUKJAR" -o /dev/null \
+    -d "csrfToken=$MASUKCSRF" -d "email=andini.rahmawati@nanumindahsejati.co.id" \
+    -d "password=$PASS" "$BASE/api/auth/callback/credentials"
+  check "absen MASUK di luar radius tetap ditolak" "Di luar radius" \
+    "$(curl -s -b "$MASUKJAR" -X POST "$BASE/api/me/clock" \
+       -F action=in -F "lat=$JAUH_LAT" -F "lng=$JAUH_LNG" -F locationId=1 \
+       -F "awayReason=alasan tidak berlaku di sini" \
+       -F "selfie=@$SELFIE;type=image/jpeg" \
+       | sed 's/.*"error":"\(Di luar radius\).*/\1/')"
+  rm -f "$MASUKJAR"
+
+  # Jalur SUKSES menulis baris dan MENGUNGGAH selfie. Hanya dijalankan kalau S3
+  # diarahkan ke stand-in lokal (R2_ENDPOINT), supaya smoke tidak pernah
+  # menitipkan sampah ke bucket produksi.
+  if [ -z "${R2_ENDPOINT:-}" ]; then
+    echo "  skip absen keluar diterima: setel R2_ENDPOINT ke S3 lokal supaya unggahannya tidak masuk R2 produksi"
+  else
+    check "absen keluar di luar kantor dengan alasan diterima" 1 \
+      "$(keluar "dinas ke klien, langsung pulang dari sana" | grep -c '"ok":true')"
+    check "alasannya tersimpan dan terlihat karyawan" 1 \
+      "$(curl -s -b "$KELUARJAR" "$BASE/api/me/attendance/$(TZ=Asia/Jakarta date +%F)" \
+         | grep -c '"awayReason":"dinas ke klien, langsung pulang dari sana"')"
+  fi
+fi
+rm -f "$KELUARJAR" "$SELFIE"
+
 # absen masuk dengan GPS palsu ditolak sebelum apa pun ditulis — termasuk sebelum selfie
 check "absen ber-GPS palsu ditolak" 400 \
   "$(curl -s -b "$PINGJAR" -o /dev/null -w '%{http_code}' -X POST "$BASE/api/me/clock" \

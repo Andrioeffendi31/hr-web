@@ -96,6 +96,7 @@ export const GET = withMe(async (me, _req, ctx) => {
      */
     lateReason: day.lateReason,
     earlyReason: day.earlyReason,
+    awayReason: day.awayReason,
     review:
       day.reviewOk === null || day.reviewOk === undefined
         ? null

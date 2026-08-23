@@ -166,7 +166,7 @@ export default async function KehadiranPage({
     selfieUrl: attendance.selfieUrl,
     curiga: adaCurigaSql,
     /** ada alasan yang ditulis karyawan dan belum diputus admin */
-    perluTinjau: sql<boolean>`(${attendance.lateReason} is not null or ${attendance.earlyReason} is not null) and ${attendance.reviewOk} is null`,
+    perluTinjau: sql<boolean>`(${attendance.lateReason} is not null or ${attendance.earlyReason} is not null or ${attendance.awayReason} is not null) and ${attendance.reviewOk} is null`,
     /** Jejaknya berhenti padahal masih clock in — aplikasinya kemungkinan
      *  ditutup paksa. Hanya ditanyakan untuk hari ini: hari yang sudah lewat
      *  selalu "berhenti", dan menandainya di sana hanya akan jadi kebisingan. */
@@ -308,6 +308,7 @@ export default async function KehadiranPage({
         selfieUrl: attendance.selfieUrl,
         lateReason: attendance.lateReason,
         earlyReason: attendance.earlyReason,
+        awayReason: attendance.awayReason,
         reviewOk: attendance.reviewOk,
         reviewNote: attendance.reviewNote,
         reviewedAt: attendance.reviewedAt,

@@ -85,6 +85,8 @@ export type DayDetail = {
   /** alasan yang ditulis karyawan di titik absen, wajib saat di luar jamnya */
   lateReason: string | null;
   earlyReason: string | null;
+  /** ...dan saat absen keluar dari luar TEMPATnya; bisa berbarengan dengan yang di atas */
+  awayReason: string | null;
   /** null = belum ditinjau · true = diterima (telat diputihkan) · false = ditolak */
   reviewOk: boolean | null;
   reviewNote: string | null;
@@ -514,7 +516,8 @@ function KartuAlasan({ d }: { d: DayDetail }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (!d.attendanceId || (!d.lateReason && !d.earlyReason)) return null;
+  if (!d.attendanceId || (!d.lateReason && !d.earlyReason && !d.awayReason))
+    return null;
 
   const diputihkan = d.reviewOk === true && d.status === "hadir";
 
@@ -545,6 +548,12 @@ function KartuAlasan({ d }: { d: DayDetail }) {
       {d.earlyReason && (
         <p className="mt-1 text-[12px]">
           <span className="text-subtle">Pulang cepat:</span> {d.earlyReason}
+        </p>
+      )}
+      {d.awayReason && (
+        <p className="mt-1 text-[12px]">
+          <span className="text-subtle">Keluar di luar kantor:</span>{" "}
+          {d.awayReason}
         </p>
       )}
 

@@ -242,6 +242,20 @@ export const attendance = pgTable(
     lateReason: text("late_reason"),
     earlyReason: text("early_reason"),
     /**
+     * Alasan absen KELUAR dari luar radius kantor — di luar TEMPATnya, bukan di
+     * luar jamnya.
+     *
+     * Kolom sendiri, bukan menumpang `early_reason`, karena keduanya menjawab
+     * pertanyaan yang berbeda dan bisa terjadi bersamaan: orang yang pulang pukul
+     * 15:00 dari rumah klien menulis dua alasan, dan drawer admin harus bisa
+     * menyebut yang mana yang sedang dibaca.
+     *
+     * Hanya untuk absen keluar. Absen MASUK di luar radius tetap ditolak
+     * /api/me/clock — kehadiran di kantor adalah fakta yang sedang dibuktikan,
+     * dan alasan tidak bisa menggantikannya.
+     */
+    awayReason: text("away_reason"),
+    /**
      * Tinjauan admin atas alasan di atas — satu keputusan untuk harinya, bukan
      * satu per alasan.
      *

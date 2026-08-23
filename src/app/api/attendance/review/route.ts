@@ -52,6 +52,7 @@ export async function POST(req: Request) {
       date: attendance.date,
       lateReason: attendance.lateReason,
       earlyReason: attendance.earlyReason,
+      awayReason: attendance.awayReason,
     })
     .from(attendance)
     .where(eq(attendance.id, id))
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Absensi tidak ditemukan" }, { status: 404 });
   }
   // tidak ada yang bisa ditinjau kalau tidak ada yang ditulis karyawannya
-  if (!row.lateReason && !row.earlyReason) {
+  if (!row.lateReason && !row.earlyReason && !row.awayReason) {
     return Response.json(
       { error: "Tidak ada alasan untuk ditinjau" },
       { status: 400 },

@@ -412,6 +412,7 @@ export async function hariKaryawan(employeeId: number, tanggal: string) {
       selfieKey: attendance.selfieUrl,
       lateReason: attendance.lateReason,
       earlyReason: attendance.earlyReason,
+      awayReason: attendance.awayReason,
       reviewOk: attendance.reviewOk,
       reviewNote: attendance.reviewNote,
       reviewedAt: attendance.reviewedAt,

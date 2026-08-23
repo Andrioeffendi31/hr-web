@@ -65,6 +65,8 @@ const body = z.object({
    */
   lateReason: z.string().trim().min(5, "alasan minimal 5 karakter").max(500).optional(),
   earlyReason: z.string().trim().min(5, "alasan minimal 5 karakter").max(500).optional(),
+  /** alasan absen KELUAR dari luar radius — di luar tempatnya, bukan jamnya */
+  awayReason: z.string().trim().min(5, "alasan minimal 5 karakter").max(500).optional(),
 });
 
 export const POST = withMe(async (me, req) => {
@@ -85,6 +87,7 @@ export const POST = withMe(async (me, req) => {
     mocked,
     lateReason,
     earlyReason,
+    awayReason,
   } = parsed.data;
 
   /**
@@ -207,9 +210,31 @@ export const POST = withMe(async (me, req) => {
   const meter = office
     ? jarakMeter(lat, lng, Number(office.lat), Number(office.lng))
     : null;
-  if (office && meter! > office.radiusM) {
+
+  /**
+   * Di luar pagar — yang artinya berbeda untuk tiap arah absen.
+   *
+   * MASUK tetap ditolak keras: berada di kantor adalah fakta yang sedang
+   * dibuktikan oleh punch itu sendiri, dan alasan tidak bisa menggantikan bukti.
+   *
+   * KELUAR diterima asal ditulis alasannya. Menolaknya tidak membuat siapa pun
+   * kembali ke kantor — ia hanya menyandera orang yang memang sudah pulang, dan
+   * menghapus fakta bahwa ia pulang. Sebelum ini jalur itu buntu total: `office`
+   * pada absen keluar selalu terisi dari baris absen masuknya, jadi siapa pun
+   * yang absen masuk di kantor tidak punya cara mengakhiri harinya dari tempat
+   * lain. Sakelar WFH di telepon pun tidak menolong — pada absen keluar field
+   * `wfh` memang diabaikan di sini.
+   */
+  const diLuar = office !== undefined && meter! > office.radiusM;
+
+  if (diLuar && action === "in") {
     throw new Bad(
-      `Di luar radius ${office.name} (${formatJarak(meter!)} dari titik absen, maks ${office.radiusM} m)`,
+      `Di luar radius ${office!.name} (${formatJarak(meter!)} dari titik absen, maks ${office!.radiusM} m)`,
+    );
+  }
+  if (diLuar && action === "out" && !awayReason) {
+    throw new Bad(
+      `Anda ${formatJarak(meter!)} dari ${office!.name}. Isi alasan absen keluar di luar kantor dulu`,
     );
   }
 
@@ -283,7 +308,15 @@ export const POST = withMe(async (me, req) => {
     attendanceId = existing!.id;
     await db
       .update(attendance)
-      .set({ clockOut: now, earlyReason: earlyReason ?? null })
+      .set({
+        clockOut: now,
+        earlyReason: earlyReason ?? null,
+        // `diLuar ?`, bukan sekadar `?? null`: alasan yang terkirim padahal
+        // orangnya di dalam radius tidak boleh ikut tersimpan, karena kolom
+        // terisi itulah yang menyalakan ikon "perlu ditinjau" di papan admin —
+        // dan hari yang tidak punya apa-apa untuk ditinjau tidak boleh menyala.
+        awayReason: diLuar ? (awayReason ?? null) : null,
+      })
       .where(eq(attendance.id, attendanceId));
   }
 
