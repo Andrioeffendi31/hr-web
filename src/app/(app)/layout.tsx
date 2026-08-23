@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, isNotNull } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { auth, stale } from "@/auth";
 import { db } from "@/db";
@@ -7,12 +7,12 @@ import {
   employees,
   leaveRequests,
   overtimeRequests,
-  settings,
 } from "@/db/schema";
 import { Shell } from "@/components/shell";
 import { type Role } from "@/lib/access";
 import { PERUSAHAAN, todayWib } from "@/lib/hr";
 import { BERJALAN } from "@/lib/leave";
+import { bacaSettings } from "@/lib/settings";
 
 export default async function AppLayout({
   children,
@@ -34,8 +34,8 @@ export default async function AppLayout({
     // name and logo. The five aggregates below it are company-wide counts, so for
     // an employee they are simply never issued: there is nothing to redact if the
     // query never runs, and nothing to forget on the next person's page.
-    [[cfg], stats, forced] = await Promise.all([
-      db.select().from(settings).limit(1),
+    [cfg, stats, forced] = await Promise.all([
+      bacaSettings(),
       isAdmin ? loadAdminStats(today) : null,
       // Read per request rather than carried in the JWT: the flag clears mid
       // session, and a stale token would keep bouncing somebody who has already
@@ -69,15 +69,15 @@ export default async function AppLayout({
       badges={
         stats
           ? {
-              belumAbsen: stats[0][0].n,
-              cutiPending: stats[1][0].n,
-              lemburPending: stats[2][0].n,
+              belumAbsen: stats.belumAbsen,
+              cutiPending: stats.cutiPending,
+              lemburPending: stats.lemburPending,
             }
           : undefined
       }
       liveLabel={
         stats
-          ? `${stats[3][0].n} dari ${stats[4][0].n} karyawan sudah absen masuk hari ini.`
+          ? `${stats.masuk} dari ${stats.aktif} karyawan sudah absen masuk hari ini.`
           : undefined
       }
       companyName={cfg?.companyName ?? PERUSAHAAN}
@@ -93,31 +93,45 @@ export default async function AppLayout({
   );
 }
 
-function loadAdminStats(today: string) {
-  return Promise.all([
-    db
-      .select({ n: count() })
-      .from(attendance)
-      .where(
-        and(eq(attendance.date, today), eq(attendance.status, "belum_absen")),
-      ),
-    db
-      .select({ n: count() })
-      .from(leaveRequests)
-      .where(inArray(leaveRequests.status, [...BERJALAN])),
-    db
-      .select({ n: count() })
-      .from(overtimeRequests)
-      // lembur satu tingkat: ia tidak pernah melewati menunggu_pimpinan
-      .where(eq(overtimeRequests.status, "menunggu")),
-    // "sudah absen masuk" = anyone with a clock-in, which includes telat and
-    // wfh. Counting status='hadir' alone under-reported it.
-    db
-      .select({ n: count() })
-      .from(attendance)
-      .where(and(eq(attendance.date, today), isNotNull(attendance.clockIn))),
-    db.select({ n: count() }).from(employees).where(eq(employees.active, true)),
-  ]);
+/**
+ * Lima angka untuk sidebar — satu perjalanan, bukan lima.
+ *
+ * Dulu lima `count()` terpisah di dalam Promise.all. Pekerjaannya di basis data
+ * sama saja, tapi perjalanannya lima kali, dan ini berjalan di SETIAP halaman
+ * konsol. Lewat jaringan ke Neon itu empat penantian yang tidak membeli apa pun;
+ * sebagai subkueri skalar dalam satu SELECT, jawabannya datang sekaligus.
+ *
+ * "sudah absen masuk" = siapa pun yang punya jam masuk, termasuk telat dan wfh.
+ * Menghitung status='hadir' saja dulu melaporkannya terlalu sedikit.
+ */
+async function loadAdminStats(today: string) {
+  const { rows } = await db.execute(sql`select
+    (select count(*) from ${attendance}
+      where ${attendance.date} = ${today}
+        and ${attendance.status} = 'belum_absen') as belum,
+    (select count(*) from ${leaveRequests}
+      where ${leaveRequests.status} in (${sql.join(
+        BERJALAN.map((v) => sql`${v}`),
+        sql`, `,
+      )})) as cuti,
+    -- lembur satu tingkat: ia tidak pernah melewati menunggu_pimpinan
+    (select count(*) from ${overtimeRequests}
+      where ${overtimeRequests.status} = 'menunggu') as lembur,
+    (select count(*) from ${attendance}
+      where ${attendance.date} = ${today}
+        and ${attendance.clockIn} is not null) as masuk,
+    (select count(*) from ${employees}
+      where ${employees.active}) as aktif`);
+
+  const r = rows[0] as Record<string, string | number>;
+  const n = (k: string) => Number(r?.[k] ?? 0);
+  return {
+    belumAbsen: n("belum"),
+    cutiPending: n("cuti"),
+    lemburPending: n("lembur"),
+    masuk: n("masuk"),
+    aktif: n("aktif"),
+  };
 }
 
 function DatabaseDown({ error }: { error: Error }) {

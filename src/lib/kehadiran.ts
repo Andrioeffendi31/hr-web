@@ -7,10 +7,10 @@ import {
   employees,
   leaveRequests,
   officeLocations,
-  settings,
 } from "@/db/schema";
 import { HARI_KERJA_DEFAULT, JEDA_JEJAK_MENIT, todayWib } from "./hr";
 import { holidaySet } from "./leave";
+import { bacaSettings } from "@/lib/settings";
 
 /**
  * Status kehadiran harian, dinyatakan dalam SQL.
@@ -39,11 +39,10 @@ import { holidaySet } from "./leave";
  * orang untuk hari yang tidak pernah direkam.
  */
 export async function mulaiCatat(): Promise<string | null> {
-  const [row] = await db
-    .select({ sejak: settings.trackingSince })
-    .from(settings)
-    .limit(1);
-  return row?.sejak ?? null;
+  // lewat bacaSettings, bukan kueri sendiri: barisnya sama, dan di dalam satu
+  // render `cache()` membuat pembacaan kedua tidak menyentuh basis data lagi
+  const row = await bacaSettings();
+  return row?.trackingSince ?? null;
 }
 
 /** Jenis cuti yang DISETUJUI dan mencakup tanggal ini, atau NULL. */

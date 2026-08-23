@@ -11,6 +11,7 @@ import { AttBadge, Avatar, Pill } from "@/components/bits";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmployeeForm } from "./employee-form";
 import { type Role } from "@/lib/access";
+import { useTutupDialog } from "@/components/use-tutup-dialog";
 import {
   type AttStatus,
   jam,
@@ -68,6 +69,7 @@ export function EmployeeDetail({
   managers: { id: number; name: string }[];
 }) {
   const router = useRouter();
+  const { tampil, tutup } = useTutupDialog(backHref);
 
   // The temporary password lives in state for exactly as long as the dialog showing
   // it is open. Never persisted, never in a toast — a toast outlives the eyes on it.
@@ -158,7 +160,7 @@ export function EmployeeDetail({
   ];
 
   return (
-    <Dialog open onOpenChange={(open) => !open && router.push(backHref)}>
+    <Dialog open={tampil} onOpenChange={tutup}>
       <DialogContent className="flex max-h-[88vh] flex-col gap-0 p-0 sm:max-w-[840px]">
         {/* pr-14 keeps the status badge clear of the dialog's close button */}
         <div className="flex items-center gap-3 border-b py-4 pr-14 pl-5">

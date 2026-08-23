@@ -36,6 +36,7 @@ import {
   tanggalPanjang,
 } from "@/lib/hr";
 import { cn } from "@/lib/utils";
+import { useTutupDialog } from "@/components/use-tutup-dialog";
 
 /** Batas pilihan di sisi klien, BUKAN batas simpannya. Gambarnya dikecilkan
  *  dulu di browser, jadi yang mendarat di server hampir selalu ratusan KB;
@@ -172,7 +173,7 @@ export function AttendanceDetail({
   detail: DayDetail;
   backHref: string;
 }) {
-  const router = useRouter();
+  const { tampil, tutup } = useTutupDialog(backHref);
 
   const minutes =
     d.clockIn && d.clockOut ? overtimeMinutes(d.clockIn, d.clockOut) : null;
@@ -230,7 +231,7 @@ export function AttendanceDetail({
   const titik = jejakAbsen(d.events, d.office);
 
   return (
-    <Dialog open onOpenChange={(open) => !open && router.push(backHref)}>
+    <Dialog open={tampil} onOpenChange={tutup}>
       <DialogContent className="flex max-h-[88vh] flex-col gap-0 p-0 sm:max-w-[720px]">
         {/* pr-14 keeps the badge clear of the dialog's close button */}
         <div className="flex items-center gap-3 border-b py-4 pr-14 pl-5">

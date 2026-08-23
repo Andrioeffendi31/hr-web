@@ -14,7 +14,6 @@ import {
   divisions as divisionTable,
   employees,
   officeLocations,
-  settings,
 } from "@/db/schema";
 import {
   AttBadge,
@@ -51,6 +50,7 @@ import {
 import { holidaySet } from "@/lib/leave";
 import { FEED_PAGE, parsePaging, parseSort } from "@/lib/paging";
 import { cn } from "@/lib/utils";
+import { bacaSettings } from "@/lib/settings";
 
 type Search = {
   date?: string;
@@ -93,11 +93,24 @@ export default async function KehadiranPage({
   const statusFilter = sp.status ?? "all";
   const monthStart = `${date.slice(0, 7)}-01`;
 
-  const [cfg] = await db.select().from(settings).limit(1);
-
-  // shift columns ride along: the page header has to state which schedule the
-  // hadir/telat column was judged against, and that now depends on the filter
-  const divisions = await db
+  /**
+   * Empat pembacaan yang saling bebas, dijalankan bersamaan.
+   *
+   * Sebelumnya keempatnya `await` berurutan, jadi halaman ini membayar empat kali
+   * perjalanan bolak-balik ke basis data sebelum kueri yang sesungguhnya dimulai.
+   * Di basis data lokal itu tidak terlihat; lewat jaringan ke Neon ia menjadi
+   * penantian yang nyata — dan dialog yang dibuka atau ditutup membayarnya lagi
+   * dari awal, karena keduanya adalah navigasi.
+   *
+   * `mulaiCatat()` membaca baris `settings` yang sama dengan `bacaSettings()`;
+   * `cache()` di lib/settings yang membuat pembacaan keduanya tidak menyentuh
+   * basis data lagi, jadi ini empat panggilan tapi tiga kueri.
+   */
+  const [cfg, divisions, libur, sejak] = await Promise.all([
+    bacaSettings(),
+    // shift columns ride along: the page header has to state which schedule the
+    // hadir/telat column was judged against, and that now depends on the filter
+    db
     .select({
       division: divisionTable.name,
       shiftStart: divisionTable.shiftStart,
@@ -105,7 +118,10 @@ export default async function KehadiranPage({
       lateToleranceMinutes: divisionTable.lateToleranceMinutes,
     })
     .from(divisionTable)
-    .orderBy(asc(divisionTable.name));
+    .orderBy(asc(divisionTable.name)),
+    holidaySet(Number(date.slice(0, 4))),
+    mulaiCatat(),
+  ]);
 
   /**
    * The schedule to print in the header.
@@ -129,8 +145,6 @@ export default async function KehadiranPage({
   // stat cards or the status filter from the rows it happens to have fetched.
   // Aturannya sendiri ada di lib/kehadiran.ts, dipakai bersama dengan feed
   // "belum absen" yang dulu menyimpan salinan SQL-nya sendiri.
-  const libur = await holidaySet(Number(date.slice(0, 4)));
-  const sejak = await mulaiCatat();
   const statusText = statusHarianSql(date, hariIni, libur, true, sejak);
   const GROUP_SQL = grupSql(statusText);
   /**
@@ -176,7 +190,6 @@ export default async function KehadiranPage({
   const [
     [counts],
     visibleRaw,
-    [boardTotal],
     absenteeRows,
     [absenteeTotal],
     onLeaveRaw,
@@ -218,15 +231,6 @@ export default async function KehadiranPage({
       .orderBy(order)
       .limit(perPage)
       .offset(offset),
-
-    db
-      .select({ n: sql<number>`count(*)`.mapWith(Number) })
-      .from(employees)
-      .leftJoin(
-        attendance,
-        and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
-      )
-      .where(boardWhere),
 
     db
       .select({
@@ -272,6 +276,21 @@ export default async function KehadiranPage({
       .orderBy(asc(employees.name))
       .limit(50),
   ]);
+
+  /**
+   * Berapa baris yang cocok dengan filter yang sedang aktif — DITURUNKAN, bukan
+   * ditanyakan lagi.
+   *
+   * Dulu ini kueri `count(*)` tersendiri yang mengulang join dan seluruh CASE
+   * status yang sama persis dengan `counts` di atasnya, padahal `counts` sudah
+   * menghitung setiap embernya sekaligus lewat FILTER. Jawabannya selalu salah
+   * satu angka yang sudah ada di tangan: `boardWhere` hanya `baseWhere` ditambah
+   * ember status, dan `counts` dihitung tepat di atas `baseWhere`.
+   */
+  const boardTotal =
+    statusFilter in counts
+      ? counts[statusFilter as keyof typeof counts]
+      : counts.total;
 
   const visible = visibleRaw.map((r) => ({
     ...r,
@@ -716,7 +735,7 @@ export default async function KehadiranPage({
             <DataTable
               rows={visible}
               columns={boardColumns}
-              total={boardTotal.n}
+              total={boardTotal}
               page={page}
               perPage={perPage}
               path="/kehadiran"
