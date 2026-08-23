@@ -62,6 +62,8 @@ const body = z.object({
    * berhenti berjalan (tidak ada fix sama sekali). Bagi HR keduanya sangat berbeda.
    */
   delayed: z.coerce.boolean().optional(),
+  /** fix yang diambil TEPAT saat koneksi kembali, di luar irama 3 jam */
+  reconnect: z.coerce.boolean().optional(),
 });
 
 /** 2.5 h, not 3 h: a phone's background scheduler drifts, and rejecting a
@@ -71,6 +73,19 @@ const MIN_GAP_MS = 2.5 * 60 * 60 * 1000;
 /** Toleransi jam perangkat untuk `at`: satu menit, cukup untuk skew biasa dan
  *  jauh dari cukup untuk memalsukan urutan kejadian. */
 const SKEW_MS = 60_000;
+
+/**
+ * Jeda khusus untuk ping "kembali online".
+ *
+ * Pulihnya koneksi adalah kejadian yang layak dicatat sendiri — HR perlu melihat
+ * di mana orangnya saat sinyalnya kembali, dan menunggu putaran 3 jam berikutnya
+ * berarti kehilangan momen itu. Tapi mengecualikannya SEPENUHNYA berbahaya:
+ * ponsel di area bersinyal buruk berkedip putus-sambung puluhan kali dalam sejam,
+ * dan tiap kedipan akan menjadi satu baris yang mengubur jejak yang berguna.
+ *
+ * Jadi bukan "tanpa batas", melainkan "batas yang lain": sepuluh menit.
+ */
+const JEDA_RECONNECT_MS = 10 * 60 * 1000;
 
 export async function POST(req: Request) {
   let user;
@@ -84,7 +99,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return Response.json({ error: "Koordinat tidak valid" }, { status: 400 });
   }
-  const { lat, lng, location, mocked, delayed } = parsed.data;
+  const { lat, lng, location, mocked, delayed, reconnect } = parsed.data;
   const today = todayWib();
 
   const [att] = await db
@@ -212,14 +227,17 @@ export async function POST(req: Request) {
     .orderBy(asc(attendanceEvents.at))
     .limit(1);
 
+  // Ping "kembali online" memakai jeda sendiri, bukan jeda 3 jam — lihat
+  // JEDA_RECONNECT_MS. Plafonnya tetap ada, angkanya saja yang berbeda.
+  const jeda = reconnect ? JEDA_RECONNECT_MS : MIN_GAP_MS;
   const rapat = [sebelum, sesudah].find(
-    (n) => n && Math.abs(at.getTime() - n.at.getTime()) < MIN_GAP_MS,
+    (n) => n && Math.abs(at.getTime() - n.at.getTime()) < jeda,
   );
   if (rapat) {
     return Response.json(
       {
         error: "Ping terlalu cepat",
-        nextAllowedAt: new Date(rapat.at.getTime() + MIN_GAP_MS).toISOString(),
+        nextAllowedAt: new Date(rapat.at.getTime() + jeda).toISOString(),
       },
       { status: 409 },
     );
@@ -284,11 +302,15 @@ export async function POST(req: Request) {
       lng: String(lng),
       location: location ?? null,
       // only when it is worth saying: the drawer already renders the distance for
-      // every ping, so a note repeating it would be noise. These two are.
+      // every ping, so a note repeating it would be noise. These three are.
       note:
         [
           outside ? `Di luar radius ${att.officeName}` : null,
           delayed ? CATATAN_TERTUNDA : null,
+          // Inline, bukan konstanta seperti CATATAN_TERTUNDA: tidak ada satu pun
+          // pembaca yang mencocokkan teks ini — drawer hanya menampilkannya —
+          // dan `Di luar radius` di atas pun sudah inline dengan alasan yang sama.
+          reconnect ? "Kembali online" : null,
         ]
           .filter(Boolean)
           .join(" · ") || null,

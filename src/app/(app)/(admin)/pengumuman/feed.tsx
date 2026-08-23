@@ -4,6 +4,8 @@ import { Megaphone } from "lucide-react";
 import { Empty, Panel, Pill, type Tone } from "@/components/bits";
 import { FeedFooter } from "@/components/feed-footer";
 import { useInfiniteFeed } from "@/components/use-infinite-feed";
+import { HapusButton } from "./hapus-button";
+import { PengumumanForm } from "./pengumuman-form";
 import { PinButton } from "./pin-button";
 
 export type Announcement = {
@@ -87,12 +89,18 @@ export function AnnouncementFeed({
                   {a.bannerKey && (
                     /* <img> biasa, bukan next/image: bannernya dialirkan lewat
                        /api/files yang diotorisasi per permintaan, sama seperti
-                       Avatar di bits.tsx */
+                       Avatar di bits.tsx.
+
+                       `h-auto` tanpa object-fit: gambarnya tampil UTUH pada rasio
+                       aslinya, bukan dipotong. `max-h-[70vh]` hanya menjaga foto
+                       potret yang sangat tinggi agar tidak mengusir teks di
+                       bawahnya dari layar — dipasangkan `object-contain` supaya
+                       yang terpotong tetap tidak ada, hanya diperkecil. */
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={`/api/files/${a.bannerKey}`}
                       alt=""
-                      className="mt-2.5 max-h-64 w-full rounded-[10px] border object-cover"
+                      className="mt-2.5 max-h-[70vh] w-full rounded-[10px] border object-contain"
                     />
                   )}
                   <p className="text-subtle mt-2.5 text-[11.5px]">
@@ -106,7 +114,21 @@ export function AnnouncementFeed({
                     · {a.audience} · dibaca {a.reads} orang
                   </p>
                 </div>
+                <div className="flex shrink-0 items-center gap-0.5">
                 <PinButton id={a.id} pinned={a.pinned} />
+                <PengumumanForm
+                  initial={{
+                    id: a.id,
+                    title: a.title,
+                    body: a.body,
+                    category: a.category,
+                    audience: a.audience,
+                    pinned: a.pinned,
+                    bannerKey: a.bannerKey,
+                  }}
+                />
+                <HapusButton id={a.id} title={a.title} />
+              </div>
               </div>
             </article>
           );

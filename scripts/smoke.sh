@@ -640,6 +640,28 @@ else
          -H 'content-type: application/json' -d "$DEPANBODY" \
          | sed 's/.*"error":"\([^"]*\)".*/\1/')"
   fi
+  # Ping "kembali online": kejadian tersendiri, di luar irama 3 jam.
+  # 1,5 jam ke belakang berjarak >10 menit dari kedua tetangganya (2,7 jam dan
+  # 30 detik) tapi <2,5 jam dari keduanya — jadi tanpa flag reconnect ia PASTI
+  # ditolak 409, dan dengan flag itu ia harus diterima. Itu yang diuji di sini.
+  reconnectping() { # detik-ke-belakang [--polos]
+    local body="{\"lat\":-6.2249,\"lng\":106.8092,\"at\":\"$(iso "$1")\""
+    [ "${2:-}" = "--polos" ] || body="$body,\"reconnect\":true"
+    curl -s -b "$PINGJAR" -X POST "$BASE/api/attendance/ping" \
+      -H 'content-type: application/json' -d "$body}"
+  }
+  check "tanpa flag, ping di jendela 3 jam tetap ditolak" "Ping terlalu cepat" \
+    "$(reconnectping 5400 --polos | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+  check "ping kembali-online diterima di jendela yang sama" 1 \
+    "$(reconnectping 5400 | grep -c '"ok":true')"
+  check "barisnya bertanda Kembali online" 1 \
+    "$(curl -s -b "$PINGJAR" "$BASE/api/me/attendance/$(TZ=Asia/Jakarta date +%F)" \
+       | grep -c 'Kembali online')"
+  # ...dan plafonnya tetap ada, cuma angkanya berbeda: 3 menit dari baris yang
+  # baru saja masuk masih di dalam jeda 10 menit miliknya sendiri
+  check "kembali-online pun punya plafon sendiri" "Ping terlalu cepat" \
+    "$(reconnectping 5220 | sed 's/.*"error":"\([^"]*\)".*/\1/')"
+
   # nama tempat dan lubang jejak terbaca di endpoint detail hari
   HARIINI="$(TZ=Asia/Jakarta date +%F)"
   # $PINGJAR, bukan body(): body() memakai sesi admin, dan admin tidak punya
@@ -806,6 +828,31 @@ else
   check "tanpa sesi banner ditolak" 401 \
     "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/files/$BKEY")"
 fi
+# Ubah dan hapus — dua rute yang sama-sama merusak kalau penjaganya bocor.
+ID="$(buat "Uji ubah dan hapus" | sed 's/.*"id":\([0-9]*\).*/\1/')"
+check "karyawan tidak bisa mengubah pengumuman" 403 \
+  "$(curl -s -b "$EMPJAR" -o /dev/null -w '%{http_code}' -X PATCH "$BASE/api/announcements" \
+     -F "id=$ID" -F "title=Diubah karyawan" -F "body=Seharusnya ditolak sebelum apa pun berubah." -F "category=Libur")"
+check "karyawan tidak bisa menghapus pengumuman" 403 \
+  "$(curl -s -b "$EMPJAR" -o /dev/null -w '%{http_code}' -X DELETE "$BASE/api/announcements" \
+     -H 'content-type: application/json' -d "{\"id\":$ID}")"
+check "admin bisa mengubah pengumuman" 1 \
+  "$(curl -s -b "$JAR" -X PATCH "$BASE/api/announcements" \
+     -F "id=$ID" -F "title=Judul sudah diubah" -F "body=Isi pengumuman uji yang cukup panjang." \
+     -F "category=Libur" | grep -c '"ok":true')"
+check "perubahannya benar-benar tersimpan" 1 \
+  "$(body "$BASE/api/feed/pengumuman?page=1" | grep -c 'Judul sudah diubah')"
+check "mengubah id yang tidak ada 404" 404 \
+  "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X PATCH "$BASE/api/announcements" \
+     -F "id=999999" -F "title=Tidak ada" -F "body=Isi pengumuman uji yang cukup panjang." -F "category=Libur")"
+check "admin bisa menghapus pengumuman" 1 \
+  "$(curl -s -b "$JAR" -X DELETE "$BASE/api/announcements" \
+     -H 'content-type: application/json' -d "{\"id\":$ID}" | grep -c '"ok":true')"
+check "yang dihapus hilang dari umpan" 0 \
+  "$(body "$BASE/api/feed/pengumuman?page=1" | grep -c 'Judul sudah diubah')"
+check "menghapus dua kali 404" 404 \
+  "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X DELETE "$BASE/api/announcements" \
+     -H 'content-type: application/json' -d "{\"id\":$ID}")"
 rm -f "$BANNER" "$BADBANNER"
 
 rm -f "$JAR" "$BADJAR" "$EMPJAR"
