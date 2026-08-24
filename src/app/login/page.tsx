@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { employees } from "@/db/schema";
-import { canAccess, homeFor, type Role } from "@/lib/access";
+import { canAccess, homeFor, loginNext, type Role } from "@/lib/access";
 import { LoginForm } from "./login-form";
 import loginBanner from "../../../public/images/nanumhr-login-banner.png";
 import nanumLogo from "../../../public/images/nanumhr-logo.png";
@@ -19,9 +19,10 @@ export default async function LoginPage({
   const { next, error, stale } = await searchParams;
   const session = await auth();
 
-  // only allow same-origin paths back, so ?next= can't be used for redirects off-site
-  const safeNext =
-    next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+  // Same-origin only, and never return from login to an authentication utility
+  // page. A real mandatory password change is decided from the live DB flag by
+  // the app layout, not from a stale `next` query parameter.
+  const safeNext = loginNext(next);
 
   // every signed-in role is sent away, not just admins — an employee used to be
   // left sitting on the login page, and signing in again just bounced them back

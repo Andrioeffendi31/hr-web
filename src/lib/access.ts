@@ -88,6 +88,26 @@ export function homeFor(role: Role): string {
 }
 
 /**
+ * Validate a destination supplied through `/login?next=...`.
+ *
+ * Besides rejecting cross-origin URLs, do not let authentication utility pages
+ * become post-login homes. In particular, an expired session on
+ * `/ganti-sandi` used to produce `next=/ganti-sandi`; every later successful
+ * login then looked like a forced password reset even after
+ * `mustChangePassword` had been cleared. Accounts that really must replace a
+ * temporary password still reach that page through the live database check in
+ * `(app)/layout.tsx`.
+ */
+export function loginNext(next: string | undefined): string | null {
+  if (!next?.startsWith("/") || next.startsWith("//")) return null;
+
+  const pathname = next.split(/[?#]/, 1)[0].replace(/\/+$/, "") || "/";
+  if (pathname === "/login" || pathname === "/ganti-sandi") return null;
+
+  return next;
+}
+
+/**
  * Nama peran untuk dibaca manusia. `Record<Role, string>` lengkap, alasan yang
  * sama seperti RUMAH di atas: sebelumnya labelnya ditulis sebagai rantai ternary
  * tiga cabang di halaman profil, sehingga peran keempat akan tampil "Karyawan".

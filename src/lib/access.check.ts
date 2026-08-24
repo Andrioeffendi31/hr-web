@@ -1,6 +1,6 @@
 /** Pins the page access policy. Run: npm run check */
 import assert from "node:assert/strict";
-import { canAccess, homeFor, type Role } from "./access";
+import { canAccess, homeFor, loginNext, type Role } from "./access";
 
 const ROLES: Role[] = ["hr_admin", "pimpinan", "manager", "employee"];
 
@@ -93,5 +93,15 @@ for (const role of ROLES) {
     `${role} cannot reach its own home`,
   );
 }
+
+// A stale protected-page redirect must not turn a password settings page into
+// the user's permanent post-login landing page.
+assert.equal(loginNext("/ganti-sandi"), null);
+assert.equal(loginNext("/ganti-sandi?dari=profil"), null);
+assert.equal(loginNext("/ganti-sandi/"), null);
+assert.equal(loginNext("/login"), null);
+assert.equal(loginNext("https://jahat.example"), null);
+assert.equal(loginNext("//jahat.example"), null);
+assert.equal(loginNext("/cuti?status=menunggu"), "/cuti?status=menunggu");
 
 console.log("access.check.ts ok");
