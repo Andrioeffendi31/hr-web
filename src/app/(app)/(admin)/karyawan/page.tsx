@@ -241,11 +241,29 @@ export default async function KaryawanPage({
     }
   }
 
+  /**
+   * URL halaman ini, dipakai tautan baris dan tombol tutup dialog.
+   *
+   * `perPage`, `sort`, `dir`, dan `page` ikut dibawa — bug yang sama dengan yang
+   * ada di papan kehadiran: tanpa keempatnya, membuka lalu menutup dialog detail
+   * diam-diam mengembalikan "100 per halaman" menjadi 20 dan melempar pengguna
+   * dari halaman 5 kembali ke halaman 1.
+   *
+   * Keempatnya aman dibawa di sini karena satu-satunya pemakai fungsi ini adalah
+   * kedua tautan dialog itu; penyaring nama/divisi/status punya formnya sendiri.
+   */
   const params = (extra?: Record<string, string>) => {
     const p = new URLSearchParams();
     if (q) p.set("q", q);
     if (divFilter !== "all") p.set("div", divFilter);
     if (statusFilter !== "aktif") p.set("status", statusFilter);
+    for (const [k, v] of [
+      ["page", sp.page],
+      ["perPage", sp.perPage],
+      ["sort", sp.sort],
+      ["dir", sp.dir],
+    ] as const)
+      if (v) p.set(k, v);
     for (const [k, v] of Object.entries(extra ?? {})) p.set(k, v);
     return p;
   };

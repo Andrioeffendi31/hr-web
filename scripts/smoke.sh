@@ -768,6 +768,32 @@ check "absen ber-GPS palsu ditolak" 400 \
      -F action=in -F lat=-6.2249 -F lng=106.8092 -F locationId=1 -F mocked=1)"
 rm -f "$PINGJAR"
 
+echo "18b. paginasi selamat saat dialog dibuka/ditutup"
+# Bug: pilih 100 per halaman, buka detail lalu tutup → kembali 20 per halaman.
+# Penyebabnya URL tautan baris dan tombol tutup dibangun dari sebagian parameter
+# saja, jadi perPage/sort/dir/page terbuang diam-diam. Yang diuji di sini adalah
+# HTML yang benar-benar dirender: tautan barisnya harus tetap membawa perPage.
+# perPage=5 (batas bawah parsePaging), bukan 100: seed hanya punya belasan
+# karyawan, jadi pada 100 per halaman "halaman 2" kosong dan tidak punya satu pun
+# tautan baris untuk diperiksa. Yang diuji tetap hal yang sama.
+for hal in kehadiran karyawan; do
+  H="$(body "$BASE/$hal?perPage=5&page=2")"
+  check "$hal: tautan baris membawa perPage" 1 \
+    "$(echo "$H" | grep -oE 'href="[^"]*open=[0-9]+[^"]*"' | head -1 | grep -c 'perPage=5')"
+  check "$hal: tautan baris membawa page" 1 \
+    "$(echo "$H" | grep -oE 'href="[^"]*open=[0-9]+[^"]*"' | head -1 | grep -c 'page=2')"
+done
+# ...dan tombol tutup dialognya kembali ke halaman yang SAMA. Diperiksa pada
+# `backHref` di payload-nya, bukan sekadar mencari "perPage=5" di mana pun pada
+# halaman — angka itu juga muncul di pemilih jumlah baris, jadi pencarian longgar
+# akan tetap hijau meski bug-nya kembali.
+for hal in kehadiran karyawan; do
+  ID="$(body "$BASE/$hal?perPage=5" | grep -oE 'open=[0-9]+' | head -1 | cut -d= -f2)"
+  BACK="$(body "$BASE/$hal?perPage=5&page=2&open=$ID" | grep -oE 'backHref[^,]{0,80}' | head -1)"
+  check "$hal: tutup dialog membawa perPage" 1 "$(echo "$BACK" | grep -c 'perPage=5')"
+  check "$hal: tutup dialog membawa page" 1 "$(echo "$BACK" | grep -c 'page=2')"
+done
+
 echo "19. buat pengumuman"
 # Hak aksesnya bukan tombol yang disembunyikan, melainkan requireAdmin() di
 # rutenya — jadi yang diuji di sini adalah rutenya, bukan halamannya.

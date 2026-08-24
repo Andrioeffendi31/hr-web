@@ -427,7 +427,33 @@ export default async function KehadiranPage({
   // the recap groups by employee, so its total is simply the head-count
   const recapTotal = counts.total;
 
-  const base: Search = { date, tab, div: divFilter, status: statusFilter };
+  /**
+   * Keadaan tampilan yang harus selamat dari SETIAP navigasi di halaman ini.
+   *
+   * `perPage`, `sort`, dan `dir` dulu tidak ikut, jadi tiap tautan yang dibangun
+   * dari `base` diam-diam mengembalikannya ke bawaan. Yang paling terasa: membuka
+   * lalu menutup dialog detail mengubah "100 per halaman" kembali menjadi 20 —
+   * keduanya navigasi, dan keduanya membangun URL-nya dari sini.
+   */
+  const base: Search = {
+    date,
+    tab,
+    div: divFilter,
+    status: statusFilter,
+    perPage: sp.perPage,
+    sort: sp.sort,
+    dir: sp.dir,
+  };
+
+  /**
+   * ...dan nomor halamannya, yang HANYA boleh ikut pada tautan dialog.
+   *
+   * Membuka baris di halaman 5 lalu menutupnya harus kembali ke halaman 5. Tapi
+   * mengganti filter status dari halaman 5 tidak boleh mempertahankannya: "telat"
+   * mungkin hanya punya satu halaman, dan pengguna akan mendarat di halaman
+   * kosong. Aturan yang sama dipakai pageHref di lib/paging.
+   */
+  const baseDialog: Search = { ...base, page: sp.page };
 
   const boardColumns: Column<(typeof visible)[number]>[] = [
     {
@@ -436,7 +462,7 @@ export default async function KehadiranPage({
       sortable: true,
       cell: (r) => (
         <Link
-          href={href(base, { open: String(r.id) })}
+          href={href(baseDialog, { open: String(r.id) })}
           scroll={false}
           className="flex items-center gap-2.5 hover:underline"
         >
@@ -802,7 +828,7 @@ export default async function KehadiranPage({
         </div>
       </div>
 
-      {detail && <AttendanceDetail detail={detail} backHref={href(base, {})} />}
+      {detail && <AttendanceDetail detail={detail} backHref={href(baseDialog, {})} />}
     </>
   );
 }
