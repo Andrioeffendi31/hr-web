@@ -786,6 +786,56 @@ check "Pimpinan TIDAK ditolak" 1 \
 check "HR Admin juga tidak ditolak" 1 \
   "$(code "$BASE/api/files/$SELFIEKEY" | grep -cv '^403$')"
 
+echo "17c. menyusulkan nama tempat pada ping yang kosong"
+# Nama tempat diterjemahkan di ponsel, dan expo-location SENGAJA mematikan
+# geocoder-nya selama aplikasi di latar belakang — tempat ping lokasi lahir.
+# Jadi namanya disusulkan saat aplikasi kembali ke depan, lewat rute ini.
+#
+# Citra sudah punya ping tanpa nama dari §17, tapi $PINGJAR sudah dibuang di
+# akhir bagian itu, jadi sesinya dibuat sendiri di sini.
+TMPJAR="$(mktemp)"
+TMPCSRF="$(curl -s -b "$TMPJAR" -c "$TMPJAR" "$BASE/api/auth/csrf" | sed 's/.*"csrfToken":"\([^"]*\)".*/\1/')"
+curl -s -b "$TMPJAR" -c "$TMPJAR" -o /dev/null \
+  -d "csrfToken=$TMPCSRF" -d "email=citra.maharani@nanumindahsejati.co.id" \
+  -d "password=$PASS" "$BASE/api/auth/callback/credentials"
+
+# Badannya dirakit ke VARIABEL lebih dulu, bukan ditulis langsung di dalam
+# argumen `check`. Di posisi itu `{...}` kena brace expansion bash dan JSON-nya
+# sampai ke server dalam keadaan rusak — seluruh berkas ini memang sudah memakai
+# pola variabel, dan ini alasannya.
+tambal() { # <jar> <id> <nama>
+  local body="{\"items\":[{\"id\":$2,\"location\":\"$3\"}]}"
+  curl -s -b "$1" -X PATCH "$BASE/api/me/ping-location" \
+    -H 'content-type: application/json' -d "$body"
+}
+hariIni() { curl -s -b "$1" "$BASE/api/me/attendance/$(TZ=Asia/Jakarta date +%F)"; }
+
+KOSONG="$(curl -s -b "$TMPJAR" "$BASE/api/me/ping-location")"
+EVID="$(echo "$KOSONG" | sed 's/.*"id":\([0-9]*\).*/\1/')"
+check "ping tanpa nama bisa ditanyakan" 1 "$(echo "$KOSONG" | grep -c '"items"')"
+check "tanpa sesi ditolak" 401 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/me/ping-location")"
+
+if [ -z "$EVID" ] || [ "$EVID" = "$KOSONG" ]; then
+  echo "  skip tambal nama: tidak ada ping kosong hari ini · jalankan npm run db:seed dulu"
+else
+  check "namanya tertambal" 1 \
+    "$(tambal "$TMPJAR" "$EVID" "Jalan Uji Susulan" | grep -c '"ditambal":1')"
+  check "namanya benar-benar tersimpan" 1 \
+    "$(hariIni "$TMPJAR" | grep -c 'Jalan Uji Susulan')"
+  # ...dan tidak bisa ditimpa lagi: penyaringnya menuntut kolomnya MASIH kosong,
+  # jadi nama yang sudah benar tidak bisa ditulisi ulang dari luar
+  check "yang sudah bernama tidak bisa ditimpa" 1 \
+    "$(tambal "$TMPJAR" "$EVID" "Nama Karangan" | grep -c '"ditambal":0')"
+  # Penjaga yang paling penting: `id` datang dari klien, jadi baris milik orang
+  # lain harus tetap tak tersentuh meski id-nya ditebak dengan benar.
+  check "ping milik orang lain tidak bisa ditambal" 1 \
+    "$(tambal "$EMPJAR" "$EVID" "Disusupi" | grep -c '"ditambal":0')"
+  check "tulisan susupan itu memang tidak mendarat" 0 \
+    "$(hariIni "$TMPJAR" | grep -c 'Disusupi')"
+fi
+rm -f "$TMPJAR"
+
 echo "18a. peran yang berubah tidak mengunci pemiliknya di luar konsol"
 # Peran di dalam token adalah potret saat masuk terakhir dan berlaku 30 hari.
 # Menaikkan seseorang menjadi hr_admin TIDAK mengubah sesinya, jadi proxy masih
