@@ -3,6 +3,7 @@ import { requireUser } from "@/auth";
 import { db } from "@/db";
 import { documents, leaveRequests } from "@/db/schema";
 import { getObject, presignGet, r2Configured } from "@/lib/r2";
+import { bolehKonsol, type Role } from "@/lib/access";
 import { ekstensi, previewKind } from "@/lib/hr";
 
 /**
@@ -10,11 +11,11 @@ import { ekstensi, previewKind } from "@/lib/hr";
  * prefix, so a leaked key is not a leaked file (PRD §6.6):
  *
  *   docs/legal/…    any signed-in user (company-wide documents)
- *   docs/…          HR Admin, or the employee the document belongs to
+ *   docs/…          HR Admin atau Pimpinan, or the employee the document belongs to
  *   photo/<id>      any signed-in user (avatars appear in the employee list)
  *   logo/company    any signed-in user (company branding in the app shell)
- *   selfie/<id>/…   HR Admin, or that employee
- *   lampiran/<req>/… HR Admin, or the employee whose leave request it is
+ *   selfie/<id>/…   HR Admin atau Pimpinan, or that employee
+ *   lampiran/<req>/… HR Admin atau Pimpinan, or the employee whose request it is
  *
  * Anything else is a 404 — including a key that tries to climb out of its prefix.
  */
@@ -34,7 +35,16 @@ export async function GET(
     return new Response("Tidak ditemukan", { status: 404 });
   }
   const key = segments.join("/");
-  const isAdmin = user.role === "hr_admin";
+  /**
+   * `bolehKonsol`, bukan `=== "hr_admin"`.
+   *
+   * Pimpinan punya hak akses yang IDENTIK dengan hr_admin — itu definisinya di
+   * lib/access.ts, dan requireAdmin() sudah menerima keduanya. Membandingkan
+   * peran dengan satu string di sini membuat Pimpinan diperlakukan sebagai
+   * karyawan biasa: setiap selfie dan setiap dokumen milik orang lain menjadi
+   * "Tidak boleh diakses" untuknya. Satu daftar peran, satu tempat.
+   */
+  const isAdmin = bolehKonsol(user.role as Role);
   const me = String(user.id);
 
   let filename: string | null = null;

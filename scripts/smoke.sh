@@ -768,6 +768,24 @@ check "absen ber-GPS palsu ditolak" 400 \
      -F action=in -F lat=-6.2249 -F lng=106.8092 -F locationId=1 -F mocked=1)"
 rm -f "$PINGJAR"
 
+echo "17b. Pimpinan melihat berkas yang sama dengan HR Admin"
+# lib/access.ts menyatakan hak akses Pimpinan IDENTIK dengan hr_admin, dan
+# requireAdmin() menerima keduanya — tapi rute berkas dulu membandingkan peran
+# dengan satu string, jadi setiap selfie dan dokumen milik orang lain menjadi
+# "Tidak boleh diakses" untuk Pimpinan.
+#
+# Kuncinya sintetis: otorisasi rute ini diturunkan dari PREFIKS kunci, bukan dari
+# baris mana pun, jadi objeknya tidak perlu ada. Yang diuji 403-nya, bukan 200 —
+# "boleh" di sini berarti "tidak ditolak", apa pun jawaban penyimpanannya.
+SELFIEKEY="selfie/1/2026-01-02/999"
+check "karyawan ditolak dari selfie orang lain" 403 \
+  "$(empcode "$BASE/api/files/$SELFIEKEY")"
+check "Pimpinan TIDAK ditolak" 1 \
+  "$(curl -s -b "$PIMJAR" -o /dev/null -w '%{http_code}' "$BASE/api/files/$SELFIEKEY" \
+     | grep -cv '^403$')"
+check "HR Admin juga tidak ditolak" 1 \
+  "$(code "$BASE/api/files/$SELFIEKEY" | grep -cv '^403$')"
+
 echo "18a. peran yang berubah tidak mengunci pemiliknya di luar konsol"
 # Peran di dalam token adalah potret saat masuk terakhir dan berlaku 30 hari.
 # Menaikkan seseorang menjadi hr_admin TIDAK mengubah sesinya, jadi proxy masih

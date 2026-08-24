@@ -9,7 +9,7 @@ import {
   overtimeRequests,
 } from "@/db/schema";
 import { Shell } from "@/components/shell";
-import { type Role } from "@/lib/access";
+import { bolehKonsol, type Role } from "@/lib/access";
 import { PERUSAHAAN, todayWib } from "@/lib/hr";
 import { BERJALAN } from "@/lib/leave";
 import { bacaSettings } from "@/lib/settings";
@@ -21,7 +21,9 @@ export default async function AppLayout({
 }) {
   const session = await auth();
   const today = todayWib();
-  const isAdmin = session?.user?.role === "hr_admin";
+  // bolehKonsol, bukan satu string: Pimpinan berhak melihat lencana dan hitungan
+  // yang sama dengan hr_admin — lihat lib/access.ts
+  const isAdmin = bolehKonsol(session?.user?.role as Role);
 
   // error.tsx cannot catch what its own sibling layout throws, and production
   // redacts error.message on the client — so an unreachable database has to be

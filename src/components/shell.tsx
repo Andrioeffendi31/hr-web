@@ -30,7 +30,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { SearchDialog } from "@/components/search-dialog";
-import { type Role } from "@/lib/access";
+import { bolehKonsol, type Role } from "@/lib/access";
 import { initials } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 import { useUi } from "@/store/ui";
@@ -191,7 +191,9 @@ export function Shell({
    * setiap halaman di bawah (app) untuk peran lain, jadi cabang navigasi karyawan
    * di sini adalah kode yang tidak bisa lagi dijangkau siapa pun.
    */
-  const isAdmin = user.role === "hr_admin";
+  // sama alasannya dengan dua tempat lain yang dulu membandingkan satu string:
+  // Pimpinan bukan karyawan biasa, dan pencarian karyawan miliknya juga
+  const isAdmin = bolehKonsol(user.role);
   const groups = GROUPS;
 
   const brand = (
