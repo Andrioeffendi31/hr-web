@@ -254,9 +254,19 @@ export function Shell({
 
   return (
     <div className="bg-background flex h-dvh overflow-hidden">
-      <aside className="bg-sidebar hidden w-[228px] shrink-0 flex-col overflow-y-auto border-r px-3 py-4 md:flex">
+      {/**
+       * Yang menggulung adalah DAFTAR NAV-nya, bukan seluruh sidebar.
+       *
+       * Dulu `overflow-y-auto` ada di kotak terluar, jadi pada layar pendek blok
+       * pengguna — berikut tombol keluar — ikut tergulung ke luar pandangan.
+       * `min-h-0` wajib: tanpanya sebuah flex item menolak menyusut di bawah
+       * tinggi kontennya, dan kotak scroll-nya tidak pernah benar-benar menggulung.
+       */}
+      <aside className="bg-sidebar hidden w-[228px] shrink-0 flex-col border-r px-3 py-4 md:flex">
         {brand}
-        <NavList groups={groups} badges={badges} liveLabel={liveLabel} />
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <NavList groups={groups} badges={badges} liveLabel={liveLabel} />
+        </div>
         {userBlock}
       </aside>
 
@@ -275,12 +285,24 @@ export function Shell({
             >
               <SheetTitle className="sr-only">Navigasi</SheetTitle>
               {brand}
-              <NavList
-                groups={groups}
-                badges={badges}
-                liveLabel={liveLabel}
-                onNavigate={() => setMobileOpen(false)}
-              />
+              {/**
+               * Sama seperti sidebar desktop, dan di sini justru yang dilaporkan:
+               * laci ini tidak punya scroll sama sekali, jadi pada layar ponsel
+               * yang pendek isinya terpotong begitu saja — tombol keluar di paling
+               * bawah tidak bisa dicapai dengan cara apa pun.
+               *
+               * Scroll-nya di WILAYAH DALAM, bukan di SheetContent: tombol tutup
+               * milik Sheet dirender `absolute` di dalamnya, jadi membuat kotak
+               * terluar menggulung akan ikut menggulung tombol X itu ke luar layar.
+               */}
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+                <NavList
+                  groups={groups}
+                  badges={badges}
+                  liveLabel={liveLabel}
+                  onNavigate={() => setMobileOpen(false)}
+                />
+              </div>
               {userBlock}
             </SheetContent>
           </Sheet>
