@@ -768,6 +768,30 @@ check "absen ber-GPS palsu ditolak" 400 \
      -F action=in -F lat=-6.2249 -F lng=106.8092 -F locationId=1 -F mocked=1)"
 rm -f "$PINGJAR"
 
+echo "18a. peran yang berubah tidak mengunci pemiliknya di luar konsol"
+# Peran di dalam token adalah potret saat masuk terakhir dan berlaku 30 hari.
+# Menaikkan seseorang menjadi hr_admin TIDAK mengubah sesinya, jadi proxy masih
+# melemparnya ke /buka/absen — dan dulu /login memantulkan siapa pun yang sudah
+# punya sesi, sehingga ia tidak punya cara menyegarkan tokennya. Terkunci sampai
+# cookienya kedaluwarsa sendiri.
+BID="$(body "$BASE/api/search?q=Bagas" | sed 's/.*"id":\([0-9]*\).*/\1/')"
+BNIK="$(body "$BASE/api/search?q=Bagas" | sed 's/.*"nik":"\([^"]*\)".*/\1/')"
+peran() { # <role>
+  curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X PATCH "$BASE/api/employees" \
+    -H 'content-type: application/json' \
+    -d "{\"id\":$BID,\"nik\":\"$BNIK\",\"name\":\"Bagas Prasetyo\",\"email\":\"bagas.prasetyo@nanumindahsejati.co.id\",\"workLocation\":\"Kantor Pusat\",\"active\":true,\"role\":\"$1\"}"
+}
+# sesi karyawannya sudah ada di $EMPJAR, dibuat di §16 — tokennya masih 'employee'
+check "sesi yang cocok tetap dipantulkan dari /login" 307 \
+  "$(empcode "$BASE/login")"
+check "menaikkan peran diterima" 200 "$(peran hr_admin)"
+check "peran berubah: /login menampilkan formnya, bukan memantulkan" 200 \
+  "$(empcode "$BASE/login")"
+check "formnya menjelaskan kenapa" 1 \
+  "$(curl -s -b "$EMPJAR" "$BASE/login" | grep -c 'Peran akun Anda berubah')"
+check "peran dikembalikan" 200 "$(peran employee)"
+check "cocok lagi → dipantulkan lagi" 307 "$(empcode "$BASE/login")"
+
 echo "18b. paginasi selamat saat dialog dibuka/ditutup"
 # Bug: pilih 100 per halaman, buka detail lalu tutup → kembali 20 per halaman.
 # Penyebabnya URL tautan baris dan tombol tutup dibangun dari sebagian parameter
