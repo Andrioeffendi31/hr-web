@@ -177,9 +177,23 @@ export function TrenGaris({
             dataKey={k}
             type="monotone"
             stroke={`var(--color-${k})`}
-            strokeWidth={1.75}
-            dot={{ r: 1.9, strokeWidth: 0, fill: `var(--color-${k})` }}
-            activeDot={{ r: 3.5 }}
+            strokeWidth={2.25}
+            /**
+             * Titik yang cukup besar untuk dibaca sendirian.
+             *
+             * Hari tanpa hari kerja memutus garisnya (`connectNulls` mati), jadi
+             * pada periode yang sebagian besar harinya belum dinilai yang tersisa
+             * di layar HANYA titik — dan titik r=2 tanpa cincin praktis tidak
+             * terlihat. Cincin sewarna kartu memisahkan titik yang bertumpuk
+             * ketika dua seri bernilai sama.
+             */
+            dot={{
+              r: 3.2,
+              fill: `var(--color-${k})`,
+              stroke: "var(--card)",
+              strokeWidth: 1.4,
+            }}
+            activeDot={{ r: 5, stroke: "var(--card)", strokeWidth: 1.5 }}
             connectNulls={false}
             isAnimationActive={false}
           />
