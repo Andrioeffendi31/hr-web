@@ -226,21 +226,85 @@ export function AttendanceDetail({
         <DialogContent className="flex max-h-[88vh] flex-col gap-0 p-0 sm:max-w-[720px]">
           {q.data ? (
             <IsiDetail detail={q.data} />
-          ) : (
+          ) : q.error ? (
             <div className="px-5 py-10 text-center">
               <DialogTitle className="text-[13.5px] font-medium">
-                {q.error ? "Gagal memuat detail" : "Memuat detail…"}
+                Gagal memuat detail
               </DialogTitle>
-              {q.error && (
-                <p className="text-subtle mt-1 text-[12px]">
-                  {(q.error as Error).message}
-                </p>
-              )}
+              <p className="text-subtle mt-1 text-[12px]">
+                {(q.error as Error).message}
+              </p>
             </div>
+          ) : (
+            <RangkaDetail />
           )}
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * Rangka dialog selagi harinya diambil.
+ *
+ * Bentuknya mengikuti isi sungguhannya — kepala berisi foto, nama, dan lencana
+ * status, lalu baris tanggal dan garis waktu — supaya isinya mendarat di tempat
+ * yang sudah ditempati dan tidak ada yang bergeser saat datanya tiba. Sebelumnya
+ * di sini hanya ada tulisan "Memuat detail…" di tengah dialog setinggi tiga baris,
+ * yang lalu meledak jadi dialog penuh.
+ *
+ * `animate-pulse` di atas `bg-surface-2`, pola yang sama dengan peta yang belum
+ * dimuat (components/peta.tsx) — tidak ada komponen skeleton yang perlu ditambah.
+ */
+function RangkaDetail() {
+  const blok = "bg-surface-2 animate-pulse rounded-md";
+  return (
+    <div aria-busy="true">
+      {/* judul tetap ada walau tak terlihat: Radix mewajibkannya, dan pembaca
+          layar butuh tahu dialog apa yang baru terbuka */}
+      <DialogTitle className="sr-only">Memuat detail kehadiran</DialogTitle>
+
+      <div className="flex items-center gap-3 border-b py-4 pr-14 pl-5">
+        <span className={cn(blok, "size-10 shrink-0 rounded-full")} />
+        <div className="min-w-0 flex-1">
+          <span className={cn(blok, "block h-[15px] w-[42%]")} />
+          <span className={cn(blok, "mt-1.5 block h-3 w-[26%]")} />
+        </div>
+        <span className={cn(blok, "h-[21px] w-16 rounded-md")} />
+      </div>
+
+      <div className="px-5 py-4">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <span className={cn(blok, "h-3.5 w-[38%]")} />
+          <span className={cn(blok, "h-7 w-[86px] rounded-md")} />
+        </div>
+
+        {/* dua kartu jam masuk/keluar, lalu tiga baris garis waktu */}
+        <div className="mb-4 grid grid-cols-2 gap-2.5">
+          <span className={cn(blok, "h-[62px] rounded-[11px]")} />
+          <span className={cn(blok, "h-[62px] rounded-[11px]")} />
+        </div>
+
+        <span className={cn(blok, "mb-3 block h-3 w-[30%]")} />
+        <ol className="border-border relative ml-[9px] border-l pl-[21px]">
+          {[68, 52, 60].map((w, i) => (
+            <li key={i} className="relative mb-4 last:mb-0">
+              <span
+                className={cn(
+                  blok,
+                  "absolute top-0.5 left-[-30px] size-[18px] rounded-full",
+                )}
+              />
+              <span
+                className={cn(blok, "block h-3.5")}
+                style={{ width: `${w}%` }}
+              />
+              <span className={cn(blok, "mt-1.5 block h-3 w-[34%]")} />
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
   );
 }
 
