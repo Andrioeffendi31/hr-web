@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera } from "lucide-react";
 import { toast } from "sonner";
 import { toWebp } from "@/lib/image";
+import { DETAIL_KEY } from "./detail-modal";
 import { FileDrop } from "@/components/file-drop";
 import { FilePreview } from "@/components/file-preview";
 import { ekstensi } from "@/lib/hr";
@@ -34,6 +35,7 @@ export function SelfieCell({
   hasAttendance: boolean;
 }) {
   const router = useRouter();
+  const qc = useQueryClient();
   const up = useMutation({
     mutationFn: async (file: File) => {
       const fd = new FormData();
@@ -51,6 +53,8 @@ export function SelfieCell({
     onSuccess: () => {
       toast.success(`Selfie ${name} tersimpan`);
       router.refresh();
+      // dipakai di papan DAN di dalam dialog detail, yang datanya milik klien
+      qc.invalidateQueries({ queryKey: [DETAIL_KEY] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

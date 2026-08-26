@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DETAIL_KEY } from "./detail-modal";
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,7 @@ export function EditJam({
   clockOut: string | null;
 }) {
   const router = useRouter();
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
 
   const m = useMutation({
@@ -77,6 +79,8 @@ export function EditJam({
       toast.success(`Jam kehadiran ${name} diperbarui`);
       setOpen(false);
       router.refresh();
+      // dialog detail di atasnya mengambil harinya sendiri lewat react-query
+      qc.invalidateQueries({ queryKey: [DETAIL_KEY] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -104,9 +108,7 @@ export function EditJam({
           }}
         >
           <DialogHeader>
-            <DialogTitle className="text-[15px]">
-              Edit jam — {name}
-            </DialogTitle>
+            <DialogTitle className="text-[15px]">Edit jam — {name}</DialogTitle>
             <DialogDescription className="text-[12.5px]">
               Koreksi absen {date}. Kosongkan keduanya untuk membatalkan absen
               hari itu. Selfie, lokasi dan alasan karyawan tidak ikut berubah.
