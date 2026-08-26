@@ -253,42 +253,74 @@ export function AttendanceDetail({
  * di sini hanya ada tulisan "Memuat detail…" di tengah dialog setinggi tiga baris,
  * yang lalu meledak jadi dialog penuh.
  *
- * `animate-pulse` di atas `bg-surface-2`, pola yang sama dengan peta yang belum
- * dimuat (components/peta.tsx) — tidak ada komponen skeleton yang perlu ditambah.
+ * `animate-pulse` di atas token latar, pola yang sama dengan peta yang belum dimuat
+ * (components/peta.tsx) — tidak ada komponen skeleton yang perlu ditambah.
  */
 function RangkaDetail() {
-  const blok = "bg-surface-2 animate-pulse rounded-md";
+  /**
+   * `bg-muted`, BUKAN `bg-surface-2`: yang kedua (#fbfcfd) praktis sewarna kartu
+   * putih di belakangnya, jadi denyut `animate-pulse` — yang hanya menurunkan
+   * opasitas ke 50% — mengayun antara "hampir putih" dan "hampir putih", dan
+   * animasinya terlihat seperti tidak ada. `bg-muted` punya nilai terang dan gelap
+   * yang benar-benar kontras terhadap kartunya.
+   */
+  const blok = "bg-muted animate-pulse rounded-md";
+  const kartu = "bg-muted/60 animate-pulse rounded-[11px] border";
   return (
-    <div aria-busy="true">
+    /**
+     * Setinggi dialognya, bukan setinggi isinya.
+     *
+     * `DialogContent` hanya punya `max-h`, jadi tingginya ditentukan isi — dan
+     * rangka yang lebih pendek dari isi sungguhannya membuat dialog melompat
+     * membesar saat datanya tiba. `h-[88vh]` menyamai batas itu, jadi kotaknya
+     * sudah seukuran final sejak ketukan pertama.
+     */
+    <div className="flex h-[88vh] flex-col" aria-busy="true">
       {/* judul tetap ada walau tak terlihat: Radix mewajibkannya, dan pembaca
           layar butuh tahu dialog apa yang baru terbuka */}
       <DialogTitle className="sr-only">Memuat detail kehadiran</DialogTitle>
 
-      <div className="flex items-center gap-3 border-b py-4 pr-14 pl-5">
+      {/* kepala: foto, nama, NIK · divisi, lencana status */}
+      <div className="flex shrink-0 items-center gap-3 border-b py-4 pr-14 pl-5">
         <span className={cn(blok, "size-10 shrink-0 rounded-full")} />
         <div className="min-w-0 flex-1">
           <span className={cn(blok, "block h-[15px] w-[42%]")} />
           <span className={cn(blok, "mt-1.5 block h-3 w-[26%]")} />
         </div>
-        <span className={cn(blok, "h-[21px] w-16 rounded-md")} />
+        <span className={cn(blok, "h-[21px] w-16")} />
       </div>
 
-      <div className="px-5 py-4">
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <span className={cn(blok, "h-3.5 w-[38%]")} />
-          <span className={cn(blok, "h-7 w-[86px] rounded-md")} />
+      {/* Urutannya sama dengan isi sungguhannya: tanggal + Edit jam, tiga kartu
+          jam, baris lokasi, peta, judul Log lokasi, lalu garis waktu. Yang
+          melebihi tinggi dialog dipotong di sini — isinya sendiri yang nanti
+          menggulirkannya. */}
+      <div className="min-h-0 flex-1 overflow-hidden px-5 py-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <span className={cn(blok, "h-3.5 w-[42%]")} />
+          <span className={cn(blok, "h-7 w-[86px]")} />
         </div>
 
-        {/* dua kartu jam masuk/keluar, lalu tiga baris garis waktu */}
-        <div className="mb-4 grid grid-cols-2 gap-2.5">
-          <span className={cn(blok, "h-[62px] rounded-[11px]")} />
-          <span className={cn(blok, "h-[62px] rounded-[11px]")} />
+        <div className="grid grid-cols-3 gap-2.5">
+          {["Masuk", "Keluar", "Total kerja"].map((k) => (
+            <span key={k} className={cn(kartu, "h-[62px]")} />
+          ))}
         </div>
 
-        <span className={cn(blok, "mb-3 block h-3 w-[30%]")} />
-        <ol className="border-border relative ml-[9px] border-l pl-[21px]">
-          {[68, 52, 60].map((w, i) => (
-            <li key={i} className="relative mb-4 last:mb-0">
+        <span className={cn(kartu, "mt-3 block h-[52px]")} />
+        <span className={cn(kartu, "mt-3 block h-[240px]")} />
+
+        <div className="mt-5 mb-2.5 flex items-center justify-between">
+          <span className={cn(blok, "h-3 w-[22%]")} />
+          <span className={cn(blok, "h-6 w-[92px]")} />
+        </div>
+
+        <ol className="relative pl-[30px]">
+          <span
+            aria-hidden
+            className="bg-border absolute top-1.5 bottom-1.5 left-[8px] w-[2px]"
+          />
+          {[72, 58, 66, 50].map((w, i) => (
+            <li key={i} className="relative mb-5 last:mb-0">
               <span
                 className={cn(
                   blok,
@@ -303,6 +335,12 @@ function RangkaDetail() {
             </li>
           ))}
         </ol>
+      </div>
+
+      {/* dua tombol di kaki dialog, lebar sama seperti aslinya */}
+      <div className="flex shrink-0 gap-2 border-t px-5 py-3.5">
+        <span className={cn(blok, "h-10 flex-1 rounded-[9px]")} />
+        <span className={cn(blok, "h-10 flex-1 rounded-[9px]")} />
       </div>
     </div>
   );
