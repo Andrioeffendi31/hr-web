@@ -12,6 +12,8 @@ import {
 import { ATT_LABEL, durasi, jam, todayWib } from "@/lib/hr";
 import {
   mulaiCatat,
+  dowSql,
+  hariKerjaSql,
   rekapSql,
   statusHarianSql,
   type RekapBaris,
@@ -47,7 +49,6 @@ export async function GET(
 
   const url = new URL(req.url);
   const today = todayWib();
-  const date = url.searchParams.get("date") ?? today;
   const from = url.searchParams.get("from") ?? `${today.slice(0, 7)}-01`;
   const to = url.searchParams.get("to") ?? today;
   const div = url.searchParams.get("div");
@@ -59,29 +60,90 @@ export async function GET(
   let filename = `${report}-${from}-${to}.csv`;
 
   if (report === "kehadiran") {
-    filename = `kehadiran-${date}.csv`;
-    const data = await db
-      .select({
-        nik: employees.nik,
-        name: employees.name,
-        division: employees.division,
-        position: employees.position,
-        clockIn: attendance.clockIn,
-        clockOut: attendance.clockOut,
-        // aturan yang sama dengan papan /kehadiran — CSV yang berbeda dari layar
-        // yang mengekspornya lebih buruk daripada tidak ada CSV sama sekali
-        status: sql<string>`${statusHarianSql(date, todayWib(), await holidaySet(Number(date.slice(0, 4))), true, await mulaiCatat())}`,
-        location: attendance.location,
-      })
-      .from(employees)
-      .leftJoin(
-        attendance,
-        and(eq(attendance.employeeId, employees.id), eq(attendance.date, date)),
-      )
-      .where(and(eq(employees.active, true), divWhere))
-      .orderBy(asc(employees.name));
+    /**
+     * Satu kueri untuk dua pemanggil: papan harian mengirim `?date=` (jadi
+     * d1 = d2, satu hari), halaman laporan mengirim `?from=&to=` (sebulan).
+     * Sebelumnya cabang ini hanya membaca `date`, jadi ekspor dari /laporan
+     * selalu berisi hari ini saja betapa pun panjang periode yang dipilih.
+     *
+     * Bentuknya sama dengan `bulanKaryawan()` di lib/kehadiran.ts: hari yang
+     * dijelajahi, bukan baris absensi yang ada — hari yang dibolos wajib muncul.
+     *
+     * ponytail: satu baris per karyawan per hari kerja (±22 × jumlah karyawan
+     * sebulan). Kalau nanti ribuan karyawan, streaming CSV atau tabel ringkasan —
+     * bukan sebelum itu.
+     */
+    const d1 = url.searchParams.get("date") ?? from;
+    const d2 = url.searchParams.get("date") ?? to;
+    filename = d1 === d2 ? `kehadiran-${d1}.csv` : `kehadiran-${d1}-${d2}.csv`;
+
+    // dua tahun kalau rentangnya melewati Tahun Baru; satu set libur dari tahun
+    // `dari` saja membuat Januari tampak penuh hari tanpa keterangan
+    const y1 = Number(d1.slice(0, 4));
+    const y2 = Number(d2.slice(0, 4));
+    const libur = new Set([
+      ...(await holidaySet(y1)),
+      ...(y2 !== y1 ? await holidaySet(y2) : []),
+    ]);
+    const kerja = sql`hk.kerja`;
+    // aturan yang sama dengan papan /kehadiran — CSV yang berbeda dari layar
+    // yang mengekspornya lebih buruk daripada tidak ada CSV sama sekali
+    const st = statusHarianSql(
+      sql`hk.d`,
+      today,
+      libur,
+      kerja,
+      await mulaiCatat(),
+    );
+
+    const data = (
+      await db.execute(sql`
+        select hk.d::text as date,
+          ${employees.nik} as nik,
+          ${employees.name} as name,
+          ${employees.division} as division,
+          ${employees.position} as position,
+          ${attendance.clockIn} as "clockIn",
+          ${attendance.clockOut} as "clockOut",
+          ${st} as status,
+          ${attendance.location} as location
+        from ${employees}
+        cross join lateral (
+          select d::date as d,
+            ${hariKerjaSql(dowSql(sql`d`))}
+              ${
+                libur.size
+                  ? sql`and d::date not in (${sql.join(
+                      [...libur].map((t) => sql`${t}::date`),
+                      sql`, `,
+                    )})`
+                  : sql``
+              } as kerja
+          from generate_series(${d1}::date, ${d2}::date, interval '1 day') d
+        ) hk
+        left join ${attendance}
+          on ${attendance.employeeId} = ${employees.id} and ${attendance.date} = hk.d
+        where ${and(eq(employees.active, true), divWhere)}
+          -- hari libur hanya kalau ada absennya: lembur Sabtu tetap terlihat,
+          -- Sabtu yang kosong tidak dituduh apa-apa
+          and (hk.kerja or ${attendance.id} is not null)
+          and hk.d <= ${today}::date
+        order by hk.d asc, ${employees.name} asc
+      `)
+    ).rows as {
+      date: string;
+      nik: string;
+      name: string;
+      division: string | null;
+      position: string | null;
+      clockIn: string | null;
+      clockOut: string | null;
+      status: string;
+      location: string | null;
+    }[];
 
     headers = [
+      "Tanggal",
       "NIK",
       "Nama",
       "Divisi",
@@ -92,6 +154,7 @@ export async function GET(
       "Lokasi",
     ];
     rows = data.map((r) => [
+      r.date,
       r.nik,
       r.name,
       r.division,
