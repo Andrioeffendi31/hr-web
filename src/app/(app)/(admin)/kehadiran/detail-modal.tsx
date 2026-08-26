@@ -473,17 +473,19 @@ export function AttendanceDetail({
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 border-t px-5 py-3.5">
+        {/* flex, bukan grid-cols-2: karyawan tanpa divisi hanya punya satu tombol,
+            dan grid dua kolom menyisakan setengah baris kosong di sampingnya */}
+        <div className="flex gap-2 border-t px-5 py-3.5">
           <Link
             href={`/karyawan?open=${d.employeeId}`}
-            className="bg-surface-2 border-border-strong hover:bg-accent flex h-10 items-center justify-center rounded-[9px] border text-[13px] font-medium transition-colors"
+            className="bg-surface-2 border-border-strong hover:bg-accent flex h-10 flex-1 items-center justify-center rounded-[9px] border text-[13px] font-medium transition-colors"
           >
             Profil karyawan
           </Link>
           {d.division && (
             <Link
               href={`/kehadiran?div=${encodeURIComponent(d.division)}&date=${d.date}`}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-10 items-center justify-center rounded-[9px] text-[13px] font-medium transition-colors"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-10 flex-1 items-center justify-center rounded-[9px] text-[13px] font-medium transition-colors"
             >
               Kehadiran divisi
             </Link>
