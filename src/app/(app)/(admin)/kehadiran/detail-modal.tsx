@@ -21,6 +21,7 @@ import { FilePreview } from "@/components/file-preview";
 import { ReasonDialog } from "@/components/reason-dialog";
 import { Button } from "@/components/ui/button";
 import { SelfieCell } from "./selfie-cell";
+import { EditJam } from "./edit-jam";
 import {
   type AttStatus,
   durasi,
@@ -253,9 +254,18 @@ export function AttendanceDetail({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          <p className="text-muted-foreground mb-3 text-[12.5px]">
-            {tanggalPanjang(d.date)}
-          </p>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <p className="text-muted-foreground text-[12.5px]">
+              {tanggalPanjang(d.date)}
+            </p>
+            <EditJam
+              employeeId={d.employeeId}
+              date={d.date}
+              name={d.name}
+              clockIn={d.clockIn}
+              clockOut={d.clockOut}
+            />
+          </div>
 
           {/* Membedakan "tidak pernah minta izin" dari "sudah minta, ditolak, tetap
               tidak masuk" — tanpa membuat status kedua untuknya. */}
