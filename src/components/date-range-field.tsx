@@ -11,7 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { dateFromIso, isoFromDate, namaBulan } from "@/lib/hr";
+import { dateFromIso, isoFromDate, labelRentang } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 
 /**
@@ -53,18 +53,6 @@ function presets(today: string) {
       to: iso(new Date(d.getFullYear(), kuartal + 3, 0)),
     },
   ] as const;
-}
-
-/** "01 – 31 Jul 2026", atau "28 Jun – 03 Jul 2026" kalau melintasi bulan. */
-function labelRentang(from: string, to: string) {
-  const a = dateFromIso(from);
-  const b = dateFromIso(to);
-  const hari = (x: Date) => String(x.getDate()).padStart(2, "0");
-  const bln = (x: Date) => namaBulan(x.getMonth()).slice(0, 3);
-  const sama = a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
-  return sama
-    ? `${hari(a)} – ${hari(b)} ${bln(b)} ${b.getFullYear()}`
-    : `${hari(a)} ${bln(a)} – ${hari(b)} ${bln(b)} ${b.getFullYear()}`;
 }
 
 export function DateRangeField({
@@ -142,11 +130,20 @@ export function DateRangeField({
         // menyimpannya untuk ketukan berikutnya lima menit kemudian
         if (!o && menyusun) {
           setMenyusun(null);
-          setRange({ from: dateFromIso(nilai.from), to: dateFromIso(nilai.to) });
+          setRange({
+            from: dateFromIso(nilai.from),
+            to: dateFromIso(nilai.to),
+          });
         }
       }}
     >
-      <input ref={form} type="hidden" name={fromName} value={nilai.from} readOnly />
+      <input
+        ref={form}
+        type="hidden"
+        name={fromName}
+        value={nilai.from}
+        readOnly
+      />
       <input type="hidden" name={toName} value={nilai.to} readOnly />
       <PopoverTrigger
         id={id}
@@ -162,7 +159,10 @@ export function DateRangeField({
         {labelRentang(nilai.from, nilai.to)}
       </PopoverTrigger>
 
-      <PopoverContent className="w-auto max-w-none flex-row gap-0 p-0" align="end">
+      <PopoverContent
+        className="w-auto max-w-none flex-row gap-0 p-0"
+        align="end"
+      >
         {/* rail preset — pilihan yang dipakai sembilan dari sepuluh kali, supaya
             tidak ada yang perlu berhitung mundur tujuh hari sendiri */}
         <div className="flex w-[186px] shrink-0 flex-col gap-1 border-r p-3">

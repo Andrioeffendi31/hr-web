@@ -212,11 +212,7 @@ export function statusHarian(input: {
   clockIn: string | null;
   /** jenis cuti yang DISETUJUI dan mencakup tanggal ini, kalau ada */
   cuti?:
-    | "Cuti Tahunan"
-    | "Cuti Sakit"
-    | "Izin Khusus"
-    | "Izin Setengah Hari"
-    | null;
+    "Cuti Tahunan" | "Cuti Sakit" | "Izin Khusus" | "Izin Setengah Hari" | null;
   wfh?: boolean;
   libur?: Set<string>;
   /** hari kerja divisinya; kosong = Senin–Jumat */
@@ -328,7 +324,8 @@ export function geserShift<T extends { start: string; end: string }>(
     return h * 60 + min;
   };
   const jam = (t: string) => t.slice(0, 5);
-  const start = m(izin.startTime) <= m(shift.start) ? jam(izin.endTime) : shift.start;
+  const start =
+    m(izin.startTime) <= m(shift.start) ? jam(izin.endTime) : shift.start;
   const end = m(izin.endTime) >= m(shift.end) ? jam(izin.startTime) : shift.end;
   if (m(start) >= m(end)) return shift;
   return { ...shift, start, end };
@@ -479,6 +476,27 @@ export function rentangResmi(start: string, end: string) {
   return samaBulan
     ? `${a.getUTCDate()} – ${tanggalResmi(end)}`
     : `${tanggalResmi(start)} – ${tanggalResmi(end)}`;
+}
+
+/**
+ * "01 – 26 Agu 2026" · "28 Jun – 03 Jul 2026" — label rentang untuk pemilih
+ * periode dan judul halaman yang memakai periode itu.
+ *
+ * Dua digit dan bulan tiga huruf, jadi lebarnya tidak berubah saat rentangnya
+ * berubah: pill yang melompat-lompat lebarnya tiap kali preset diganti terbaca
+ * seperti tata letak yang rusak.
+ */
+export function labelRentang(from: string, to: string) {
+  const a = new Date(`${from}T00:00:00Z`);
+  const b = new Date(`${to}T00:00:00Z`);
+  const hari = (x: Date) => String(x.getUTCDate()).padStart(2, "0");
+  const bln = (x: Date) => MONTHS_ID[x.getUTCMonth()].slice(0, 3);
+  const sama =
+    a.getUTCMonth() === b.getUTCMonth() &&
+    a.getUTCFullYear() === b.getUTCFullYear();
+  return sama
+    ? `${hari(a)} – ${hari(b)} ${bln(b)} ${b.getUTCFullYear()}`
+    : `${hari(a)} ${bln(a)} – ${hari(b)} ${bln(b)} ${b.getUTCFullYear()}`;
 }
 
 export const jam = (t: string | null) => (t ? t.slice(0, 5) : "—");
