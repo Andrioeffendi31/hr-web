@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BarChart3,
@@ -29,6 +30,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SearchDialog } from "@/components/search-dialog";
 import { bolehKonsol, type Role } from "@/lib/access";
 import { initials } from "@/lib/hr";
@@ -244,13 +246,30 @@ export function Shell({
       >
         <KeyRound className="size-4" aria-hidden />
       </Link>
-      <Link
-        href="/api/auth/signout"
-        aria-label="Keluar dari akun"
-        className="text-subtle hover:text-foreground hover:bg-accent flex size-9 items-center justify-center rounded-lg transition-colors"
-      >
-        <LogOut className="size-4" aria-hidden />
-      </Link>
+      <ConfirmDialog
+        trigger={
+          <button
+            type="button"
+            aria-label="Keluar dari akun"
+            title="Keluar dari akun"
+            className="text-subtle hover:text-danger hover:bg-danger-subtle flex size-9 items-center justify-center rounded-lg transition-colors"
+          >
+            <LogOut className="size-4" aria-hidden />
+          </button>
+        }
+        title="Keluar dari akun?"
+        description={
+          <>
+            Sesi <span className="font-medium">{user.name}</span> akan diakhiri
+            di peramban ini. Masuk kembali dengan kata sandi Anda untuk
+            melanjutkan.
+          </>
+        }
+        confirmLabel="Keluar"
+        cancelLabel="Batal"
+        destructive
+        onConfirm={() => void signOut({ callbackUrl: "/login" })}
+      />
     </div>
   );
 
