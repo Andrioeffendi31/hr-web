@@ -41,8 +41,8 @@ export function ConfirmDialog({
   confirmLabel: string;
   cancelLabel?: string;
   destructive?: boolean;
-  /** Ikon tile; default segitiga peringatan. */
-  icon?: React.ElementType;
+  /** Ikon tile; default segitiga peringatan, `null` untuk tanpa tile. */
+  icon?: React.ElementType | null;
   onConfirm: () => void;
 }) {
   return (
@@ -50,7 +50,7 @@ export function ConfirmDialog({
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          {destructive && (
+          {destructive && Icon && (
             <AlertDialogMedia className="bg-danger-subtle text-danger ring-1 ring-danger/20">
               <Icon aria-hidden />
             </AlertDialogMedia>

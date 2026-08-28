@@ -265,7 +265,7 @@ export function Shell({
             melanjutkan.
           </>
         }
-        icon={LogOut}
+        icon={null}
         confirmLabel="Keluar"
         cancelLabel="Batal"
         destructive
