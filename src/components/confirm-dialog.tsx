@@ -32,6 +32,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = "Batal",
   destructive,
+  icon: Icon = TriangleAlert,
   onConfirm,
 }: {
   trigger: React.ReactNode;
@@ -40,6 +41,8 @@ export function ConfirmDialog({
   confirmLabel: string;
   cancelLabel?: string;
   destructive?: boolean;
+  /** Ikon tile; default segitiga peringatan. */
+  icon?: React.ElementType;
   onConfirm: () => void;
 }) {
   return (
@@ -48,8 +51,8 @@ export function ConfirmDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           {destructive && (
-            <AlertDialogMedia className="bg-danger-subtle text-danger">
-              <TriangleAlert aria-hidden />
+            <AlertDialogMedia className="bg-danger-subtle text-danger ring-1 ring-danger/20">
+              <Icon aria-hidden />
             </AlertDialogMedia>
           )}
           <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -62,7 +65,8 @@ export function ConfirmDialog({
             // the button's own `destructive` variant is tinted; the mockup asks
             // for solid danger on the confirming action
             className={cn(
-              destructive && "bg-danger text-white hover:bg-danger/90",
+              destructive &&
+                "bg-danger text-white shadow-sm hover:bg-danger/90 focus-visible:border-danger/40 focus-visible:ring-danger/30",
             )}
           >
             {confirmLabel}

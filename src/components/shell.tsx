@@ -265,10 +265,11 @@ export function Shell({
             melanjutkan.
           </>
         }
+        icon={LogOut}
         confirmLabel="Keluar"
         cancelLabel="Batal"
         destructive
-        onConfirm={() => void signOut({ callbackUrl: "/login" })}
+        onConfirm={() => void signOut({ redirectTo: "/login" })}
       />
     </div>
   );
