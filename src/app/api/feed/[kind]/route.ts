@@ -11,9 +11,9 @@ import {
   leaveRequests,
 } from "@/db/schema";
 import { todayWib } from "@/lib/hr";
-import { mulaiCatat, statusHarianSql } from "@/lib/kehadiran";
+import { statusHariSql } from "@/lib/kehadiran";
 import { tokenSurat } from "@/lib/surat";
-import { holidaySet, leaveBalances, withRemaining } from "@/lib/leave";
+import { leaveBalances, withRemaining } from "@/lib/leave";
 import { FEED_PAGE } from "@/lib/paging";
 
 /**
@@ -125,8 +125,10 @@ const FEEDS = {
   "belum-absen": async ({ limit, offset, date, div }: Params) => {
     const hariIni = todayWib();
     const tanggal = date ?? hariIni;
-    const libur = await holidaySet(Number(tanggal.slice(0, 4)));
-    const status = statusHarianSql(tanggal, hariIni, libur, true, await mulaiCatat());
+    // dulu `holidaySet()` lalu `mulaiCatat()`, keduanya di-await berurutan
+    // sebelum kuerinya sendiri — tiga perjalanan ke Neon untuk satu daftar.
+    // Sekarang keduanya subkueri di dalam status, jadi tinggal satu.
+    const status = statusHariSql(tanggal, hariIni);
     return db
       .select({
         id: employees.id,

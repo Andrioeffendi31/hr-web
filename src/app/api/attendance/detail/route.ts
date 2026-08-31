@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { requireAdmin } from "@/auth";
 import { db } from "@/db";
@@ -6,17 +6,15 @@ import {
   attendance,
   attendanceEvents,
   employees,
+  leaveRequests,
   officeLocations,
 } from "@/db/schema";
-import { type AttStatus, jam, todayWib } from "@/lib/hr";
-import {
-  cutiDitolak,
-  izinSetengahHari,
-  mulaiCatat,
-  statusHarianSql,
-} from "@/lib/kehadiran";
-import { holidaySet } from "@/lib/leave";
-import type { DayDetail } from "@/app/(app)/(admin)/kehadiran/detail-modal";
+import { type AttStatus, todayWib } from "@/lib/hr";
+import { statusHariSql } from "@/lib/kehadiran";
+import type {
+  AttEvent,
+  DayDetail,
+} from "@/app/(app)/(admin)/kehadiran/detail-modal";
 
 /**
  * Satu hari milik satu karyawan, untuk dialog detail di /kehadiran.
@@ -25,6 +23,16 @@ import type { DayDetail } from "@/app/(app)/(admin)/kehadiran/detail-modal";
  * satu baris berarti merender ulang SELURUH halaman papan — belasan kueri —
  * dan menutupnya sekali lagi. Sekarang dialognya dibuka oleh state di klien dan
  * hanya hari yang dibuka itu yang diambil.
+ *
+ * SATU kueri, bukan enam. Sebelumnya: hari libur setahun + `settings` (paralel),
+ * lalu baris utamanya, lalu jejak + cuti ditolak + izin (paralel) — tiga
+ * gelombang berurutan. Datanya sendiri segelintir baris, jadi yang dibayar bukan
+ * rencana kuerinya melainkan perjalanan bolak-baliknya: tiap kueri paralel pada
+ * pool yang masih dingin membuka koneksi TLS BARU ke Neon (±230 ms sekali jabat
+ * tangan), dan tiga gelombang itu menjadi ±900 ms sebelum satu byte pun dikirim.
+ * Semuanya muat di satu pernyataan: hari libur dan `tracking_since` menjadi
+ * subkueri di dalam `statusHarianSql`, dan tiga kueri sisanya menjadi subkueri
+ * json skalar.
  *
  * `employee` adalah id KARYAWAN, bukan id absensi: hari tanpa keterangan tidak
  * punya baris absensi sama sekali, jadi kunci berbasis absensi membuat justru
@@ -45,11 +53,9 @@ export async function GET(req: Request) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
     return Response.json({ error: "Tanggal tidak sah" }, { status: 400 });
 
-  const [libur, sejak] = await Promise.all([
-    holidaySet(Number(date.slice(0, 4))),
-    mulaiCatat(),
-  ]);
-  const statusText = statusHarianSql(date, todayWib(), libur, true, sejak);
+  // hari libur dan `tracking_since` ikut sebagai subkueri di dalamnya, jadi
+  // tidak ada satu pun kueri pendahulu sebelum yang di bawah ini
+  const statusText = statusHariSql(date);
   const peninjau = alias(employees, "peninjau");
 
   const [row] = await db
@@ -76,6 +82,47 @@ export async function GET(req: Request) {
       officeLat: officeLocations.lat,
       officeLng: officeLocations.lng,
       officeRadius: officeLocations.radiusM,
+      /**
+       * Garis waktunya. `ae.id` sebagai pemecah seri, bukan `ae.at` sendirian:
+       * ping yang tiba bersamaan punya stempel waktu yang sama persis, dan
+       * urutan mereka dulu diserahkan pada kebetulan rencana kueri — dua kali
+       * membuka hari yang sama bisa memberi dua urutan.
+       */
+      events: sql<AttEvent[]>`coalesce((
+        select json_agg(json_build_object(
+          'id', ae.id, 'kind', ae.kind, 'at', ae.at, 'location', ae.location,
+          'lat', ae.lat::text, 'lng', ae.lng::text, 'photoUrl', ae.photo_url,
+          'note', ae.note, 'suspect', ae.suspect
+        ) order by ae.at, ae.id)
+        from ${attendanceEvents} ae where ae.attendance_id = ${attendance.id}
+      ), '[]'::json)`.as("events"),
+      /** Pengajuan yang DITOLAK dan mencakup hari ini — konteks, bukan status. */
+      ditolak: sql<DayDetail["ditolak"]>`(
+        select json_build_object(
+          'type', lr.type, 'startDate', lr.start_date,
+          'endDate', lr.end_date, 'note', lr.decision_note)
+        from ${leaveRequests} lr
+        where lr.employee_id = ${employees.id} and lr.status = 'ditolak'
+          and lr.start_date <= ${date}::date and lr.end_date >= ${date}::date
+        order by lr.id desc limit 1
+      )`.as("ditolak"),
+      /**
+       * Izin setengah hari yang disetujui. Jamnya wajib menurut
+       * /api/me/requests tapi kolomnya nullable, jadi baris tanpa jam tidak
+       * boleh mendarat di sini sama sekali — `is not null` menyaringnya, persis
+       * seperti yang dulu dilakukan `izinSetengahHari()` di sisi Node.
+       */
+      izin: sql<DayDetail["izin"]>`(
+        select json_build_object(
+          'start', to_char(lr.start_time, 'HH24:MI'),
+          'end', to_char(lr.end_time, 'HH24:MI'))
+        from ${leaveRequests} lr
+        where lr.employee_id = ${employees.id}
+          and lr.type = 'Izin Setengah Hari' and lr.status = 'disetujui'
+          and lr.start_date <= ${date}::date and lr.end_date >= ${date}::date
+          and lr.start_time is not null and lr.end_time is not null
+        order by lr.id desc limit 1
+      )`.as("izin"),
     })
     .from(employees)
     .leftJoin(
@@ -97,35 +144,13 @@ export async function GET(req: Request) {
       { status: 404 },
     );
 
-  const [events, ditolak, izin] = await Promise.all([
-    row.attendanceId
-      ? db
-          .select({
-            id: attendanceEvents.id,
-            kind: attendanceEvents.kind,
-            at: attendanceEvents.at,
-            location: attendanceEvents.location,
-            lat: attendanceEvents.lat,
-            lng: attendanceEvents.lng,
-            photoUrl: attendanceEvents.photoUrl,
-            note: attendanceEvents.note,
-            suspect: attendanceEvents.suspect,
-          })
-          .from(attendanceEvents)
-          .where(eq(attendanceEvents.attendanceId, row.attendanceId))
-          .orderBy(asc(attendanceEvents.at))
-      : [],
-    cutiDitolak(employeeId, date),
-    izinSetengahHari(employeeId, date),
-  ]);
-
   const detail: DayDetail = {
     ...row,
     date,
     status: row.status as AttStatus,
-    events,
-    ditolak,
-    izin: izin ? { start: jam(izin.startTime), end: jam(izin.endTime) } : null,
+    // `at` mendarat dari json sebagai teks ISO; klien memanggil `new Date()`
+    // atasnya persis seperti dulu, jadi tidak ada yang perlu diubah di sana
+    events: row.events,
     office: row.officeLat
       ? {
           name: row.officeName!,

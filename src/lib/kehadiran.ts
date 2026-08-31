@@ -5,8 +5,10 @@ import {
   attendanceEvents,
   divisions,
   employees,
+  holidays,
   leaveRequests,
   officeLocations,
+  settings,
 } from "@/db/schema";
 import { HARI_KERJA_DEFAULT, JEDA_JEJAK_MENIT, todayWib } from "./hr";
 import { holidaySet } from "./leave";
@@ -129,8 +131,10 @@ export function statusHarianSql(
    *  Hanya perlu kalau kuerinya ikut memuat hari libur (riwayat karyawan
    *  memuatnya kalau ada absennya). */
   hariKerja: SQL | boolean = true,
-  /** `settings.tracking_since` — hari sebelum ini tidak dinilai sama sekali. */
-  sejak: string | null = null,
+  /** `settings.tracking_since` — hari sebelum ini tidak dinilai sama sekali.
+   *  Boleh berupa ekspresi SQL (mis. subkueri ke `settings`), supaya pemanggil
+   *  yang sudah punya kueri sendiri tidak perlu satu perjalanan tambahan. */
+  sejak: string | SQL | null = null,
 ): SQL<string> {
   // Dua pertanyaan terpisah: apakah hari itu hari kerja ORANG INI, dan apakah
   // harinya sudah lewat. Tanggal literal sudah diketahui nomor harinya di JS, jadi
@@ -154,9 +158,9 @@ export function statusHarianSql(
    */
   const belumDicatat = !sejak
     ? sql`false`
-    : typeof tanggal === "string"
+    : typeof tanggal === "string" && typeof sejak === "string"
       ? sql.raw(tanggal < sejak ? "true" : "false")
-      : sql`${tanggal} < ${sejak}::date`;
+      : sql`${tanggal}::date < (${sejak})::date`;
   const cuti = cutiPadaTanggal(tanggal);
   return sql`case
     -- Keterlambatan yang alasannya diterima admin. Di ATAS cabang berikutnya,
@@ -187,6 +191,39 @@ export function statusHarianSql(
     when ${lewat} then 'tanpa_keterangan'
     else 'belum_absen'
   end`;
+}
+
+/**
+ * `statusHarianSql` untuk SATU tanggal, dengan hari libur dan `tracking_since`
+ * ikut masuk ke dalam pernyataannya — nol perjalanan tambahan ke basis data.
+ *
+ * Ini bentuk yang dipakai setiap pembaca satu-hari: papan /kehadiran, dialog
+ * detailnya, dan feed "belum absen". Ketiganya dulu menjawab dua pertanyaan
+ * lebih dulu — `holidaySet(tahun)` yang menarik libur SETAHUN hanya untuk
+ * menanyakan satu tanggal, dan `mulaiCatat()` untuk satu kolom di satu baris —
+ * baru sesudah itu menjalankan kuerinya. Di feed keduanya bahkan berurutan,
+ * jadi tiga perjalanan bolak-balik untuk satu daftar. Sebagai subkueri,
+ * keduanya gratis: `holidays.date` primary key, dan `settings` satu baris.
+ *
+ * Yang MASIH memakai bentuk `Set<string>`-nya adalah pembaca rentang (rekap,
+ * riwayat sebulan, ekspor): mereka menilai puluhan tanggal sekaligus, dan di
+ * sana satu kueri libur untuk seluruh rentang memang lebih murah daripada satu
+ * subkueri per hari.
+ */
+export function statusHariSql(
+  tanggal: string,
+  hariIni: string = todayWib(),
+): SQL<string> {
+  const hari = sql`${tanggal}::date`;
+  return statusHarianSql(
+    hari,
+    hariIni,
+    new Set(),
+    sql`(${hariKerjaSql(dowSql(hari))} and not exists (
+      select 1 from ${holidays} h where h.date = ${tanggal}::date
+    ))`,
+    sql`(select ${settings.trackingSince} from ${settings} limit 1)`,
+  );
 }
 
 /** Ember filter kartu statistik — cerminan `statusGroup()` di lib/hr.ts. */

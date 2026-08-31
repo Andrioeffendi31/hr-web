@@ -35,7 +35,7 @@ import {
   grupSql,
   jejakMatiSql,
   rekapSql,
-  statusHarianSql,
+  statusHariSql,
   type RekapBaris,
 } from "@/lib/kehadiran";
 import { holidaySet } from "@/lib/leave";
@@ -94,8 +94,16 @@ export default async function KehadiranPage({
    *
    * `mulaiCatat()` membaca baris `settings` yang sama dengan `bacaSettings()`;
    * `cache()` di lib/settings yang membuat pembacaan keduanya tidak menyentuh
-   * basis data lagi, jadi ini empat panggilan tapi tiga kueri.
+   * basis data lagi, jadi ini empat panggilan tapi dua kueri.
+   *
+   * Hari liburnya hanya diminta pada tab rekap. Papan hariannya menilai SATU
+   * tanggal dan menanyakan liburnya di dalam kuerinya sendiri lewat
+   * `statusHariSql()`; menarik libur setahun penuh ke Node untuk itu adalah satu
+   * perjalanan ke Neon yang jawabannya dibuang lagi. Rekap menilai sebulan
+   * sekaligus, dan di sana satu Set memang lebih murah daripada subkueri per
+   * hari — karena itu keduanya, bukan salah satunya.
    */
+  const rekapTab = tab === "recap";
   const [cfg, divisions, libur, sejak] = await Promise.all([
     bacaSettings(),
     // shift columns ride along: the page header has to state which schedule the
@@ -109,8 +117,8 @@ export default async function KehadiranPage({
       })
       .from(divisionTable)
       .orderBy(asc(divisionTable.name)),
-    holidaySet(Number(date.slice(0, 4))),
-    mulaiCatat(),
+    rekapTab ? holidaySet(Number(date.slice(0, 4))) : new Set<string>(),
+    rekapTab ? mulaiCatat() : null,
   ]);
 
   /**
@@ -135,7 +143,7 @@ export default async function KehadiranPage({
   // stat cards or the status filter from the rows it happens to have fetched.
   // Aturannya sendiri ada di lib/kehadiran.ts, dipakai bersama dengan feed
   // "belum absen" yang dulu menyimpan salinan SQL-nya sendiri.
-  const statusText = statusHarianSql(date, hariIni, libur, true, sejak);
+  const statusText = statusHariSql(date, hariIni);
   const GROUP_SQL = grupSql(statusText);
   /**
    * Isi panel tindak lanjut di bawah papan. Bukan `GROUP_SQL.belum` saja: pada
@@ -176,7 +184,7 @@ export default async function KehadiranPage({
      *  selalu "berhenti", dan menandainya di sana hanya akan jadi kebisingan. */
     jejakMati: date === hariIni ? jejakMatiSql() : sql<boolean>`false`,
   };
-  const [[counts], visibleRaw, absenteeRows, [absenteeTotal], onLeaveRaw] =
+  const [[counts], visibleRaw, absenteeRows, onLeaveRaw] =
     await Promise.all([
       db
         .select({
@@ -244,18 +252,6 @@ export default async function KehadiranPage({
         .limit(FEED_PAGE),
 
       db
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
-        .from(employees)
-        .leftJoin(
-          attendance,
-          and(
-            eq(attendance.employeeId, employees.id),
-            eq(attendance.date, date),
-          ),
-        )
-        .where(and(baseWhere, PERLU_TINDAK_LANJUT)),
-
-      db
         .select({
           id: employees.id,
           name: employees.name,
@@ -293,6 +289,15 @@ export default async function KehadiranPage({
     statusFilter in counts
       ? counts[statusFilter as keyof typeof counts]
       : counts.total;
+
+  /**
+   * Isi panel tindak lanjut, dengan alasan yang sama seperti `boardTotal` di
+   * atasnya: `PERLU_TINDAK_LANJUT` adalah `belum OR alpa`, dan keduanya ember
+   * yang saling lepas (satu baris punya tepat satu status), jadi jumlahnya sudah
+   * ada di tangan. Kueri `count(*)` tersendiri untuk itu mengulang join dan
+   * seluruh CASE status hanya untuk menjumlahkan dua angka yang sudah dihitung.
+   */
+  const absenteeTotal = counts.belum + counts.alpa;
 
   const visible = visibleRaw.map((r) => ({
     ...r,
@@ -696,7 +701,7 @@ export default async function KehadiranPage({
             date={date}
             div={divFilter}
             initial={absenteeRows}
-            total={absenteeTotal.n}
+            total={absenteeTotal}
             lampau={date < hariIni}
           />
 
