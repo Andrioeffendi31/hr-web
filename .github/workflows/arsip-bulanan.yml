@@ -1,0 +1,54 @@
+# Bekukan laporan bulan lalu menjadi satu workbook Excel di Berkas perusahaan.
+#
+# Jalan sendiri tiap awal bulan. Yang dihasilkannya bukan sekadar kenyamanan:
+# `purge-triwulan.yml` menolak menghapus data mentah suatu bulan kalau arsip
+# bulan itu tidak ada. Workflow inilah yang membuat pembersihan boleh terjadi.
+name: Arsip laporan bulanan
+
+on:
+  schedule:
+    # 18:00 UTC tanggal 1 = 01:00 WIB tanggal 2 — sesudah bulan benar-benar
+    # tutup menurut WIB, bukan menurut UTC. Menjalankannya pada 00:00 UTC
+    # tanggal 1 berarti mengarsipkan bulan yang di Jakarta belum selesai.
+    - cron: "0 18 1 * *"
+  workflow_dispatch:
+    inputs:
+      bulan:
+        description: "Periode YYYY-MM (kosong = bulan lalu)"
+        required: false
+        type: string
+
+concurrency:
+  # dua arsip periode sama yang jalan bersamaan bisa menyisakan objek yatim di R2
+  group: arsip-bulanan
+  cancel-in-progress: false
+
+jobs:
+  arsip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Bangun arsip
+        env:
+          # host ber-`-pooler`: runner ini koneksi sekali pakai, dan endpoint
+          # langsung membayar jabat tangan TLS penuh untuk setiap kueri baru
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          if [ -n "${{ inputs.bulan }}" ]; then
+            npx tsx src/db/arsip.ts --bulan='${{ inputs.bulan }}'
+          else
+            npx tsx src/db/arsip.ts
+          fi

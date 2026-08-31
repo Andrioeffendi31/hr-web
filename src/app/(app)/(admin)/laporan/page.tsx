@@ -22,39 +22,10 @@ import {
   tren,
 } from "./agregat";
 import { BarPerHari, Donut, TrenGaris, type IrisanDonut } from "./charts";
+import { REPORTS } from "@/lib/laporan";
+import { daftarArsip, labelPeriode } from "@/lib/arsip";
+import { ArsipPanel } from "./arsip-panel";
 
-const REPORTS = [
-  {
-    key: "kehadiran",
-    label: "Rekap Kehadiran",
-    desc: "Masuk, keluar, dan status harian per karyawan",
-  },
-  {
-    key: "keterlambatan",
-    label: "Rekap Keterlambatan",
-    desc: "Jumlah dan menit keterlambatan per karyawan",
-  },
-  {
-    key: "cuti",
-    label: "Rekap Cuti & Izin",
-    desc: "Pengajuan, durasi, dan saldo terpakai",
-  },
-  {
-    key: "lembur",
-    label: "Rekap Lembur",
-    desc: "Jam lembur dan tipe hari per karyawan",
-  },
-  {
-    key: "divisi",
-    label: "Absensi per Divisi",
-    desc: "Tingkat kehadiran agregat tiap divisi",
-  },
-  {
-    key: "karyawan",
-    label: "Daftar Karyawan Aktif",
-    desc: "Data kepegawaian siap audit",
-  },
-] as const;
 
 /** Ember durasi keterlambatan, dihitung dari BATAS TOLERANSI — lihat `emberSql`. */
 const EMBER = [
@@ -138,7 +109,7 @@ export default async function LaporanPage({
     ),
   ];
 
-  const [libur, sejak, ember] = await Promise.all([
+  const [libur, sejak, ember, arsipRaw] = await Promise.all([
     Promise.all(tahun.map(holidaySet)).then(
       (s) => new Set(s.flatMap((x) => [...x])),
     ),
@@ -146,7 +117,17 @@ export default async function LaporanPage({
     db
       .execute(emberSql(from, sampai))
       .then((r) => r.rows[0] as unknown as Ember),
+    // ikut ke gelombang yang sudah ada, bukan kueri sendiri sesudahnya
+    daftarArsip(),
   ]);
+
+  /** Labelnya diformat di server: panelnya klien, dan formatter bulan tidak
+   *  perlu ikut terkirim ke browser hanya untuk 24 baris. */
+  const arsip = arsipRaw.map((a) => ({
+    ...a,
+    periode: a.periode!,
+    label: labelPeriode(a.periode!),
+  }));
 
   /**
    * SATU kueri untuk lima panel.
@@ -568,8 +549,21 @@ export default async function LaporanPage({
           Google Sheets. Ekspor PDF menyusul pada fase berikutnya.
         </p>
       </Panel>
+
+      <ArsipPanel
+        arsip={arsip}
+        bulanIni={today.slice(0, 7)}
+        bulanLalu={bulanSebelumnya(today)}
+      />
     </>
   );
+}
+
+/** `2026-09-01` → `2026-08`. Default pemilih periode: bulan yang sudah lengkap. */
+function bulanSebelumnya(hariIni: string): string {
+  const [y, m] = hariIni.slice(0, 7).split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 2, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 /** Sel "48 (88%)" — jumlah dulu, persennya konteks. */

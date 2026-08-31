@@ -1,0 +1,96 @@
+# Hapus permanen data kehadiran, cuti, dan lembur yang lebih tua dari satu
+# tanggal — beserta objeknya di Cloudflare R2.
+#
+# TIDAK ADA `schedule:`, dan itu disengaja. Ini satu-satunya alur di repo ini
+# yang menghancurkan data tanpa bisa dibatalkan; ia hanya berjalan kalau ada
+# orang yang menjalankannya, mengetik tanggalnya, dan mengetik konfirmasinya.
+#
+# Skripnya sendiri menolak menghapus kalau arsip Excel bulan-bulan terdampak
+# belum ada di Berkas perusahaan (lihat gerbangArsip di src/db/purge.ts).
+name: Purge data lama (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      sebelum:
+        description: "Hapus data SEBELUM tanggal ini (YYYY-MM-DD)"
+        required: true
+        type: string
+      konfirmasi:
+        description: 'Ketik persis: HAPUS PERMANEN'
+        required: true
+        type: string
+      hapus:
+        description: "Centang untuk benar-benar menghapus (kosong = jalan kering)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: purge-triwulan
+  cancel-in-progress: false
+
+jobs:
+  # ── Jalan kering selalu, tanpa syarat: ia mencetak persis apa yang akan
+  #    hilang, dan memeriksa gerbang arsip. Kalau ada bulan yang arsipnya belum
+  #    ada, tahap ini gagal dan tahap hapus tidak pernah dijalankan.
+  kering:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Konfirmasi harus cocok
+        if: inputs.konfirmasi != 'HAPUS PERMANEN'
+        run: |
+          echo "::error::Konfirmasi tidak cocok. Ketik persis: HAPUS PERMANEN"
+          exit 1
+
+      - name: Jalan kering
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: npx tsx src/db/purge.ts --sebelum='${{ inputs.sebelum }}'
+
+  # ── Penghapusan sungguhan. `environment:` di bawah yang membuat GitHub
+  #    menahan job ini sampai ada reviewer yang menekan Approve — pasang daftar
+  #    reviewernya di Settings → Environments → produksi-purge.
+  hapus:
+    needs: kering
+    if: inputs.hapus
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: produksi-purge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Hapus permanen
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: npx tsx src/db/purge.ts --sebelum='${{ inputs.sebelum }}' --hapus
+
+      # daftar kunci objek yang dihancurkan, disimpan di luar database
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: purge-keys-${{ inputs.sebelum }}
+          path: purge-keys-*.txt
+          if-no-files-found: warn
+          retention-days: 90

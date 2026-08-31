@@ -51,13 +51,24 @@ async function terpakaiOleh(id: number): Promise<number> {
  * hiding rows in the app — `ownerId = me` or `ownerId is null`, nothing else.
  * Bytes themselves still leave through /api/files/[...key], which re-checks
  * ownership per download.
+ *
+ * `admin_only` memotong keduanya. Sebelum kolom itu ada, "berkas perusahaan"
+ * (`ownerId is null`) berarti milik semua orang — dan arsip laporan bulanan,
+ * yang memuat absensi serta cuti SELURUH karyawan, akan mendarat di layar ini
+ * untuk setiap orang yang membukanya. Disaring di SQL, bukan di aplikasi:
+ * baris yang tidak boleh dilihat tidak boleh ikut terkirim sejak awal.
  */
 export const GET = withMe(async (me) => {
   const [rows, usedBytes] = await Promise.all([
     db
       .select()
       .from(documents)
-      .where(or(eq(documents.ownerId, me.id), isNull(documents.ownerId)))
+      .where(
+        and(
+          or(eq(documents.ownerId, me.id), isNull(documents.ownerId)),
+          eq(documents.adminOnly, false),
+        ),
+      )
       .orderBy(desc(documents.uploadedAt))
       .limit(100),
     terpakaiOleh(me.id),

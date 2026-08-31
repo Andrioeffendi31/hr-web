@@ -85,6 +85,7 @@ export default async function BerkasPage({
         sizeBytes: documents.sizeBytes,
         uploadedAt: documents.uploadedAt,
         ownerName: owner.name,
+        adminOnly: documents.adminOnly,
         // R2 object key; "" on seeded rows that have no object behind them
         key: documents.url,
       })
@@ -137,7 +138,22 @@ export default async function BerkasPage({
       key: "pemilik",
       header: "Pemilik",
       className: "text-muted-foreground text-[12.5px]",
-      cell: (f) => f.ownerName ?? "Perusahaan",
+      /**
+       * Lencana "Admin" bukan hiasan: berkas bertanda ini TIDAK terlihat oleh
+       * karyawan di aplikasi, dan tanpa penandanya di layar ini tidak ada satu
+       * pun cara bagi HR untuk tahu bedanya — dua baris "Perusahaan" yang
+       * kelihatan sama persis padahal yang satu terbaca semua orang.
+       */
+      cell: (f) => (
+        <span className="flex items-center gap-1.5">
+          {f.ownerName ?? "Perusahaan"}
+          {f.adminOnly ? (
+            <Pill tone="warning" className="text-[9.5px]">
+              Admin
+            </Pill>
+          ) : null}
+        </span>
+      ),
     },
     {
       key: "ukuran",

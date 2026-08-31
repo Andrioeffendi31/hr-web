@@ -432,10 +432,33 @@ export const documents = pgTable("documents", {
   ext: text("ext").notNull(),
   folder: folderEnum("folder").notNull(),
   sizeBytes: integer("size_bytes").notNull(),
-  /** null = company-wide doc, visible to everyone */
+  /** null = company-wide doc, visible to everyone — KECUALI kalau `adminOnly` */
   ownerId: integer("owner_id").references(() => employees.id, {
     onDelete: "cascade",
   }),
+  /**
+   * Hanya HR Admin & Pimpinan yang boleh melihat DAN mengunduhnya.
+   *
+   * Tanpa kolom ini "berkas perusahaan" berarti `owner_id is null`, dan itu
+   * dibaca sebagai "milik semua orang" oleh dua jalur sekaligus: daftar di
+   * /api/me/documents dan unduhan di /api/files/[...key]. Arsip laporan bulanan
+   * memuat absensi, keterlambatan, dan cuti SELURUH karyawan — menaruhnya di sana
+   * tanpa penanda ini akan mengirimkannya ke ponsel setiap orang.
+   *
+   * Default false, jadi tidak ada satu pun baris lama yang berubah artinya:
+   * yang tertutup hanyalah yang secara sadar ditandai.
+   */
+  adminOnly: boolean("admin_only").notNull().default(false),
+  /**
+   * `YYYY-MM` untuk arsip laporan bulanan, null untuk berkas biasa.
+   *
+   * Kunci gabung, bukan hiasan: panel Arsip Bulanan di /laporan mencarinya, dan
+   * gerbang di db/purge.ts memakainya untuk memastikan arsip periode itu benar
+   * ada sebelum data mentahnya dihapus permanen. Kolom sendiri, bukan mengurai
+   * `name` — nama berkas bisa berubah, sedangkan yang bergantung padanya adalah
+   * pemeriksaan yang menentukan boleh-tidaknya data dihancurkan.
+   */
+  periode: text("periode"),
   url: text("url").notNull().default(""),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true })
     .notNull()

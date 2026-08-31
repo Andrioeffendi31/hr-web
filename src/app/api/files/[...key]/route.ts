@@ -10,8 +10,9 @@ import { ekstensi, previewKind } from "@/lib/hr";
  * The only way anything leaves the bucket. Authorization is derived from the key
  * prefix, so a leaked key is not a leaked file (PRD §6.6):
  *
- *   docs/legal/…    any signed-in user (company-wide documents)
- *   docs/…          HR Admin atau Pimpinan, or the employee the document belongs to
+ *   docs/…          HR Admin atau Pimpinan, the employee the document belongs to,
+ *                   atau siapa pun yang login kalau itu berkas perusahaan
+ *                   (owner_id null) — KECUALI yang bertanda `admin_only`
  *   photo/<id>      any signed-in user (avatars appear in the employee list)
  *   logo/company    any signed-in user (company branding in the app shell)
  *   selfie/<id>/…   HR Admin atau Pimpinan, or that employee
@@ -51,11 +52,27 @@ export async function GET(
 
   if (segments[0] === "docs") {
     const [doc] = await db
-      .select({ name: documents.name, ownerId: documents.ownerId })
+      .select({
+        name: documents.name,
+        ownerId: documents.ownerId,
+        adminOnly: documents.adminOnly,
+      })
       .from(documents)
       .where(eq(documents.url, key))
       .limit(1);
     if (!doc) return new Response("Tidak ditemukan", { status: 404 });
+    /**
+     * `adminOnly` diperiksa SEBELUM kepemilikan, dan sengaja tidak lewat `own`.
+     *
+     * Berkas bertanda ini punya `owner_id` null — arsip laporan bulanan milik
+     * perusahaan, bukan milik seseorang — sehingga `own` bernilai true untuk
+     * setiap karyawan yang login. Menggabungkannya ke dalam `own` akan membuat
+     * penandanya tidak berarti apa-apa persis pada berkas yang paling perlu
+     * ditutup: rekap absensi dan cuti seluruh karyawan.
+     */
+    if (doc.adminOnly && !isAdmin) {
+      return new Response("Tidak boleh diakses", { status: 403 });
+    }
     const own = doc.ownerId === null || String(doc.ownerId) === me;
     if (!isAdmin && !own) {
       return new Response("Tidak boleh diakses", { status: 403 });
