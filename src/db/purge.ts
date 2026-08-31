@@ -61,6 +61,22 @@ if (SEBELUM !== null && !/^\d{4}-\d{2}-\d{2}$/.test(SEBELUM)) {
 const TANPA_ARSIP = process.argv.includes("--tanpa-arsip");
 
 /**
+ * Umur minimal data yang boleh dihapus, dalam hari.
+ *
+ * Kecelakaan yang paling mungkin di sini bukan niat jahat melainkan salah ketik
+ * tanggal — satu digit tahun keliru dan `--sebelum=2027-06-01` mengosongkan
+ * seluruh isi tabel. Gerbang arsip tidak menangkapnya kalau arsip bulan-bulan
+ * itu memang sudah ada, dan sesudah jadwal bulanan berjalan setahun, arsipnya
+ * akan selalu ada.
+ *
+ * 60 hari, bukan 90: pembersihan yang dimaksud berjalan tiap 3 bulan, jadi
+ * batas ini tidak pernah menghalangi pemakaian yang benar — ia hanya menolak
+ * tanggal yang mustahil disengaja.
+ */
+const UMUR_MINIMAL_HARI = 60;
+const PAKSA_BARU = process.argv.includes("--paksa-baru");
+
+/**
  * `--hanya=cuti` / `--hanya=kehadiran,lembur` membatasi sasarannya.
  *
  * Tanpa itu ketiganya dikosongkan. Dengan itu, penjaga "tabel di luar cakupan tidak
@@ -263,6 +279,20 @@ async function main() {
   tabelkan("Akan dihapus:", sebelum);
   tabelkan("Harus tetap utuh:", jagaSebelum);
   console.log(`\nObjek R2 yang akan dihapus: ${keys.length}`);
+
+  // ── 1a. batas umur: tolak tanggal yang terlalu baru untuk disengaja
+  if (SEBELUM && !PAKSA_BARU) {
+    const umurHari = Math.floor(
+      (Date.now() - Date.parse(`${SEBELUM}T00:00:00Z`)) / 86_400_000,
+    );
+    if (umurHari < UMUR_MINIMAL_HARI) {
+      throw new Error(
+        `Batas ${SEBELUM} baru berumur ${umurHari} hari; minimal ${UMUR_MINIMAL_HARI}. ` +
+          "Tanggal sebaru itu hampir selalu salah ketik — pembersihan tiga bulanan " +
+          "tidak pernah membutuhkannya. Kalau memang disengaja, tambahkan --paksa-baru.",
+      );
+    }
+  }
 
   // ── 1b. gerbang arsip. Diperiksa juga pada jalan kering: gunanya justru untuk
   //       memberi tahu SEBELUM ada yang menekan --hapus.

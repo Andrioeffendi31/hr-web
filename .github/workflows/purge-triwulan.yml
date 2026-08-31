@@ -60,9 +60,18 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: npx tsx src/db/purge.ts --sebelum='${{ inputs.sebelum }}'
 
-  # ── Penghapusan sungguhan. `environment:` di bawah yang membuat GitHub
-  #    menahan job ini sampai ada reviewer yang menekan Approve — pasang daftar
-  #    reviewernya di Settings → Environments → produksi-purge.
+  # ── Penghapusan sungguhan.
+  #
+  #    `environment:` di bawah TIDAK menahan apa pun pada plan repo ini:
+  #    "required reviewers" adalah fitur berbayar untuk repo privat, dan
+  #    percobaan memasangnya ditolak GitHub ("billing plan"). Barisnya sengaja
+  #    ditinggal supaya gerbangnya menyala sendiri kalau plannya naik — tapi
+  #    JANGAN mengandalkannya hari ini.
+  #
+  #    Yang benar-benar menahan sekarang, ketiganya di luar GitHub Actions:
+  #      1. hanya bisa dijalankan manual, dan `konfirmasi` harus diketik persis;
+  #      2. `--umur-minimal` di purge.ts menolak tanggal yang terlalu baru;
+  #      3. gerbang arsip menolak bulan yang arsip Excel-nya belum terbukti ada.
   hapus:
     needs: kering
     if: inputs.hapus
