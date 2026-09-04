@@ -34,6 +34,7 @@ import {
   tooMany,
   ukuranFile,
   umur,
+  terlaluMundur,
   workingDays,
 } from "./hr";
 import {
@@ -734,3 +735,18 @@ assert.equal(ukuranFile(1.5 * 1024 * 1024), "1,5 MB");
 }
 
 console.log("hr.ts self-check OK");
+
+/**
+ * Batas mundur pengajuan cuti. Yang diuji adalah BATASNYA, bukan tengahnya:
+ * bug pada aturan seperti ini selalu berupa selisih satu hari, dan tengah
+ * rentang tidak pernah menangkapnya.
+ */
+assert.equal(terlaluMundur("2026-09-04", "2026-09-04"), false, "hari ini boleh");
+assert.equal(terlaluMundur("2026-09-10", "2026-09-04"), false, "masa depan boleh");
+assert.equal(terlaluMundur("2026-08-05", "2026-09-04"), false, "tepat 30 hari boleh");
+assert.equal(terlaluMundur("2026-08-04", "2026-09-04"), true, "31 hari ditolak");
+assert.equal(terlaluMundur("2026-06-01", "2026-09-04"), true, "jauh mundur ditolak");
+// melintasi pergantian tahun — selisihnya kalender, bukan aritmetika bulan
+assert.equal(terlaluMundur("2025-12-20", "2026-01-05"), false, "16 hari lintas tahun boleh");
+assert.equal(terlaluMundur("2025-11-20", "2026-01-05"), true, "46 hari lintas tahun ditolak");
+console.log("terlaluMundur OK");

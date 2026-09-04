@@ -1,10 +1,16 @@
 import { revalidatePath } from "next/cache";
-import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { alias } from "drizzle-orm/pg-core";
-import { employees, leaveRequests, overtimeRequests } from "@/db/schema";
 import {
+  attendance,
+  employees,
+  leaveRequests,
+  overtimeRequests,
+} from "@/db/schema";
+import {
+  MAKS_MUNDUR_HARI,
   durasi,
   isIsoDate,
   isHariKerja,
@@ -13,6 +19,7 @@ import {
   resolveShift,
   rentangTanggal,
   tanggalPendek,
+  terlaluMundur,
   todayWib,
   workingDays,
 } from "@/lib/hr";
@@ -242,6 +249,102 @@ function jamIzin(
   return { startTime, endTime };
 }
 
+/**
+ * Seluruh aturan yang berlaku atas satu rentang cuti — dipakai jalur BUAT dan
+ * jalur EDIT.
+ *
+ * Disatukan bukan demi kerapian. Keduanya dulu menyalin blok yang sama persis,
+ * dan itu membuat jalur edit menjadi pintu belakang: karyawan mengajukan tanggal
+ * yang sah, lalu mengubahnya menjadi tanggal yang tidak akan pernah diterima
+ * kalau diajukan langsung. Aturan yang hanya dijaga di satu pintu bukan aturan.
+ */
+async function validasiCuti(
+  me: { id: number; workDays?: number[] | null },
+  input: {
+    type: string;
+    startDate: string;
+    endDate: string;
+    startTime?: string;
+    endTime?: string;
+  },
+  shift: { start: string; end: string; toleranceMinutes: number },
+) {
+  if (input.endDate < input.startDate) {
+    throw new Bad("Tanggal selesai lebih awal dari tanggal mulai");
+  }
+
+  /**
+   * Batas mundur. Pesannya menyebut angkanya: orang yang melaporkan sakit tiga
+   * hari lalu harus tahu yang salah adalah JARAKNYA, bukan tanggalnya, dan
+   * sampai kapan ia masih boleh melapor.
+   */
+  const hariIni = todayWib();
+  if (terlaluMundur(input.startDate, hariIni)) {
+    throw new Bad(
+      `Pengajuan mundur paling jauh ${MAKS_MUNDUR_HARI} hari. ` +
+        `Untuk tanggal yang lebih lama, hubungi HR.`,
+    );
+  }
+
+  /**
+   * Hari libur DUA tahun kalau rentangnya melewati Tahun Baru. Satu set dari
+   * tahun `startDate` saja membuat libur Januari luput pada rentang 28 Des–3 Jan,
+   * dan `days` terhitung lebih banyak dari seharusnya — memotong saldo untuk hari
+   * yang sebenarnya libur. Pola yang sama dipakai `laporanKehadiran()`.
+   */
+  const y1 = Number(input.startDate.slice(0, 4));
+  const y2 = Number(input.endDate.slice(0, 4));
+  const libur = new Set([
+    ...(await holidaySet(y1)),
+    ...(y2 !== y1 ? await holidaySet(y2) : []),
+  ]);
+
+  const days = workingDays(
+    input.startDate,
+    input.endDate,
+    libur,
+    me.workDays ?? undefined,
+  );
+  if (days < 1) throw new Bad("Rentang tanggal tidak memuat hari kerja");
+
+  /**
+   * Hari yang sudah diabsen tidak boleh ikut diklaim sebagai cuti.
+   *
+   * Konsekuensi langsung dari pengajuan mundur: sebelum ini rentang cuti selalu
+   * di masa depan, jadi mustahil bertabrakan dengan absensi yang sudah ada.
+   * Sekarang bisa — dan `statusHarianSql` memberi prioritas pada baris absensi,
+   * sehingga harinya tetap terbaca 'hadir' SEMENTARA saldonya tetap terpotong.
+   * Kuota hilang tanpa hari cuti yang didapat, tanpa ada yang tahu.
+   *
+   * `clock_in is not null`, bukan sekadar ada barisnya: baris berstatus
+   * 'belum_absen' tanpa jam masuk hanya dibuat seed dan tidak membuktikan
+   * orangnya bekerja.
+   */
+  if (input.startDate <= hariIni) {
+    const bentrok = await db
+      .select({ date: attendance.date })
+      .from(attendance)
+      .where(
+        and(
+          eq(attendance.employeeId, me.id),
+          gte(attendance.date, input.startDate),
+          lte(attendance.date, input.endDate),
+          isNotNull(attendance.clockIn),
+        ),
+      )
+      .orderBy(asc(attendance.date));
+    if (bentrok.length) {
+      const tgl = bentrok.map((b) => tanggalPendek(b.date)).join(", ");
+      throw new Bad(
+        `Sudah ada absensi pada ${tgl}. Keluarkan tanggal itu dari rentang cutinya.`,
+      );
+    }
+  }
+
+  const jamnya = jamIzin(input as never, shift);
+  return { days, jamnya, year: y1 };
+}
+
 const create = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("cuti"),
@@ -278,20 +381,13 @@ export const POST = withMe(async (me, req) => {
   const cfg = await config();
 
   if (input.kind === "cuti") {
-    if (input.endDate < input.startDate) {
-      throw new Bad("Tanggal selesai lebih awal dari tanggal mulai");
-    }
-    const year = Number(input.startDate.slice(0, 4));
     // hari kerja divisinya, bukan Senin–Jumat untuk semua: cuti Sabtu di divisi
     // yang memang masuk hari Sabtu adalah satu hari cuti sungguhan
-    const days = workingDays(
-      input.startDate,
-      input.endDate,
-      await holidaySet(year),
-      me.workDays ?? undefined,
+    const { days, jamnya, year } = await validasiCuti(
+      me,
+      input,
+      resolveShift(me, cfg),
     );
-    if (days < 1) throw new Bad("Rentang tanggal tidak memuat hari kerja");
-    const jamnya = jamIzin(input, resolveShift(me, cfg));
 
     if (input.type === "Cuti Tahunan") {
       const [bal] = await leaveBalances(year, me.id);
@@ -464,18 +560,11 @@ export const PUT = withMe(async (me, req) => {
   if (!current)
     throw new Bad("Pengajuan tidak ditemukan atau sudah diputuskan", 404);
 
-  if (input.endDate < input.startDate) {
-    throw new Bad("Tanggal selesai lebih awal dari tanggal mulai");
-  }
-  const year = Number(input.startDate.slice(0, 4));
-  const days = workingDays(
-    input.startDate,
-    input.endDate,
-    await holidaySet(year),
-    me.workDays ?? undefined,
+  const { days, jamnya, year } = await validasiCuti(
+    me,
+    input,
+    resolveShift(me, await config()),
   );
-  if (days < 1) throw new Bad("Rentang tanggal tidak memuat hari kerja");
-  const jamnya = jamIzin(input, resolveShift(me, await config()));
 
   if (input.type === "Cuti Tahunan") {
     /**

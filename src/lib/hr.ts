@@ -149,6 +149,38 @@ export function isIsoDate(s: string): boolean {
   return !Number.isNaN(d.getTime()) && iso(d) === s;
 }
 
+/**
+ * Seberapa jauh ke belakang sebuah pengajuan cuti boleh menyebut tanggal.
+ *
+ * Ada karena kasus yang paling sering justru terlambat: orang sakit hari Senin
+ * dan baru bisa melapor hari Rabu. Sebelum angka ini, servernya tidak punya
+ * aturan sama sekali — yang menahan hanya pemilih tanggal di aplikasi ponsel,
+ * yang berarti tidak menahan apa pun bagi yang memanggil API-nya langsung.
+ *
+ * 30 hari, bukan lebih: pembersihan berkala menolak menghapus data yang belum
+ * berumur 60 hari, dan arsip bulanan dibuat pada awal bulan berikutnya. Batas
+ * 30 hari tidak akan pernah menyentuh bulan yang datanya sudah dihapus.
+ */
+export const MAKS_MUNDUR_HARI = 30;
+
+/**
+ * Apakah `startDate` terlalu jauh ke belakang untuk diajukan pada `hariIni`.
+ *
+ * Selisih hari kalender, bukan hari kerja: yang dibatasi adalah seberapa basi
+ * laporannya, dan akhir pekan tetap berlalu bagi orang yang lupa melapor.
+ * Tanggal di masa depan selalu boleh — batas ini hanya menjaga sisi belakang.
+ */
+export function terlaluMundur(
+  startDate: string,
+  hariIni: string,
+  maks: number = MAKS_MUNDUR_HARI,
+): boolean {
+  const selisih =
+    (Date.parse(`${hariIni}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) /
+    86_400_000;
+  return selisih > maks;
+}
+
 /** Working days in an inclusive range, excluding the days this person does not
  *  work and national holidays. */
 export function workingDays(
