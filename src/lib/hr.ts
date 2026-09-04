@@ -181,6 +181,47 @@ export function terlaluMundur(
   return selisih > maks;
 }
 
+/**
+ * Bobot skor kehadiran untuk papan peringkat.
+ *
+ * Ditaruh sebagai konstanta bernama, bukan angka telanjang di dalam SQL: inilah
+ * kebijakan yang paling mungkin ditanyakan karyawan ("kenapa peringkat saya
+ * segitu"), dan jawabannya harus bisa ditunjuk di satu tempat.
+ *
+ * Cuti, izin, dan sakit yang DISETUJUI tidak muncul di sini karena nilainya nol
+ * — netral. Menghukum orang yang cutinya sah akan mengubah papan peringkat
+ * menjadi alasan untuk tidak mengambil cuti yang menjadi haknya.
+ */
+export const BOBOT_POIN = { hadir: 10, telat: 4, alpa: -5 } as const;
+
+/** Skor kehadiran satu orang untuk satu periode; ember dari `rekapSql()`. */
+export function skorKehadiran(r: {
+  hadir: number;
+  telat: number;
+  alpa: number;
+}): number {
+  return (
+    r.hadir * BOBOT_POIN.hadir +
+    r.telat * BOBOT_POIN.telat +
+    r.alpa * BOBOT_POIN.alpa
+  );
+}
+
+/**
+ * Senin pada minggu yang memuat tanggal ini.
+ *
+ * Minggu dimulai Senin, bukan Sabtu atau Minggu: itu yang dipakai kalender kerja
+ * di Indonesia, dan `hariKerjaDivisi` menyimpan nomor hari dengan 0 = Minggu.
+ * Hari MINGGU (`getUTCDay() === 0`) adalah kasus yang paling mudah salah —
+ * mengurangi `dow - 1` akan melompat ke minggu BERIKUTNYA, bukan minggu ini.
+ */
+export function awalMinggu(isoDate: string): string {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  const dow = d.getUTCDay();
+  d.setUTCDate(d.getUTCDate() - (dow === 0 ? 6 : dow - 1));
+  return iso(d);
+}
+
 /** Working days in an inclusive range, excluding the days this person does not
  *  work and national holidays. */
 export function workingDays(

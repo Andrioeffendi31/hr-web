@@ -1,6 +1,8 @@
 /** Self-check for the quota/date/attendance logic. Run: npm run check */
 import assert from "node:assert/strict";
 import {
+  skorKehadiran,
+  awalMinggu,
   acceptsFile,
   attendanceStatus,
   cekSandi,
@@ -750,3 +752,28 @@ assert.equal(terlaluMundur("2026-06-01", "2026-09-04"), true, "jauh mundur ditol
 assert.equal(terlaluMundur("2025-12-20", "2026-01-05"), false, "16 hari lintas tahun boleh");
 assert.equal(terlaluMundur("2025-11-20", "2026-01-05"), true, "46 hari lintas tahun ditolak");
 console.log("terlaluMundur OK");
+
+/**
+ * Papan peringkat. `awalMinggu` diuji pada Senin dan MINGGU — pada hari Minggu,
+ * `dow - 1` akan melompat ke minggu berikutnya, dan itu satu-satunya hari yang
+ * salahnya tidak kelihatan pada pengujian "kira-kira di tengah minggu".
+ */
+assert.equal(awalMinggu("2026-09-07"), "2026-09-07", "Senin → dirinya sendiri");
+assert.equal(awalMinggu("2026-09-09"), "2026-09-07", "Rabu → Senin minggu itu");
+assert.equal(awalMinggu("2026-09-12"), "2026-09-07", "Sabtu → Senin minggu itu");
+assert.equal(awalMinggu("2026-09-13"), "2026-09-07", "MINGGU → Senin minggu ITU, bukan besok");
+assert.equal(awalMinggu("2026-09-14"), "2026-09-14", "Senin berikutnya");
+// melintasi awal bulan dan awal tahun
+assert.equal(awalMinggu("2026-10-01"), "2026-09-28", "Kamis awal Oktober → Senin September");
+assert.equal(awalMinggu("2027-01-01"), "2026-12-28", "Jumat 1 Jan → Senin 28 Des");
+
+assert.equal(skorKehadiran({ hadir: 0, telat: 0, alpa: 0 }), 0, "periode kosong nol");
+assert.equal(skorKehadiran({ hadir: 5, telat: 0, alpa: 0 }), 50, "lima hari tepat waktu");
+assert.equal(skorKehadiran({ hadir: 3, telat: 2, alpa: 0 }), 38, "hadir + telat");
+assert.equal(skorKehadiran({ hadir: 4, telat: 0, alpa: 1 }), 35, "alpa mengurangi");
+// cuti tidak muncul di rumusnya sama sekali: orang yang cuti sepekan tetap nol,
+// bukan minus — itulah arti "netral"
+assert.equal(skorKehadiran({ hadir: 0, telat: 0, alpa: 0 }), 0, "cuti penuh tidak dihukum");
+// skor bisa negatif: alpa berat memang harus terbaca lebih buruk daripada nol
+assert.equal(skorKehadiran({ hadir: 0, telat: 0, alpa: 3 }), -15, "boleh negatif");
+console.log("papan peringkat OK");

@@ -332,6 +332,15 @@ export function rekapSql(o: {
       -- hari kerja ORANG ITU, bukan hari kerja rata-rata perusahaan
       where ${hariKerjaSql(dowSql(sql`d`))}
         ${o.sejak ? sql`and d::date >= ${o.sejak}::date` : sql``}
+        -- Hari sebelum orangnya bergabung bukan hari yang bisa ia bolos.
+        -- Alasannya sama persis dengan batas tracking_since di atas: yang tidak
+        -- bisa dihadiri tidak boleh masuk penyebut. Tanpa baris ini, karyawan
+        -- yang baru masuk pekan lalu terbaca tanpa keterangan untuk setiap hari
+        -- kerja sebelumnya, dan di papan peringkat itu menjadi skor minus untuk
+        -- hari ketika ia belum bekerja di sini.
+        -- joined_at NULL ikut lolos: sebagian besar baris belum punya tanggal
+        -- masuk, dan menganggapnya belum pernah bergabung akan mengosongkan rekap.
+        and (${employees.joinedAt} is null or d::date >= ${employees.joinedAt})
         ${
           o.libur.size
             ? sql`and d::date not in (${sql.join(
