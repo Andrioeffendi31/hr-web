@@ -21,6 +21,7 @@ import { DateField } from "@/components/date-field";
 import { AbsenteePanel } from "./absentee-panel";
 import { SelfieCell } from "./selfie-cell";
 import { AttendanceDetail } from "./detail-modal";
+import { BilahHapus, PilihBaris } from "./hapus-massal";
 import { SelectField } from "@/components/select-field";
 import {
   type AttStatus,
@@ -359,6 +360,14 @@ export default async function KehadiranPage({
 
   const boardColumns: Column<(typeof visible)[number]>[] = [
     {
+      // kolom pemilih; headernya kosong karena judul untuk sekotak centang
+      // hanya menambah lebar tanpa menambah arti
+      key: "pilih",
+      header: "",
+      className: "w-8",
+      cell: (r) => <PilihBaris attendanceId={r.attendanceId} nama={r.name} />,
+    },
+    {
       key: "nama",
       header: "Karyawan",
       sortable: true,
@@ -660,6 +669,10 @@ export default async function KehadiranPage({
               />
             </form>
           </div>
+
+          {/* hanya di tab hari ini: tab rekap mengelompokkan karyawan, jadi
+              barisnya bukan kehadiran yang bisa dihapus */}
+          {tab === "today" && <BilahHapus />}
 
           {tab === "today" ? (
             <DataTable

@@ -658,8 +658,89 @@ function IsiDetail({ detail: d }: { detail: DayDetail }) {
             Kehadiran divisi
           </Link>
         )}
+        <HapusKehadiran d={d} />
       </div>
     </>
+  );
+}
+
+/**
+ * Hapus permanen kehadiran hari ini.
+ *
+ * `ReasonDialog`, bukan `ConfirmDialog`: yang dibutuhkan alasannya, bukan
+ * sekadar "ya". Alasan itulah satu-satunya keterangan yang tertinggal di
+ * `audit_log` tentang MENGAPA sebuah hari dihapus — barisnya sendiri sudah tidak
+ * ada lagi untuk ditanyai.
+ *
+ * Tidak dirender sama sekali kalau harinya tidak punya baris absensi. Drawer ini
+ * sengaja dikunci dengan id KARYAWAN, bukan id absensi, supaya hari tanpa
+ * keterangan tetap bisa dibuka — dan hari seperti itu tidak punya apa pun untuk
+ * dihapus.
+ */
+function HapusKehadiran({ d }: { d: DayDetail }) {
+  const router = useRouter();
+  const qc = useQueryClient();
+
+  const m = useMutation({
+    mutationFn: async (alasan: string) => {
+      const res = await fetch("/api/attendance", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ids: [d.attendanceId], alasan }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Gagal menghapus kehadiran");
+      return data as { objek: number };
+    },
+    onSuccess: ({ objek }) => {
+      toast.success(
+        `Kehadiran ${tanggalPanjang(d.date)} dihapus` +
+          (objek ? ` · ${objek} foto ikut dihapus` : ""),
+      );
+      // hari itu sudah tidak ada; drawer yang masih memegang salinannya harus
+      // melupakannya, bukan menampilkan data yang sudah tidak berlaku
+      qc.removeQueries({ queryKey: [DETAIL_KEY, d.employeeId, d.date] });
+      router.refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (d.attendanceId === null) return null;
+
+  const berfoto = d.events.filter((e) => e.photoUrl).length + (d.selfieUrl ? 1 : 0);
+
+  return (
+    <ReasonDialog
+      trigger={
+        <button
+          type="button"
+          disabled={m.isPending}
+          className="border-danger/40 text-danger hover:bg-danger/10 flex h-10 items-center justify-center rounded-[9px] border px-3.5 text-[13px] font-medium transition-colors disabled:opacity-50"
+        >
+          Hapus
+        </button>
+      }
+      title={`Hapus kehadiran ${tanggalPanjang(d.date)}?`}
+      description={
+        <>
+          Menghapus <strong>permanen</strong> jam masuk/keluar, status, lokasi,
+          alasan yang ditulis {d.name}, keputusan tinjauan, dan seluruh{" "}
+          <strong>{d.events.length} titik jejak</strong> hari itu
+          {berfoto > 0 ? (
+            <>
+              {" "}
+              berikut <strong>{berfoto} foto</strong> di penyimpanan
+            </>
+          ) : null}
+          . Tidak bisa dibatalkan — yang tertinggal hanya catatan di log audit.
+        </>
+      }
+      label="Alasan penghapusan"
+      placeholder="mis. baris uji, atau tercatat untuk orang yang salah"
+      required
+      confirmLabel="Hapus permanen"
+      onSubmit={(alasan) => m.mutate(alasan)}
+    />
   );
 }
 
