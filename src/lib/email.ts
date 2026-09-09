@@ -10,6 +10,8 @@ export type Template =
   | "request_disetujui"
   | "request_ditolak"
   | "request_revision"
+  /** cuti yang SUDAH disetujui lalu dicabut admin/Pimpinan — bukan penolakan */
+  | "request_dibatalkan"
   /** ke Pimpinan: satu admin sudah menyetujui, tingkat kedua menunggu */
   | "request_perlu_pimpinan"
   | "attendance_reminder"
@@ -21,6 +23,7 @@ const SUBJECTS: Record<Template, string> = {
   request_disetujui: "Pengajuan Anda disetujui",
   request_ditolak: "Pengajuan Anda ditolak",
   request_revision: "Pengajuan Anda perlu direvisi",
+  request_dibatalkan: "Pengajuan Anda dibatalkan HR",
   request_perlu_pimpinan: "Pengajuan menunggu persetujuan Anda",
   attendance_reminder: "Anda belum absen masuk hari ini",
   announcement_new: "Pengumuman baru dari HR",

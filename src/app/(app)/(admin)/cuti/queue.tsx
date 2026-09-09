@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FileDown, Paperclip } from "lucide-react";
 import { Empty, Panel, Pill, ReqBadge } from "@/components/bits";
 import { DecideButtons } from "@/components/decide-buttons";
+import { KelolaCuti } from "./kelola-cuti";
 import { FeedFooter } from "@/components/feed-footer";
 import { useInfiniteFeed } from "@/components/use-infinite-feed";
 import {
@@ -210,6 +211,12 @@ export function LeaveQueue({
                 />
               </div>
             )}
+
+            {/* Aksi mundur — terpisah dari DecideButtons di atas dan tersedia
+                pada status mana pun, termasuk yang sudah disetujui. Keduanya
+                milik admin & Pimpinan; server yang menegakkannya, bukan baris
+                ini. */}
+            <KelolaCuti r={r} />
           </article>
         ))}
       </div>

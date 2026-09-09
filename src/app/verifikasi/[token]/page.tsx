@@ -65,8 +65,16 @@ const KEADAAN = {
   },
   dibatalkan: {
     judul: "Pengajuan dibatalkan",
-    catatan:
-      "Pengajuan ini dibatalkan oleh karyawannya sendiri. Surat ini tidak berlaku.",
+    /**
+     * Tidak menyebut SIAPA yang membatalkan.
+     *
+     * Dulu berbunyi "oleh karyawannya sendiri" karena itu memang satu-satunya
+     * jalan yang ada. Sejak admin dan Pimpinan bisa mencabut cuti yang sudah
+     * disetujui, ada dua kemungkinan — dan halaman ini, yang dibuka siapa pun
+     * yang memindai QR-nya, tidak berhak menebak yang mana. Yang perlu diketahui
+     * pemindai hanya satu: suratnya tidak berlaku.
+     */
+    catatan: "Pengajuan ini dibatalkan. Surat ini tidak berlaku.",
     kelas: "bg-muted text-muted-foreground border-border",
   },
 } as const;

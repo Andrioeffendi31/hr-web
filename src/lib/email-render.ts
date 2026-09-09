@@ -261,6 +261,33 @@ export function isiFor(
         },
       };
 
+    /**
+     * Dibatalkan SESUDAH disetujui, atau ditarik admin sebelum diputus.
+     *
+     * Terpisah dari `request_ditolak` karena akibatnya berbeda dan orangnya
+     * perlu tahu bedanya: yang ditolak tidak pernah berlaku, sedangkan yang
+     * dibatalkan pernah berlaku — mungkin sudah dicatat di kalender, sudah
+     * dikabarkan ke keluarga, dan hari-harinya sudah dianggap aman.
+     *
+     * `note` tidak pernah kosong di sini: alasannya diwajibkan rutenya.
+     */
+    case "request_dibatalkan":
+      return {
+        judul: `Pengajuan ${jenis(c.kind).toLowerCase()} Anda dibatalkan`,
+        paragraf: [
+          panggil,
+          `Pengajuan ${jenis(c.kind).toLowerCase()} Anda dibatalkan oleh HR dan tidak lagi berlaku.`,
+          ...(c.note
+            ? [`Alasan dari HR: ${String(c.note)}`]
+            : ["Hubungi tim HR untuk penjelasannya."]),
+          "Kalau cuti ini masih Anda butuhkan, ajukan kembali lewat aplikasi.",
+        ],
+        tombol: {
+          label: "Lihat pengajuan saya",
+          url: `${base}/buka/pengajuan`,
+        },
+      };
+
     case "request_revision":
       return {
         judul: `Pengajuan ${jenis(c.kind).toLowerCase()} Anda perlu direvisi`,
