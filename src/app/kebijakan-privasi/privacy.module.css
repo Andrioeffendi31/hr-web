@@ -1,127 +1,139 @@
-.page {
-  min-height: 100dvh;
-  background: radial-gradient(circle at 83% 7%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 24rem), var(--background);
-  color: var(--foreground);
-}
+/* Disetel ke "NanumHR Design System.dc.html".
+ *
+ * Skala tipe DS: display 44/700/-.025em · title 26/700/-.02em · heading 18/600
+ * · body 14.5/400 · label 12/500 · eyebrow 11/600/.09em uppercase.
+ * Grid 8 px (setengah langkah 4 px), radius 6–12 px, dan tiga tingkat bayangan
+ * yang HANYA menandai kedalaman interaksi — tidak pernah jadi hiasan.
+ *
+ * Dua penyimpangan yang disengaja:
+ * 1. Isi dokumen 15 px, bukan body 14.5 px milik DS. DS menetapkan kerapatan
+ *    konsol yang dipakai sambil bekerja; halaman ini dibaca dari atas ke bawah
+ *    sekali jalan, dan setengah piksel itu yang membuatnya nyaman dibaca.
+ * 2. Angka memakai Inter + tabular-nums, bukan Geist Mono. Yang dikejar DS dari
+ *    mono adalah digit yang sejajar, dan tabular-nums memberi itu tanpa nuansa
+ *    mesin hitung yang diminta dihindari.
+ */
 
-.skipLink { position: fixed; top: .75rem; left: .75rem; z-index: 30; padding: .625rem .875rem; border-radius: .5rem; background: var(--foreground); color: var(--background); font-size: .875rem; font-weight: 600; transform: translateY(-200%); transition: transform 180ms ease; }
+.page { min-height: 100dvh; background: var(--background); color: var(--foreground); }
+
+.skipLink { position: fixed; top: .75rem; left: .75rem; z-index: 30; height: 2.125rem; padding: 0 .9375rem; display: inline-flex; align-items: center; border-radius: .5rem; background: var(--primary); color: var(--primary-foreground); font-size: .8125rem; font-weight: 500; box-shadow: var(--shadow-sm); transform: translateY(-200%); transition: transform 180ms ease; }
 .skipLink:focus { transform: translateY(0); outline: 3px solid var(--primary-subtle); }
 
-.header { position: sticky; top: 0; z-index: 20; border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent); background: color-mix(in srgb, var(--background) 84%, transparent); backdrop-filter: blur(14px) saturate(1.15); }
-.headerInner { width: min(100% - 2.5rem, 72rem); min-height: 4rem; margin-inline: auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+/* Topbar: tinggi 56 px dan latar buram, sama seperti topbar di DS. */
+.header { position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--background) 86%, transparent); backdrop-filter: blur(14px) saturate(1.15); }
+.headerInner { width: min(100% - 3rem, 68rem); min-height: 3.5rem; margin-inline: auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1rem; }
 .brand { width: fit-content; display: inline-flex; align-items: center; gap: .625rem; color: var(--foreground); }
 .brand:hover { color: var(--foreground); }
-.logo { width: 2rem; height: 2rem; border-radius: .5625rem; box-shadow: var(--shadow-sm); }
-.brandName { font-family: var(--font-heading); font-size: 1rem; font-weight: 700; letter-spacing: -.015em; }
+.logo { width: 1.875rem; height: 1.875rem; border-radius: .5rem; box-shadow: var(--shadow-sm); }
+.brandName { font-family: var(--font-heading); font-size: .90625rem; font-weight: 700; letter-spacing: -.01em; }
 .brandName span { color: var(--subtle); font-weight: 600; }
-.headerLabel { color: var(--subtle); font-size: .8125rem; }
-.contactLink { justify-self: end; display: inline-flex; align-items: center; gap: .375rem; color: var(--muted-foreground); font-size: .875rem; font-weight: 500; transition: color 180ms ease; }
-.contactLink span, .contact > a span { transition: transform 180ms ease; }
-.contactLink:hover { color: var(--primary); }
-.contactLink:hover span, .contact > a:hover span { transform: translate(2px, -2px); }
+.headerLabel { color: var(--subtle); font-size: .75rem; font-weight: 500; letter-spacing: .01em; }
+/* Tombol sekunder DS: 32 px, radius 8 px, border-strong, hover ke --inset. */
+.contactLink { justify-self: end; height: 2rem; padding: 0 .6875rem; display: inline-flex; align-items: center; gap: .4375rem; border: 1px solid var(--border-strong); border-radius: .5rem; background: var(--card); color: var(--foreground); font-size: .8125rem; font-weight: 500; transition: background-color 160ms ease, border-color 160ms ease; }
+.contactLink:hover { background: var(--muted); color: var(--foreground); }
 
-.hero { width: min(100% - 2.5rem, 72rem); margin-inline: auto; padding: clamp(4.5rem, 10vw, 8.5rem) 0 clamp(3.75rem, 7vw, 6rem); border-bottom: 1px solid var(--border); scroll-margin-top: 5rem; }
-.kicker { display: block; color: var(--primary); font-size: .8125rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
-.heroGrid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(15rem, .65fr); gap: clamp(3rem, 8vw, 8rem); align-items: end; }
-.hero h1 { max-width: 11ch; font-size: clamp(2.875rem, 6.5vw, 5.75rem); line-height: .98; font-weight: 700; letter-spacing: -.052em; text-wrap: balance; }
-.lead { max-width: 39rem; margin-top: 1.75rem; color: var(--muted-foreground); font-size: clamp(1.0625rem, 1.6vw, 1.3125rem); line-height: 1.65; text-wrap: pretty; }
-.documentMeta { border-top: 1px solid var(--border-strong); }
-.documentMeta > div { display: grid; grid-template-columns: 6.75rem 1fr; gap: .75rem; padding: .8125rem 0; border-bottom: 1px solid var(--border); }
-.documentMeta dt { color: var(--subtle); font-size: .8125rem; }
-.documentMeta dd { color: var(--foreground); font-size: .9375rem; line-height: 1.55; overflow-wrap: anywhere; }
-.email { color: var(--primary); font-weight: 500; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--primary) 30%, transparent); text-underline-offset: .2em; transition: text-decoration-color 180ms ease; }
+.hero { width: min(100% - 3rem, 68rem); margin-inline: auto; padding: 4rem 0 3rem; border-bottom: 1px solid var(--border); scroll-margin-top: 4rem; }
+.kicker { display: block; margin-bottom: .5rem; color: var(--primary); font-size: .75rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+.heroGrid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(16rem, .7fr); gap: 4rem; align-items: end; }
+.hero h1 { max-width: 16ch; font-size: clamp(2.125rem, 4.5vw, 2.75rem); line-height: 1.05; font-weight: 700; letter-spacing: -.025em; text-wrap: balance; }
+.lead { max-width: 58ch; margin-top: 1rem; color: var(--muted-foreground); font-size: 1rem; line-height: 1.6; text-wrap: pretty; }
+/* Meta dokumen sebagai kartu DS: surface, border 1 px, radius 12 px. */
+.documentMeta { border: 1px solid var(--border); border-radius: .75rem; background: var(--card); box-shadow: var(--shadow-sm); overflow: hidden; }
+.documentMeta > div { display: grid; grid-template-columns: 7rem 1fr; gap: 1rem; padding: .75rem 1rem; }
+.documentMeta > div + div { border-top: 1px solid var(--border); }
+.documentMeta dt { color: var(--subtle); font-size: .75rem; font-weight: 500; }
+.documentMeta dd { color: var(--foreground); font-size: .8125rem; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.5; overflow-wrap: anywhere; }
+.email { color: var(--primary); font-weight: 500; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--primary) 32%, transparent); text-underline-offset: .2em; transition: text-decoration-color 160ms ease; }
 .email:hover { text-decoration-color: currentColor; }
 
-.intro, .commitments, .documentLayout, .contact { width: min(100% - 2.5rem, 72rem); margin-inline: auto; }
-.intro { padding: clamp(3rem, 6vw, 5rem) 0; display: grid; grid-template-columns: minmax(10rem, .55fr) minmax(0, 1.45fr); gap: clamp(2rem, 7vw, 7rem); }
-.intro h2 { font-size: .875rem; font-weight: 600; letter-spacing: .01em; }
-.intro p { max-width: 46rem; color: var(--muted-foreground); font-size: clamp(1rem, 1.8vw, 1.375rem); line-height: 1.65; letter-spacing: -.012em; text-wrap: pretty; }
+.intro, .commitments, .documentLayout, .contact { width: min(100% - 3rem, 68rem); margin-inline: auto; }
+.intro { padding: 2.75rem 0; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: minmax(10rem, .5fr) minmax(0, 1.5fr); gap: 3rem; }
+.intro h2 { font-size: .75rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--primary); }
+.intro p { max-width: 64ch; color: var(--muted-foreground); font-size: .9375rem; line-height: 1.7; }
 
-.commitments { display: grid; grid-template-columns: minmax(12rem, .65fr) minmax(0, 1.35fr); gap: clamp(2rem, 7vw, 7rem); padding: clamp(2.5rem, 5vw, 4rem); border-radius: .75rem; background: var(--foreground); color: var(--background); box-shadow: var(--shadow-md); }
-.commitmentTitle h2 { max-width: 12ch; margin-top: .75rem; font-size: clamp(1.625rem, 3vw, 2.25rem); line-height: 1.15; letter-spacing: -.035em; text-wrap: balance; }
-.commitments ol { border-top: 1px solid color-mix(in srgb, var(--background) 22%, transparent); }
-.commitments li { display: grid; grid-template-columns: 2.25rem 1fr; gap: 1rem; padding: 1.125rem 0 1.25rem; border-bottom: 1px solid color-mix(in srgb, var(--background) 16%, transparent); }
-.commitmentNumber { color: color-mix(in srgb, var(--background) 48%, transparent); font-size: .8125rem; font-weight: 600; padding-top: .1875rem; }
-.commitments h3 { color: var(--background); font-family: var(--font-sans); font-size: 1.0625rem; font-weight: 600; }
-.commitments li p { max-width: 38rem; margin-top: .375rem; color: color-mix(in srgb, var(--background) 67%, transparent); font-size: .9375rem; line-height: 1.65; }
+/* Tiga komitmen sebagai kartu sejajar. Sebelumnya satu blok gelap penuh —
+ * DS memakai warna untuk arti, bukan untuk menarik perhatian. */
+.commitments { padding: 2.75rem 0; border-bottom: 1px solid var(--border); }
+.commitmentTitle h2 { margin-top: .5rem; font-size: 1.625rem; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
+.commitments ol { margin-top: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+.commitments li { padding: 1.125rem 1.25rem 1.25rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--card); box-shadow: var(--shadow-sm); }
+.commitmentNumber { display: block; color: var(--primary); font-size: .75rem; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: .09em; }
+.commitments h3 { margin-top: .5rem; font-size: 1.125rem; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+.commitments li p { margin-top: .375rem; color: var(--muted-foreground); font-size: .875rem; line-height: 1.6; }
 
-.documentLayout { padding: clamp(5rem, 10vw, 9rem) 0; display: grid; grid-template-columns: 12rem minmax(0, 44rem); gap: clamp(3rem, 9vw, 9rem); justify-content: space-between; }
-.toc { position: sticky; top: 6rem; height: fit-content; }
-.toc > span { display: block; padding-bottom: .75rem; border-bottom: 1px solid var(--border-strong); color: var(--subtle); font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
-.toc nav { padding-top: .625rem; }
-.toc a { display: grid; grid-template-columns: 1.5rem 1fr; gap: .5rem; padding: .375rem 0; color: var(--muted-foreground); font-size: .875rem; line-height: 1.45; transition: color 160ms ease, transform 160ms ease; }
-.toc a span { color: var(--subtle); font-size: .75rem; padding-top: .0625rem; }
-.toc a:hover { color: var(--primary); transform: translateX(2px); }
+.documentLayout { padding: 2.75rem 0 1rem; display: grid; grid-template-columns: 13rem minmax(0, 44rem); gap: 4rem; justify-content: space-between; }
+.toc { position: sticky; top: 5rem; height: fit-content; }
+.toc > span { display: block; padding-bottom: .625rem; border-bottom: 1px solid var(--border); color: var(--subtle); font-size: .75rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+.toc nav { padding-top: .5rem; }
+/* Baris navigasi DS: 8 px radius, hover ke --inset, bukan teks yang bergeser. */
+.toc a { display: grid; grid-template-columns: 1.5rem 1fr; gap: .5rem; padding: .375rem .5rem; margin-left: -.5rem; border-radius: .5rem; color: var(--muted-foreground); font-size: .8125rem; line-height: 1.45; transition: background-color 150ms ease, color 150ms ease; }
+.toc a span { color: var(--subtle); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.toc a:hover { background: var(--muted); color: var(--foreground); }
 .article { min-width: 0; }
 
-.section { scroll-margin-top: 6rem; padding: 0 0 clamp(4rem, 8vw, 6.5rem); }
-.section + .section { padding-top: clamp(3rem, 5vw, 4.5rem); border-top: 1px solid var(--border); }
-.sectionHeading { display: grid; grid-template-columns: 2.25rem 1fr; gap: 1rem; align-items: baseline; margin-bottom: 1.75rem; }
-.sectionHeading > span, .dataIndex { color: var(--subtle); font-size: .8125rem; font-weight: 600; }
-.sectionHeading h2 { font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.2; font-weight: 600; letter-spacing: -.03em; text-wrap: balance; }
-.prose { padding-left: 3.25rem; color: var(--muted-foreground); font-size: 1.0625rem; line-height: 1.75; }
+.section { scroll-margin-top: 4.5rem; padding-bottom: 2.75rem; }
+.section + .section { padding-top: 2.75rem; border-top: 1px solid var(--border); }
+.sectionHeading { display: grid; grid-template-columns: 2rem 1fr; gap: .75rem; align-items: baseline; margin-bottom: 1.5rem; }
+.sectionHeading > span, .dataIndex { color: var(--subtle); font-size: .75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sectionHeading h2 { font-size: 1.625rem; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
+.prose { padding-left: 2.75rem; color: var(--muted-foreground); font-size: .9375rem; line-height: 1.75; }
 .prose > p, .prose > ul { max-width: 64ch; }
-.prose > * + * { margin-top: 1.125rem; }
+.prose > * + * { margin-top: 1rem; }
 .prose strong { color: var(--foreground); font-weight: 600; }
 .prose ul { padding-left: 1.125rem; list-style: disc; }
-.prose li + li { margin-top: .375rem; }
+.prose li + li { margin-top: .25rem; }
 
-.dataList { margin: 0 0 1.25rem -3.25rem; border-top: 1px solid var(--border-strong); }
-.dataRow { display: grid; grid-template-columns: 2.25rem 1fr; gap: 1rem; padding: 1.125rem 0 1.25rem; border-bottom: 1px solid var(--border); }
-.dataIndex { padding-top: .125rem; }
-.dataRow h3 { display: flex; align-items: center; gap: .625rem; color: var(--foreground); font-family: var(--font-sans); font-size: 1rem; font-weight: 600; }
-.dataRow h3 i { width: .25rem; height: .75rem; border-radius: .125rem; }
-.primary { background: var(--primary); }
-.info { background: var(--info); }
-.neutral { background: var(--border-strong); }
-.dataRow p { max-width: 60ch; margin-top: .375rem; font-size: .9375rem; line-height: 1.7; }
-.note { display: grid; grid-template-columns: 5rem 1fr; gap: 1rem; padding: 1rem 1.125rem; border-radius: .5rem; background: var(--primary-subtle); color: var(--muted-foreground); font-size: .9375rem; line-height: 1.65; }
+/* Daftar data sebagai satu kartu, bukan garis-garis lepas. */
+.dataList { margin: 0 0 1rem -2.75rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--card); overflow: hidden; }
+.dataRow { display: grid; grid-template-columns: 2.75rem 1fr; gap: .75rem; padding: 1rem 1.25rem 1.125rem; }
+.dataRow + .dataRow { border-top: 1px solid var(--border); }
+.dataIndex { padding-top: .1875rem; padding-left: .25rem; }
+/* Badge status DS: tinggi 22 px, isian low-saturation, titik di depan. */
+.badge { display: inline-flex; align-items: center; gap: .375rem; height: 1.375rem; padding: 0 .5625rem; border-radius: .375rem; font-size: .75rem; font-weight: 500; }
+.badge i { width: .375rem; height: .375rem; border-radius: 50%; background: currentColor; }
+.primary { color: var(--primary); background: var(--primary-subtle); }
+.info { color: var(--info); background: var(--info-subtle); }
+.neutral { color: var(--muted-foreground); background: var(--muted); }
+.dataRow p { max-width: 64ch; margin-top: .5rem; color: var(--muted-foreground); font-size: .875rem; line-height: 1.65; }
+.note { display: grid; grid-template-columns: 5rem 1fr; gap: 1rem; padding: .875rem 1rem; border: 1px solid var(--primary-subtle); border-radius: .5rem; background: var(--primary-subtle); color: var(--muted-foreground); font-size: .875rem; line-height: 1.6; }
 .note span { color: var(--primary); font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 
-.contact { margin-bottom: clamp(4rem, 8vw, 7rem); padding: clamp(2rem, 5vw, 3.5rem) 0; border-top: 1px solid var(--border-strong); border-bottom: 1px solid var(--border); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2rem; align-items: end; }
-.contact h2 { max-width: 22ch; margin-top: .625rem; font-size: clamp(1.75rem, 4vw, 2.75rem); line-height: 1.12; letter-spacing: -.04em; text-wrap: balance; }
-.contact > a { display: inline-flex; align-items: center; gap: .5rem; padding-bottom: .25rem; border-bottom: 1px solid var(--primary); color: var(--primary); font-size: 1rem; font-weight: 500; }
-.footer { border-top: 1px solid var(--border); }
-.footer > div { width: min(100% - 2.5rem, 72rem); min-height: 5rem; margin-inline: auto; display: flex; align-items: center; gap: 1.25rem; color: var(--subtle); font-size: .8125rem; }
-.footer a { margin-left: auto; color: var(--muted-foreground); transition: color 160ms ease; }
+.contact { margin-bottom: 3rem; padding: 1.5rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--card); box-shadow: var(--shadow-sm); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.5rem; align-items: center; }
+.contact h2 { max-width: 28ch; margin-top: .375rem; font-size: 1.625rem; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
+/* Tombol primer DS: 34 px, radius 8 px, shadow-sm. Satu aksi utama per layar. */
+.contact > a { height: 2.125rem; padding: 0 .9375rem; display: inline-flex; align-items: center; gap: .4375rem; border-radius: .5rem; background: var(--primary); color: var(--primary-foreground); font-size: .8125rem; font-weight: 500; box-shadow: var(--shadow-sm); white-space: nowrap; transition: background-color 160ms ease; }
+.contact > a:hover { background: color-mix(in srgb, var(--primary) 88%, black); color: var(--primary-foreground); }
+
+.footer { border-top: 1px solid var(--border); background: var(--sidebar); }
+.footer > div { width: min(100% - 3rem, 68rem); min-height: 4rem; margin-inline: auto; display: flex; align-items: center; gap: 1rem; color: var(--subtle); font-size: .75rem; }
+.footer a { margin-left: auto; color: var(--muted-foreground); transition: color 150ms ease; }
 .footer a:hover { color: var(--primary); }
 
 @media (max-width: 56rem) {
-  .heroGrid { grid-template-columns: 1fr; gap: 3rem; }
-  .hero h1 { max-width: 12ch; }
+  .heroGrid { grid-template-columns: 1fr; gap: 2rem; }
   .documentMeta { max-width: 28rem; }
-  .intro, .commitments { grid-template-columns: 1fr; gap: 2rem; }
-  .commitmentTitle h2 { max-width: 18ch; }
-  .documentLayout { grid-template-columns: 1fr; gap: 3.5rem; }
+  .intro { grid-template-columns: 1fr; gap: 1rem; }
+  .documentLayout { grid-template-columns: 1fr; gap: 2rem; }
   .toc { position: static; overflow: hidden; }
   .toc nav { display: flex; gap: .5rem; overflow-x: auto; padding: .75rem 0 .25rem; scrollbar-width: none; }
   .toc nav::-webkit-scrollbar { display: none; }
-  .toc a { flex: none; grid-template-columns: auto 1fr; padding: .5rem .6875rem; border: 1px solid var(--border); border-radius: .4375rem; background: var(--card); box-shadow: var(--shadow-sm); }
-  .toc a:hover { transform: none; }
+  .toc a { flex: none; grid-template-columns: auto 1fr; margin-left: 0; padding: .375rem .625rem; border: 1px solid var(--border); background: var(--card); box-shadow: var(--shadow-sm); }
 }
 
 @media (max-width: 38rem) {
-  .headerInner, .hero, .intro, .commitments, .documentLayout, .contact, .footer > div { width: min(100% - 2rem, 72rem); }
+  .headerInner, .hero, .intro, .commitments, .documentLayout, .contact, .footer > div { width: min(100% - 2rem, 68rem); }
   .headerInner { grid-template-columns: 1fr auto; }
   .headerLabel { display: none; }
-  .contactLink { font-size: 0; }
-  .contactLink span { font-size: 1.125rem; }
-  .hero { padding-top: 4rem; }
-  .hero h1 { font-size: clamp(2.65rem, 14vw, 4rem); }
-  .intro { padding: 3rem 0; }
-  .intro p { font-size: 1.125rem; }
-  .commitments { padding: 2rem 1.25rem; }
-  .documentLayout { padding: 5rem 0 3rem; }
-  .sectionHeading { grid-template-columns: 1.75rem 1fr; gap: .75rem; }
+  .hero { padding-top: 2.75rem; }
   .prose { padding-left: 0; }
   .dataList { margin-left: 0; }
-  .dataRow { grid-template-columns: 1.75rem 1fr; gap: .75rem; }
+  .dataRow { grid-template-columns: 1.75rem 1fr; gap: .5rem; padding: 1rem; }
   .note { grid-template-columns: 1fr; gap: .25rem; }
   .contact { grid-template-columns: 1fr; align-items: start; }
-  .contact > a { width: fit-content; overflow-wrap: anywhere; }
+  .contact > a { width: fit-content; }
   .copyright { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .skipLink, .contactLink, .contactLink span, .contact > a span, .toc a, .footer a { transition: none; }
+  .skipLink, .contactLink, .toc a, .contact > a, .footer a { transition: none; }
 }

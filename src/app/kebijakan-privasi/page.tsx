@@ -62,7 +62,7 @@ export default function KebijakanPrivasiPage() {
             <span className={styles.brandName}>Nanum<span>HR</span></span>
           </a>
           <span className={styles.headerLabel}>Dokumen legal</span>
-          <a className={styles.contactLink} href={`mailto:${KONTAK}`}>Hubungi kami <span aria-hidden>↗</span></a>
+          <a className={styles.contactLink} href={`mailto:${KONTAK}`}>Hubungi kami</a>
         </div>
       </header>
 
@@ -103,7 +103,7 @@ export default function KebijakanPrivasiPage() {
                 {DATA.map((item, index) => (
                   <div className={styles.dataRow} key={item.label}>
                     <span className={styles.dataIndex}>{String(index + 1).padStart(2, "0")}</span>
-                    <div><h3><i className={styles[item.tone]} aria-hidden />{item.label}</h3><p>{item.isi}</p></div>
+                    <div><h3><span className={`${styles.badge} ${styles[item.tone]}`}><i aria-hidden />{item.label}</span></h3><p>{item.isi}</p></div>
                   </div>
                 ))}
               </div>
@@ -146,7 +146,7 @@ export default function KebijakanPrivasiPage() {
 
         <section className={styles.contact} aria-labelledby="masih-ada-pertanyaan">
           <div><span className={styles.kicker}>Kontak privasi</span><h2 id="masih-ada-pertanyaan">Masih ada pertanyaan tentang data Anda?</h2></div>
-          <a href={`mailto:${KONTAK}`}>{KONTAK}<span aria-hidden>↗</span></a>
+          <a href={`mailto:${KONTAK}`}>Kirim email ke kami</a>
         </section>
       </main>
 
