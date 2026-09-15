@@ -39,15 +39,16 @@ export const config = {
   // them would silently break passkey enrolment in the mobile app.
   matcher: [
     // lupa-sandi and atur-sandi are public for the same reason login is: they are
-    // how somebody who cannot sign in gets back in. `buka` joins them: it is the
-    // landing page for every emailed link, opened from an inbox on devices that
-    // have never signed in — and it shows nobody's data.
+    // how somebody who cannot sign in gets back in. `kebijakan-privasi` must also
+    // be readable without an account for app-store review. `buka` joins them: it
+    // is the landing page for every emailed link, opened from an inbox on devices
+    // that have never signed in — and it shows nobody's data.
     //
     // `verifikasi` is the QR target printed on leave letters: it is scanned by
     // outsiders — a kelurahan clerk, a school, a bank — who will never have an
     // account here. It is deliberately NOT under `buka`, whose paths app.json
     // claims as Android App Links: a scan on an employee's own phone would be
     // hijacked into the app and land on a 404 instead of the answer.
-    "/((?!login|lupa-sandi|atur-sandi|buka|verifikasi|api|\\.well-known|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|lupa-sandi|atur-sandi|kebijakan-privasi|buka|verifikasi|api|\\.well-known|_next/static|_next/image|favicon.ico).*)",
   ],
 };
