@@ -29,19 +29,19 @@ function Bagian({ nomor, id, judul, children }: { nomor: string; id: string; jud
 
 const SOROTAN = [
   { nomor: "01", judul: "Tidak dijual, tidak untuk iklan", isi: "Tidak ada SDK pelacakan atau analitik pihak ketiga di dalam aplikasi ini." },
-  { nomor: "02", judul: "Lokasi berhenti saat absen keluar", isi: "Perekaman lokasi di latar belakang hanya berjalan antara absen masuk dan absen keluar." },
-  { nomor: "03", judul: "Hanya untuk karyawan", isi: "Tidak ada pendaftaran mandiri. Akun dibuat oleh tim HR perusahaan." },
+  { nomor: "02", judul: "Lokasi berhenti saat absen keluar", isi: "Perekaman lokasi di latar belakang hanya berjalan di antara absen masuk dan absen keluar Anda." },
+  { nomor: "03", judul: "Hanya untuk karyawan", isi: "Tidak ada pendaftaran mandiri. Akun Anda dibuat oleh tim HR perusahaan." },
 ];
 
 const DATA: { label: string; tone: "primary" | "info" | "neutral"; isi: React.ReactNode }[] = [
-  { label: "Lokasi presisi", tone: "info", isi: "Koordinat GPS Anda pada saat absen masuk dan absen keluar, untuk memastikan absen dilakukan di area kantor." },
-  { label: "Lokasi latar belakang", tone: "info", isi: <>Selama Anda berstatus sudah absen masuk dan belum absen keluar, aplikasi mencatat titik lokasi kira-kira setiap 3 jam sebagai catatan kehadiran untuk HR. Perekaman ini <Tegas>berhenti seketika saat Anda absen keluar</Tegas>, dan tidak berjalan di luar jam kerja, di hari libur, atau saat Anda sedang cuti.</> },
+  { label: "Lokasi presisi", tone: "info", isi: "Koordinat GPS Anda saat menekan absen masuk dan absen keluar, untuk memastikan absennya benar-benar dilakukan di area kantor." },
+  { label: "Lokasi latar belakang", tone: "info", isi: <>Selama Anda sudah absen masuk dan belum absen keluar, aplikasi mencatat satu titik lokasi kira-kira setiap 3 jam sebagai catatan kehadiran untuk HR. Perekaman ini <Tegas>berhenti seketika saat Anda absen keluar</Tegas>. Di luar jam kerja, di hari libur, dan saat Anda cuti, aplikasi tidak merekam apa pun.</> },
   { label: "Foto", tone: "primary", isi: "Foto selfie yang Anda ambil sebagai bukti absen, dan foto profil yang Anda pilih sendiri." },
-  { label: "Data kepegawaian", tone: "neutral", isi: "NIK, nama, email kantor, nomor telepon, alamat, tempat dan tanggal lahir, jenis kelamin, agama, kontak darurat, divisi, jabatan, dan status kontrak. Data ini diinput oleh HR, bukan dikumpulkan diam-diam oleh aplikasi." },
-  { label: "Data kehadiran", tone: "neutral", isi: "Tanggal, jam absen masuk dan keluar, status kehadiran, serta alasan yang Anda tulis saat terlambat, pulang lebih awal, atau absen keluar di luar area kantor." },
-  { label: "Berkas unggahan", tone: "neutral", isi: "Lampiran pengajuan cuti, izin, atau lembur — misalnya surat dokter." },
-  { label: "Data perangkat", tone: "neutral", isi: <>Token notifikasi push, dan kunci publik passkey bila Anda mengaktifkan masuk dengan sidik jari atau Face ID. <Tegas>Kunci privat passkey tidak pernah meninggalkan perangkat Anda</Tegas> dan tidak dapat kami baca.</> },
-  { label: "Log aktivitas", tone: "neutral", isi: "Catatan tindakan administratif — siapa menyetujui pengajuan siapa, siapa mengubah data apa — untuk keperluan audit." },
+  { label: "Data kepegawaian", tone: "neutral", isi: "NIK, nama, email kantor, nomor telepon, alamat, tempat dan tanggal lahir, jenis kelamin, agama, kontak darurat, divisi, jabatan, dan status kontrak. Semua ini diisi tim HR saat akun Anda dibuat, bukan dikumpulkan diam-diam oleh aplikasi." },
+  { label: "Data kehadiran", tone: "neutral", isi: "Tanggal, jam masuk dan keluar, status kehadiran, serta alasan yang Anda tulis sendiri ketika terlambat, pulang lebih awal, atau absen keluar dari luar area kantor." },
+  { label: "Berkas unggahan", tone: "neutral", isi: "Berkas yang Anda lampirkan pada pengajuan cuti, izin, atau lembur — misalnya surat dokter." },
+  { label: "Data perangkat", tone: "neutral", isi: <>Token notifikasi push, dan kunci publik passkey kalau Anda mengaktifkan masuk dengan sidik jari atau Face ID. <Tegas>Kunci privat passkey tidak pernah meninggalkan perangkat Anda</Tegas> dan tidak dapat kami baca.</> },
+  { label: "Log aktivitas", tone: "neutral", isi: "Catatan tindakan administratif — siapa menyetujui pengajuan siapa, siapa mengubah data apa — supaya setiap keputusan bisa ditelusuri kembali." },
 ];
 
 const NAVIGASI = [
@@ -68,11 +68,10 @@ export default function KebijakanPrivasiPage() {
 
       <main id="isi-kebijakan">
         <section className={styles.hero} id="atas">
-          <div className={styles.eyebrow}>Kebijakan privasi · v1.0</div>
           <div className={styles.heroGrid}>
             <div>
               <h1>Data Anda tetap punya batas.</h1>
-              <p className={styles.lead}>Penjelasan ringkas tentang data yang NanumHR perlukan, kapan kami merekamnya, dan siapa yang dapat melihatnya.</p>
+              <p className={styles.lead}>Halaman ini menjelaskan data apa saja yang NanumHR ambil, kapan pengambilannya berhenti, dan siapa yang boleh melihatnya.</p>
             </div>
             <dl className={styles.documentMeta}>
               <div><dt>Berlaku sejak</dt><dd>{BERLAKU}</dd></div>
@@ -84,7 +83,7 @@ export default function KebijakanPrivasiPage() {
 
         <section className={styles.intro} aria-labelledby="tentang-nanumhr">
           <h2 id="tentang-nanumhr">Tentang layanan ini</h2>
-          <p>NanumHR adalah aplikasi presensi internal {PERUSAHAAN}. Aplikasi ini hanya dipakai oleh karyawan perusahaan; tidak tersedia untuk umum dan tidak menerima pendaftaran mandiri. Akun dibuat oleh tim HR. Pengelola data (<i>data controller</i>) adalah {PERUSAHAAN}.</p>
+          <p>NanumHR adalah aplikasi presensi untuk karyawan {PERUSAHAAN}. Aplikasinya tertutup: tidak dibuka untuk umum, tidak ada pendaftaran mandiri, dan setiap akun dibuat oleh tim HR. Yang bertanggung jawab atas data di dalamnya (<i>data controller</i>) adalah {PERUSAHAAN}.</p>
         </section>
 
         <section className={styles.commitments} aria-labelledby="komitmen-kami">
@@ -108,39 +107,39 @@ export default function KebijakanPrivasiPage() {
                   </div>
                 ))}
               </div>
-              <p className={styles.note}><span>Catatan</span>Aplikasi juga memeriksa indikasi pemalsuan lokasi (GPS palsu, lompatan jarak yang mustahil) dan menandai titik yang mencurigakan agar dapat ditinjau HR.</p>
+              <p className={styles.note}><span>Catatan</span>Aplikasi juga memeriksa tanda-tanda lokasi palsu — aplikasi GPS tiruan, atau perpindahan jarak yang mustahil ditempuh — lalu menandai titik yang mencurigakan supaya bisa ditinjau HR.</p>
             </Bagian>
 
             <Bagian nomor="02" id="penggunaan" judul="Untuk apa data ini dipakai">
-              <p>Seluruh data di atas dipakai semata-mata untuk pencatatan kehadiran, pengelolaan pengajuan cuti/izin/lembur, pengumuman internal, dan administrasi kepegawaian.</p>
-              <p><Tegas>Kami tidak menjual data Anda, tidak memakainya untuk iklan, dan tidak membagikannya kepada pihak ketiga untuk tujuan pemasaran.</Tegas> Tidak ada SDK pelacakan atau analitik pihak ketiga di dalam aplikasi ini.</p>
+              <p>Semua data di atas hanya dipakai untuk mencatat kehadiran, memproses pengajuan cuti, izin, dan lembur, menyampaikan pengumuman internal, serta mengurus administrasi kepegawaian.</p>
+              <p><Tegas>Kami tidak menjual data Anda, tidak memakainya untuk iklan, dan tidak membagikannya kepada pihak ketiga untuk tujuan pemasaran.</Tegas> Tidak ada SDK pelacakan atau analitik pihak ketiga di dalam aplikasi ini, dan kami tidak membangun profil apa pun tentang Anda untuk tujuan lain.</p>
             </Bagian>
 
             <Bagian nomor="03" id="akses" judul="Siapa yang bisa melihat data Anda">
-              <ul><li>Anda sendiri, melalui aplikasi.</li><li>Atasan langsung Anda, terbatas pada kehadiran dan pengajuan tim.</li><li>Tim HR dan administrator sistem perusahaan.</li></ul>
-              <p>Data disimpan pada penyedia layanan berikut, yang memproses data atas nama kami dan terikat perjanjian pemrosesan data: <Tegas>Neon</Tegas> (basis data, wilayah Singapura), <Tegas>Cloudflare R2</Tegas> (penyimpanan foto dan berkas), <Tegas>Vercel</Tegas> (hosting aplikasi), serta <Tegas>Expo dan Firebase Cloud Messaging</Tegas> (pengiriman notifikasi push). Karena penyedia ini berada di luar Indonesia, data Anda ditransfer dan disimpan di luar negeri.</p>
-              <p>Di luar itu, data hanya dibuka bila diwajibkan oleh hukum atau permintaan resmi aparat yang sah.</p>
+              <ul><li>Anda sendiri, lewat aplikasi.</li><li>Atasan langsung Anda — sebatas kehadiran dan pengajuan tim yang ia pimpin.</li><li>Tim HR dan administrator sistem perusahaan.</li></ul>
+              <p>Datanya sendiri dititipkan pada penyedia layanan berikut. Mereka memproses data atas nama kami dan terikat perjanjian pemrosesan data: <Tegas>Neon</Tegas> (basis data, wilayah Singapura), <Tegas>Cloudflare R2</Tegas> (penyimpanan foto dan berkas), <Tegas>Vercel</Tegas> (hosting aplikasi), serta <Tegas>Expo dan Firebase Cloud Messaging</Tegas> (pengiriman notifikasi push). Karena penyedia ini berkedudukan di luar Indonesia, data Anda ikut tersimpan di luar negeri.</p>
+              <p>Di luar mereka, data hanya kami buka kalau hukum mewajibkannya atau ada permintaan resmi dari aparat yang berwenang.</p>
             </Bagian>
 
             <Bagian nomor="04" id="retensi" judul="Berapa lama disimpan">
-              <p>Data kehadiran, pengajuan, dan berkas disimpan selama Anda menjadi karyawan. Data kehadiran mentah dirangkum menjadi arsip laporan bulanan, dan data mentahnya dihapus secara berkala setelah arsip pengganti terbukti ada. Setelah Anda berhenti bekerja, data kepegawaian disimpan selama masih dibutuhkan untuk memenuhi kewajiban hukum ketenagakerjaan dan perpajakan, lalu dihapus.</p>
+              <p>Data kehadiran, pengajuan, dan berkas tersimpan selama Anda masih menjadi karyawan.</p><p>Catatan kehadiran harian dirangkum lebih dulu menjadi arsip laporan bulanan; data mentahnya baru kami hapus secara berkala setelah arsip penggantinya terbukti ada. Setelah Anda berhenti bekerja, data kepegawaian kami simpan selama masih dibutuhkan untuk memenuhi kewajiban ketenagakerjaan dan perpajakan, lalu dihapus.</p>
             </Bagian>
 
             <Bagian nomor="05" id="keamanan" judul="Keamanan">
-              <p>Sandi disimpan dalam bentuk hash, tidak pernah sebagai teks biasa. Seluruh komunikasi antara aplikasi dan server memakai HTTPS. Akses ke data dibatasi menurut peran: karyawan, atasan, HR, atau administrator.</p>
+              <p>Kata sandi Anda disimpan dalam bentuk teracak (<i>hash</i>), tidak pernah sebagai teks biasa — kami sendiri tidak bisa membacanya. Seluruh komunikasi antara aplikasi dan server berjalan lewat HTTPS, dan siapa boleh melihat apa dibatasi menurut peran: karyawan, atasan, HR, atau administrator.</p>
             </Bagian>
 
             <Bagian nomor="06" id="hak" judul="Hak Anda">
-              <p>Anda berhak melihat data yang kami simpan tentang Anda, meminta koreksi data yang keliru, dan meminta penghapusan data yang tidak lagi diwajibkan disimpan oleh hukum. Anda juga dapat mencabut izin lokasi, kamera, atau notifikasi kapan saja melalui pengaturan perangkat — dengan konsekuensi fitur absen tidak dapat dipakai tanpa izin lokasi dan kamera.</p>
-              <p>Permintaan tersebut dikirim ke <Surel /> dan kami jawab selambat-lambatnya 30 hari kerja.</p>
+              <p>Anda berhak melihat data yang kami simpan tentang Anda, meminta perbaikan kalau ada yang keliru, dan meminta penghapusan data yang tidak lagi wajib kami simpan.</p><p>Izin lokasi, kamera, dan notifikasi juga bisa Anda cabut kapan saja lewat pengaturan perangkat. Perlu diingat, fitur absen tidak dapat berjalan tanpa izin lokasi dan kamera.</p>
+              <p>Kirim permintaan Anda ke <Surel />, dan kami jawab paling lambat 30 hari kerja.</p>
             </Bagian>
 
             <Bagian nomor="07" id="anak" judul="Anak-anak">
-              <p>NanumHR tidak ditujukan untuk anak di bawah 18 tahun dan tidak mengumpulkan data anak secara sengaja.</p>
+              <p>NanumHR dibuat untuk karyawan, bukan untuk anak di bawah 18 tahun, dan kami tidak mengumpulkan data anak.</p>
             </Bagian>
 
             <Bagian nomor="08" id="perubahan" judul="Perubahan kebijakan ini">
-              <p>Bila kebijakan ini berubah, tanggal berlaku di atas diperbarui dan perubahan penting diumumkan melalui pengumuman di dalam aplikasi.</p>
+              <p>Kalau kebijakan ini berubah, tanggal berlakunya di atas ikut diperbarui, dan perubahan yang penting kami sampaikan lewat pengumuman di dalam aplikasi.</p>
             </Bagian>
           </article>
         </div>
