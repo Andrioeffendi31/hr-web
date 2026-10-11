@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, BellRing, Clock3, LogIn, LogOut, MapPin, Megaphone, Users } from "lucide-react";
+import { Bell, BellRing, ChevronRight, Clock3, LogIn, LogOut, MapPin, Megaphone, Users } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { att } from "../_lib/status";
@@ -11,7 +11,7 @@ import { jam, salam, tanggalPanjang } from "../_lib/format";
 import { sedangBekerja, useMe } from "../_lib/hooks";
 import { kirimLokasi } from "../_lib/ping";
 import { aktifkanPush, usePushState } from "../_lib/push";
-import { Badge, Card, ErrorNote, SectionTitle, Skeleton } from "../_lib/ui";
+import { Avatar, Badge, Card, ErrorNote, SectionTitle, Skeleton } from "../_lib/ui";
 
 export default function Beranda() {
   const { data: me, isPending, error, refetch } = useMe();
@@ -46,12 +46,9 @@ export default function Beranda() {
             </span>
           </div>
         </div>
-        <div
-          aria-hidden
-          className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-semibold text-primary-foreground"
-        >
-          {me.profile.initials}
-        </div>
+        <Link href="/ios/profil" aria-label="Buka profil">
+          <Avatar photoKey={me.profile.photoKey} initials={me.profile.initials} size={64} />
+        </Link>
       </Card>
 
       <AjakanNotifikasi />
@@ -126,12 +123,32 @@ export default function Beranda() {
 
       {/* Rekan */}
       <Card className="space-y-3">
-        <SectionTitle>Rekan hadir hari ini</SectionTitle>
+        <SectionTitle
+          aside={
+            <Link
+              href="/ios/tim"
+              className="inline-flex items-center gap-0.5 rounded-lg bg-primary-subtle py-1.5 pr-2 pl-3 text-[13px] font-semibold text-primary"
+            >
+              Lihat tim
+              <ChevronRight className="size-4" aria-hidden />
+            </Link>
+          }
+        >
+          Rekan hadir hari ini
+        </SectionTitle>
         <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-            <Users className="size-5" aria-hidden />
-          </span>
-          <p className="flex-1 text-sm text-muted-foreground">
+          {me.team.avatars.length ? (
+            <span className="flex -space-x-2">
+              {me.team.avatars.slice(0, 5).map((a) => (
+                <Avatar key={a.id} photoKey={a.photoKey} initials={a.initials} size={32} className="ring-2 ring-card" />
+              ))}
+            </span>
+          ) : (
+            <span className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <Users className="size-5" aria-hidden />
+            </span>
+          )}
+          <p className="flex-1 text-right text-sm text-muted-foreground">
             <span className="text-xl font-bold text-foreground tabular-nums">{me.team.present}</span> dari{" "}
             {me.team.total} rekan sudah hadir
           </p>

@@ -21,27 +21,8 @@ import { ApiError } from "../../_lib/api";
 import { formatJarak, menitDari, menitSekarangWib } from "../../_lib/format";
 import { ambilLokasi, jarakMeter, terdekat, type Fix } from "../../_lib/geo";
 import { useMe } from "../../_lib/hooks";
+import { kecilkan } from "../../_lib/image";
 import { Card, ErrorNote, Skeleton } from "../../_lib/ui";
-
-/** Foto dikecilkan di perangkat: kamera iPhone menghasilkan 3–5 MB, batas
- *  server 4 MB, dan selfie absen tidak butuh lebih dari 1280 px. */
-async function kecilkan(file: File): Promise<File> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = new Image();
-    img.src = url;
-    await img.decode();
-    const skala = Math.min(1, 1280 / Math.max(img.naturalWidth, img.naturalHeight));
-    const c = document.createElement("canvas");
-    c.width = Math.round(img.naturalWidth * skala);
-    c.height = Math.round(img.naturalHeight * skala);
-    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-    const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.82));
-    return blob ? new File([blob], "selfie.jpg", { type: "image/jpeg" }) : file;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 export default function AbsenPage() {
   const { data: me, isPending, error, refetch } = useMe();
@@ -342,7 +323,7 @@ export default function AbsenPage() {
             const f = e.target.files?.[0];
             e.target.value = "";
             if (!f) return;
-            const kecil = await kecilkan(f).catch(() => f);
+            const kecil = await kecilkan(f, 1280, "selfie.jpg");
             setFoto(kecil);
             setPratinjau(URL.createObjectURL(kecil));
           }}

@@ -2,21 +2,38 @@
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Clock3, Loader2, Plus } from "lucide-react";
+import { CalendarDays, ChevronRight, Clock3, Download, FileText, Loader2, Paperclip, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { api, ApiError, postJson, type Requests } from "../../_lib/api";
+import { api, ApiError, fileUrl, postForm, postJson, type RequestItem, type Requests } from "../../_lib/api";
 import { hariIniWib } from "../../_lib/format";
 import { req } from "../../_lib/status";
 import { Badge, Card, ErrorNote, PageHeader, SectionTitle, Skeleton } from "../../_lib/ui";
 
 type Jenis = "cuti" | "lembur";
 const TIPE_CUTI = ["Cuti Tahunan", "Cuti Sakit", "Izin Khusus", "Izin Setengah Hari"] as const;
+type TipeCuti = (typeof TIPE_CUTI)[number];
+
+/** Aturan yang sama dengan PATCH/PUT di api/me/requests. */
+const bisaDiperbaiki = (r: RequestItem) => r.kind === "cuti" && (r.status === "menunggu" || r.status === "revisi");
+const bisaDibatalkan = (r: RequestItem) =>
+  r.status === "menunggu" || r.status === "revisi" || (r.kind === "cuti" && r.status === "menunggu_pimpinan");
 
 export default function PengajuanPage() {
   const [jenis, setJenis] = useState<Jenis>("cuti");
-  const [buka, setBuka] = useState(false);
+  const [form, setForm] = useState<{ edit: RequestItem | null } | null>(null);
+  const [lihat, setLihat] = useState<RequestItem | null>(null);
   const { data, isPending, error, refetch } = useQuery({
     queryKey: ["ios", "requests"],
     queryFn: () => api<Requests>("/api/me/requests"),
@@ -69,7 +86,7 @@ export default function PengajuanPage() {
 
       <button
         type="button"
-        onClick={() => setBuka(true)}
+        onClick={() => setForm({ edit: null })}
         className="flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-transform active:scale-[0.98]"
       >
         <Plus className="size-5" aria-hidden />
@@ -93,47 +110,211 @@ export default function PengajuanPage() {
             {items.map((r) => {
               const s = req(r.status);
               return (
-                <div key={r.id} className="flex items-start gap-3.5 p-4">
+                <button key={r.id} type="button" onClick={() => setLihat(r)} className="flex w-full items-center gap-3.5 p-4 text-left">
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                     {r.kind === "cuti" ? <CalendarDays className="size-5" aria-hidden /> : <Clock3 className="size-5" aria-hidden />}
                   </span>
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="text-[15px] font-semibold">{r.title}</p>
-                    <p className="text-[13px] text-muted-foreground tabular-nums">{r.detail}</p>
-                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                  <span className="min-w-0 flex-1 space-y-1">
+                    <span className="block text-[15px] font-semibold">{r.title}</span>
+                    <span className="block text-[13px] text-muted-foreground tabular-nums">{r.detail}</span>
+                    <span className="flex flex-wrap items-center gap-2 pt-0.5">
                       <Badge tone={s.tone}>{s.label}</Badge>
-                      {r.note ? <span className="truncate text-xs text-muted-foreground">{r.note}</span> : null}
-                    </div>
-                  </div>
-                </div>
+                      {r.attachment ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <Paperclip className="size-3" aria-hidden />
+                          Lampiran
+                        </span>
+                      ) : null}
+                    </span>
+                  </span>
+                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+                </button>
               );
             })}
           </Card>
         )}
       </div>
 
-      <FormPengajuan jenis={jenis} open={buka} onOpenChange={setBuka} />
+      <DetailPengajuan
+        item={lihat}
+        onClose={() => setLihat(null)}
+        onEdit={(r) => {
+          setLihat(null);
+          setForm({ edit: r });
+        }}
+      />
+      <FormPengajuan
+        key={form?.edit?.id ?? `baru-${jenis}`}
+        jenis={form?.edit?.kind ?? jenis}
+        edit={form?.edit ?? null}
+        delegates={data?.delegates ?? []}
+        open={!!form}
+        onOpenChange={(o) => !o && setForm(null)}
+      />
     </div>
+  );
+}
+
+function DetailPengajuan({
+  item,
+  onClose,
+  onEdit,
+}: {
+  item: RequestItem | null;
+  onClose: () => void;
+  onEdit: (r: RequestItem) => void;
+}) {
+  const qc = useQueryClient();
+  const [konfirmasi, setKonfirmasi] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const r = item;
+  const s = r ? req(r.status) : null;
+
+  async function batalkan() {
+    if (!r) return;
+    setBusy(true);
+    try {
+      await postJson("/api/me/requests", { kind: r.kind, id: r.id }, "PATCH");
+      await qc.invalidateQueries({ queryKey: ["ios"] });
+      toast.success("Pengajuan dibatalkan.");
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Gagal membatalkan.");
+    } finally {
+      setBusy(false);
+      setKonfirmasi(false);
+    }
+  }
+
+  const baris: [string, string | null | undefined][] = r
+    ? [
+        ["Waktu", r.detail],
+        ["Alasan", r.reason],
+        ["Pengganti tugas", r.delegateName],
+        ["Catatan HR", r.note],
+      ]
+    : [];
+
+  return (
+    <Sheet open={!!r} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent side="bottom" className="max-h-[92dvh] overflow-y-auto rounded-t-3xl px-5 pt-2 pb-[calc(env(safe-area-inset-bottom)+20px)]">
+        {r && s ? (
+          <>
+            <SheetHeader className="px-0">
+              <SheetTitle className="text-lg">{r.title}</SheetTitle>
+              <SheetDescription asChild>
+                <div>
+                  <Badge tone={s.tone}>{s.label}</Badge>
+                </div>
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="divide-y divide-border rounded-2xl border border-border">
+              {baris
+                .filter(([, v]) => v)
+                .map(([k, v]) => (
+                  <div key={k} className="space-y-0.5 px-4 py-3">
+                    <p className="text-xs text-muted-foreground">{k}</p>
+                    <p className="text-[15px] text-pretty">{v}</p>
+                  </div>
+                ))}
+            </div>
+
+            {r.attachment ? (
+              <a
+                href={fileUrl(r.attachment.key)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-3 rounded-2xl border border-border p-3"
+              >
+                <span className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <FileText className="size-5" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.attachment.name ?? "Lampiran"}</span>
+                <span className="text-xs font-semibold text-primary">Buka</span>
+              </a>
+            ) : null}
+
+            {r.suratToken && r.status === "disetujui" ? (
+              <a
+                href={`/api/surat/cuti/${r.suratToken}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary-subtle font-semibold text-primary"
+              >
+                <Download className="size-5" aria-hidden />
+                Unduh surat izin (PDF)
+              </a>
+            ) : null}
+
+            <div className="space-y-2 pt-1">
+              {bisaDiperbaiki(r) ? (
+                <button
+                  type="button"
+                  onClick={() => onEdit(r)}
+                  className="h-12 w-full rounded-xl bg-primary font-semibold text-primary-foreground"
+                >
+                  {r.status === "revisi" ? "Perbaiki dan kirim ulang" : "Ubah pengajuan"}
+                </button>
+              ) : null}
+              {bisaDibatalkan(r) ? (
+                <button
+                  type="button"
+                  onClick={() => setKonfirmasi(true)}
+                  className="h-12 w-full rounded-xl bg-danger-subtle font-semibold text-danger"
+                >
+                  Batalkan pengajuan
+                </button>
+              ) : null}
+            </div>
+
+            <AlertDialog open={konfirmasi} onOpenChange={setKonfirmasi}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Batalkan {r.title.toLowerCase()}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Pengajuan ini akan ditarik dari antrean HR. Anda perlu mengajukan ulang jika masih membutuhkannya.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Jangan batalkan</AlertDialogCancel>
+                  <AlertDialogAction variant="destructive" disabled={busy} onClick={batalkan}>
+                    Batalkan pengajuan
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        ) : null}
+      </SheetContent>
+    </Sheet>
   );
 }
 
 function FormPengajuan({
   jenis,
+  edit,
+  delegates,
   open,
   onOpenChange,
 }: {
   jenis: Jenis;
+  edit: RequestItem | null;
+  delegates: { id: number; name: string }[];
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
   const qc = useQueryClient();
   const hariIni = hariIniWib();
-  const [tipe, setTipe] = useState<(typeof TIPE_CUTI)[number]>("Cuti Tahunan");
-  const [mulai, setMulai] = useState(hariIni);
-  const [selesai, setSelesai] = useState(hariIni);
-  const [jamMulai, setJamMulai] = useState("17:00");
-  const [jamSelesai, setJamSelesai] = useState("19:00");
-  const [alasan, setAlasan] = useState("");
+  const [tipe, setTipe] = useState<TipeCuti>(edit?.type ?? "Cuti Tahunan");
+  const [mulai, setMulai] = useState(edit?.startDate ?? edit?.date ?? hariIni);
+  const [selesai, setSelesai] = useState(edit?.endDate ?? hariIni);
+  const [jamMulai, setJamMulai] = useState(edit?.startTime ?? (jenis === "lembur" ? "17:00" : "08:00"));
+  const [jamSelesai, setJamSelesai] = useState(edit?.endTime ?? (jenis === "lembur" ? "19:00" : "12:00"));
+  const [alasan, setAlasan] = useState(edit?.reason ?? "");
+  const [pengganti, setPengganti] = useState<string>(edit?.delegateId ? String(edit.delegateId) : "");
+  const [lampiran, setLampiran] = useState<File | null>(null);
+  const [lampiranLama, setLampiranLama] = useState(edit?.attachment ?? null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -144,22 +325,36 @@ function FormPengajuan({
     e.preventDefault();
     setBusy(true);
     setErr(null);
-    const body =
-      jenis === "lembur"
-        ? { kind: "lembur", date: mulai, startTime: jamMulai, endTime: jamSelesai, reason: alasan.trim() }
-        : {
-            kind: "cuti",
-            type: tipe,
-            startDate: mulai,
-            endDate: setengah ? mulai : selesai,
-            reason: alasan.trim(),
-            ...(setengah ? { startTime: jamMulai, endTime: jamSelesai } : {}),
-          };
     try {
-      await postJson("/api/me/requests", body);
-      toast.success(jenis === "cuti" ? "Pengajuan cuti terkirim." : "Pengajuan lembur terkirim.");
+      if (jenis === "lembur") {
+        await postJson("/api/me/requests", {
+          kind: "lembur",
+          date: mulai,
+          startTime: jamMulai,
+          endTime: jamSelesai,
+          reason: alasan.trim(),
+        });
+      } else {
+        // multipart: satu-satunya bentuk yang bisa membawa lampiran, dan dipahami
+        // POST maupun PUT (lihat payload() di api/me/requests)
+        const f = new FormData();
+        if (edit) f.set("id", String(edit.id));
+        else f.set("kind", "cuti");
+        f.set("type", tipe);
+        f.set("startDate", mulai);
+        f.set("endDate", setengah ? mulai : selesai);
+        f.set("reason", alasan.trim());
+        if (pengganti) f.set("delegateId", pengganti);
+        if (setengah) {
+          f.set("startTime", jamMulai);
+          f.set("endTime", jamSelesai);
+        }
+        if (lampiran) f.set("attachment", lampiran);
+        else if (edit?.attachment && !lampiranLama) f.set("removeAttachment", "1");
+        await postForm("/api/me/requests", f, edit ? "PUT" : "POST");
+      }
+      toast.success(edit ? "Pengajuan dikirim ulang." : jenis === "cuti" ? "Pengajuan cuti terkirim." : "Pengajuan lembur terkirim.");
       await qc.invalidateQueries({ queryKey: ["ios"] });
-      setAlasan("");
       onOpenChange(false);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Pengajuan gagal dikirim.");
@@ -173,16 +368,17 @@ function FormPengajuan({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="max-h-[92dvh] overflow-y-auto rounded-t-3xl px-5 pt-2 pb-[calc(env(safe-area-inset-bottom)+20px)]"
-      >
+      <SheetContent side="bottom" className="max-h-[92dvh] overflow-y-auto rounded-t-3xl px-5 pt-2 pb-[calc(env(safe-area-inset-bottom)+20px)]">
         <SheetHeader className="px-0">
-          <SheetTitle className="text-lg">{jenis === "cuti" ? "Ajukan cuti" : "Ajukan lembur"}</SheetTitle>
+          <SheetTitle className="text-lg">
+            {edit ? "Perbaiki pengajuan cuti" : jenis === "cuti" ? "Ajukan cuti" : "Ajukan lembur"}
+          </SheetTitle>
           <SheetDescription>
-            {jenis === "cuti"
-              ? "HR akan meninjau pengajuan ini dan mengabari Anda lewat notifikasi."
-              : "Lembur dihitung dari jam mulai sampai jam selesai."}
+            {edit?.status === "revisi" && edit.note
+              ? `Catatan HR: ${edit.note}`
+              : jenis === "cuti"
+                ? "HR akan meninjau pengajuan ini dan mengabari Anda lewat notifikasi."
+                : "Lembur dihitung dari jam mulai sampai jam selesai."}
           </SheetDescription>
         </SheetHeader>
 
@@ -190,7 +386,7 @@ function FormPengajuan({
           {jenis === "cuti" ? (
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">Jenis</span>
-              <select value={tipe} onChange={(e) => setTipe(e.target.value as typeof tipe)} className={field}>
+              <select value={tipe} onChange={(e) => setTipe(e.target.value as TipeCuti)} className={field}>
                 {TIPE_CUTI.map((t) => (
                   <option key={t}>{t}</option>
                 ))}
@@ -206,14 +402,7 @@ function FormPengajuan({
             {jenis === "cuti" && !setengah ? (
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium">Selesai</span>
-                <input
-                  type="date"
-                  value={selesai}
-                  min={mulai}
-                  onChange={(e) => setSelesai(e.target.value)}
-                  required
-                  className={field}
-                />
+                <input type="date" value={selesai} min={mulai} onChange={(e) => setSelesai(e.target.value)} required className={field} />
               </label>
             ) : null}
           </div>
@@ -226,15 +415,25 @@ function FormPengajuan({
               </label>
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium">Jam selesai</span>
-                <input
-                  type="time"
-                  value={jamSelesai}
-                  onChange={(e) => setJamSelesai(e.target.value)}
-                  required
-                  className={field}
-                />
+                <input type="time" value={jamSelesai} onChange={(e) => setJamSelesai(e.target.value)} required className={field} />
               </label>
             </div>
+          ) : null}
+
+          {jenis === "cuti" && delegates.length ? (
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium">
+                Pengganti tugas <span className="font-normal text-muted-foreground">(opsional)</span>
+              </span>
+              <select value={pengganti} onChange={(e) => setPengganti(e.target.value)} className={field}>
+                <option value="">Tidak ada</option>
+                {delegates.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           ) : null}
 
           <label className="block space-y-1.5">
@@ -250,6 +449,42 @@ function FormPengajuan({
             />
           </label>
 
+          {jenis === "cuti" ? (
+            <div className="space-y-1.5">
+              <span className="text-sm font-medium">
+                Lampiran <span className="font-normal text-muted-foreground">(opsional, mis. surat dokter)</span>
+              </span>
+              {lampiran || lampiranLama ? (
+                <div className="flex items-center gap-3 rounded-xl border border-border p-3">
+                  <Paperclip className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-sm">{lampiran?.name ?? lampiranLama?.name ?? "Lampiran"}</span>
+                  <button
+                    type="button"
+                    aria-label="Hapus lampiran"
+                    onClick={() => {
+                      setLampiran(null);
+                      setLampiranLama(null);
+                    }}
+                    className="flex size-8 items-center justify-center rounded-lg text-muted-foreground"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground">
+                  <Paperclip className="size-4" aria-hidden />
+                  Pilih file (PDF, foto, DOCX — maks 10 MB)
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.xlsx,.csv,image/*"
+                    className="sr-only"
+                    onChange={(e) => setLampiran(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              )}
+            </div>
+          ) : null}
+
           {err ? (
             <p role="alert" className="rounded-xl bg-danger-subtle px-3.5 py-2.5 text-sm text-danger">
               {err}
@@ -262,7 +497,7 @@ function FormPengajuan({
             className="flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground disabled:bg-muted disabled:text-muted-foreground"
           >
             {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : null}
-            {busy ? "Mengirim…" : "Kirim pengajuan"}
+            {busy ? "Mengirim…" : edit ? "Kirim ulang pengajuan" : "Kirim pengajuan"}
           </button>
         </form>
       </SheetContent>

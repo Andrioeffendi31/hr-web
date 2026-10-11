@@ -4,7 +4,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarCheck2, Bookmark, House, Settings, Share, SquarePlus } from "lucide-react";
+import { Award, CalendarCheck2, Bookmark, House, Settings, Share, SquarePlus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { sedangBekerja, useMe } from "../_lib/hooks";
@@ -15,6 +15,7 @@ const TABS = [
   { href: "/ios/kehadiran", label: "Kehadiran", icon: CalendarCheck2 },
   { href: "/ios/pengajuan", label: "Pengajuan", icon: Bookmark },
   { href: "/ios", label: "Beranda", icon: House },
+  { href: "/ios/peringkat", label: "Peringkat", icon: Award },
   { href: "/ios/pengaturan", label: "Pengaturan", icon: Settings },
 ] as const;
 

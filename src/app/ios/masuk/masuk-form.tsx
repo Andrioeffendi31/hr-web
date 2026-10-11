@@ -1,13 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { signIn } from "next-auth/react";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Fingerprint, Loader2 } from "lucide-react";
+import { dibatalkan, masukPasskey, passkeyDidukung } from "../_lib/passkey";
+
+const noop = () => () => {};
 
 export function MasukForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [show, setShow] = useState(false);
+  const [kunci, setKunci] = useState(false);
+  const bisaPasskey = useSyncExternalStore(noop, passkeyDidukung, () => false);
+
+  async function denganPasskey() {
+    setKunci(true);
+    setError(null);
+    try {
+      await masukPasskey();
+      window.location.replace("/ios");
+    } catch (e) {
+      if (!dibatalkan(e)) setError((e as Error).message);
+      setKunci(false);
+    }
+  }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -88,6 +105,25 @@ export function MasukForm() {
         {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : null}
         {busy ? "Sedang masuk…" : "Masuk"}
       </button>
+
+      {bisaPasskey ? (
+        <>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
+            atau
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <button
+            type="button"
+            onClick={denganPasskey}
+            disabled={busy || kunci}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card text-base font-semibold disabled:opacity-60"
+          >
+            {kunci ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Fingerprint className="size-5" aria-hidden />}
+            Masuk dengan Face ID
+          </button>
+        </>
+      ) : null}
 
       <a
         href="/lupa-sandi"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { api, type AttendanceMonth } from "../../_lib/api";
@@ -94,7 +95,7 @@ export default function KehadiranPage() {
               {data.days.map((d) => {
                 const s = att(d.status);
                 return (
-                  <div key={d.date} className="flex items-center gap-3.5 px-4 py-3">
+                  <Link key={d.date} href={`/ios/kehadiran/${d.date}`} className="flex items-center gap-3.5 px-4 py-3">
                     <div className="flex h-13 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-muted">
                       <span className="text-[11px] font-semibold text-muted-foreground">{hariPendek(d.date)}</span>
                       <span className="text-lg leading-tight font-bold tabular-nums">{d.date.slice(8)}</span>
@@ -106,7 +107,8 @@ export default function KehadiranPage() {
                         {d.note ? ` · ${d.note}` : ""}
                       </p>
                     </div>
-                  </div>
+                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+                  </Link>
                 );
               })}
             </Card>
