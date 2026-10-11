@@ -1,14 +1,22 @@
 const TZ = "Asia/Jakarta";
 
-/** "07.41" — zona WIB, sama dengan yang dihitung server. */
-export const jam = (iso: string | null | undefined) =>
-  iso
-    ? new Intl.DateTimeFormat("id-ID", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: TZ,
-      }).format(new Date(iso))
-    : "—";
+/**
+ * "07.41" — zona WIB, sama dengan yang dihitung server.
+ *
+ * Nilai yang tidak bisa dibaca sebagai tanggal (mis. jam yang sudah diformat
+ * server) dikembalikan apa adanya: Intl melempar RangeError untuk Invalid Date,
+ * dan satu nilai aneh tidak boleh menjatuhkan seluruh layar.
+ */
+export const jam = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: TZ,
+  }).format(d);
+};
 
 /** "Minggu, 11 Oktober 2026" dari YYYY-MM-DD (dibaca sebagai tanggal WIB). */
 export const tanggalPanjang = (ymd: string) =>

@@ -151,10 +151,12 @@ export type AttendanceDay = {
   izin: { start: string; end: string } | null;
   lateReason: string | null;
   earlyReason: string | null;
+  awayReason: string | null;
   review: { ok: boolean; note: string | null; at: string | null } | null;
   events: {
     id: number;
     kind: "masuk" | "keluar" | "catatan" | "lokasi";
+    /** jam WIB yang SUDAH diformat server ("02.10"), bukan timestamp */
     at: string;
     location: string | null;
     note: string | null;

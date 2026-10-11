@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, LogIn, LogOut, MapPin, MessageSquareText, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, fileUrl, type AttendanceDay } from "../../../_lib/api";
-import { formatJarak, jam, tanggalPanjang } from "../../../_lib/format";
+import { formatJarak, tanggalPanjang } from "../../../_lib/format";
 import { att } from "../../../_lib/status";
 import { BackHeader, Badge, Card, ErrorNote, SectionTitle, Skeleton } from "../../../_lib/ui";
 
@@ -17,6 +17,10 @@ const IKON = {
 } as const;
 
 const JUDUL = { masuk: "Absen masuk", keluar: "Absen keluar", lokasi: "Ping lokasi", catatan: "Catatan" } as const;
+
+/** jenis kejadian yang belum dikenal layar ini tampil sebagai catatan, bukan galat */
+const ikon = (k: string) => IKON[k as keyof typeof IKON] ?? IKON.catatan;
+const judul = (k: string) => JUDUL[k as keyof typeof JUDUL] ?? "Aktivitas";
 
 export default function DetailHariPage() {
   const { date } = useParams<{ date: string }>();
@@ -45,6 +49,7 @@ function Isi({ d }: { d: AttendanceDay }) {
   const alasan = [
     d.lateReason ? { label: "Alasan terlambat", teks: d.lateReason } : null,
     d.earlyReason ? { label: "Alasan pulang lebih awal", teks: d.earlyReason } : null,
+    d.awayReason ? { label: "Alasan absen keluar di luar kantor", teks: d.awayReason } : null,
   ].filter(Boolean) as { label: string; teks: string }[];
 
   return (
@@ -138,9 +143,9 @@ function Isi({ d }: { d: AttendanceDay }) {
                 className="relative block overflow-hidden rounded-2xl outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- dilayani /api/files dengan sesi */}
-                <img src={fileUrl(e.photoKey!)} alt={`Selfie ${JUDUL[e.kind].toLowerCase()}`} className="aspect-[3/4] w-full object-cover" />
+                <img src={fileUrl(e.photoKey!)} alt={`Selfie ${judul(e.kind).toLowerCase()}`} className="aspect-[3/4] w-full object-cover" />
                 <span className="absolute bottom-2 left-2 rounded-lg bg-black/65 px-2 py-1 text-xs font-semibold text-white">
-                  {e.kind === "masuk" ? "Masuk" : "Keluar"} · {jam(e.at)}
+                  {e.kind === "masuk" ? "Masuk" : "Keluar"} · {e.at}
                 </span>
               </a>
             ))}
@@ -158,7 +163,7 @@ function Isi({ d }: { d: AttendanceDay }) {
           <Card className="px-4 pt-4 pb-1">
             <ol>
               {d.events.map((e, i) => {
-                const k = IKON[e.kind];
+                const k = ikon(e.kind);
                 const terakhir = i === d.events.length - 1;
                 return (
                   <li key={e.id} className="relative flex gap-3 pb-4">
@@ -169,9 +174,9 @@ function Isi({ d }: { d: AttendanceDay }) {
                     <div className="min-w-0 flex-1 space-y-0.5 pt-0.5">
                       <div className="flex items-center justify-between gap-2">
                         <p className={cn("text-sm", e.kind === "lokasi" || e.kind === "catatan" ? "font-medium" : "font-semibold")}>
-                          {JUDUL[e.kind]}
+                          {judul(e.kind)}
                         </p>
-                        <p className="text-sm font-semibold tabular-nums">{jam(e.at)}</p>
+                        <p className="text-sm font-semibold tabular-nums">{e.at}</p>
                       </div>
                       {e.location ? <p className="text-[13px] text-muted-foreground">{e.location}</p> : null}
                       {e.distanceM !== null && e.kind !== "catatan" ? (
@@ -186,7 +191,7 @@ function Isi({ d }: { d: AttendanceDay }) {
                       ) : null}
                       {e.lat !== null && e.lng !== null ? (
                         <a
-                          href={`https://maps.apple.com/?ll=${e.lat},${e.lng}&q=${encodeURIComponent(JUDUL[e.kind])}`}
+                          href={`https://maps.apple.com/?ll=${e.lat},${e.lng}&q=${encodeURIComponent(judul(e.kind))}`}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-block text-xs font-semibold text-primary"
