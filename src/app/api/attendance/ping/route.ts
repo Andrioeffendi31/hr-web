@@ -64,11 +64,24 @@ const body = z.object({
   delayed: z.coerce.boolean().optional(),
   /** fix yang diambil TEPAT saat koneksi kembali, di luar irama 3 jam */
   reconnect: z.coerce.boolean().optional(),
+  /**
+   * Ping dari PWA iOS (/ios). Safari tidak bisa mengambil lokasi di latar
+   * belakang, jadi iramanya bukan penjadwal ponsel melainkan pengingat push tiap
+   * ~2 jam yang diketuk karyawan — lihat api/cron/ping-ios. Jedanya ikut irama
+   * itu: dengan jeda 2,5 jam milik aplikasi Android, ketukan atas pengingat
+   * 2 jam akan selalu ditolak 409.
+   */
+  source: z.literal("pwa").optional(),
 });
 
 /** 2.5 h, not 3 h: a phone's background scheduler drifts, and rejecting a
  *  legitimate ping for being 8 minutes early would silently lose coverage. */
 const MIN_GAP_MS = 2.5 * 60 * 60 * 1000;
+
+/** PWA: irama pengingatnya 2 jam, dan orang bisa mengetuknya agak cepat atau
+ *  membuka aplikasinya sendiri lebih dulu. 90 menit tetap plafon yang sama
+ *  gunanya — satu klien yang berulang tidak bisa membanjiri jejaknya. */
+const MIN_GAP_PWA_MS = 90 * 60 * 1000;
 
 /** Toleransi jam perangkat untuk `at`: satu menit, cukup untuk skew biasa dan
  *  jauh dari cukup untuk memalsukan urutan kejadian. */
@@ -99,7 +112,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return Response.json({ error: "Koordinat tidak valid" }, { status: 400 });
   }
-  const { lat, lng, location, mocked, delayed, reconnect } = parsed.data;
+  const { lat, lng, location, mocked, delayed, reconnect, source } = parsed.data;
   const today = todayWib();
 
   const [att] = await db
@@ -229,7 +242,11 @@ export async function POST(req: Request) {
 
   // Ping "kembali online" memakai jeda sendiri, bukan jeda 3 jam — lihat
   // JEDA_RECONNECT_MS. Plafonnya tetap ada, angkanya saja yang berbeda.
-  const jeda = reconnect ? JEDA_RECONNECT_MS : MIN_GAP_MS;
+  const jeda = reconnect
+    ? JEDA_RECONNECT_MS
+    : source === "pwa"
+      ? MIN_GAP_PWA_MS
+      : MIN_GAP_MS;
   const rapat = [sebelum, sesudah].find(
     (n) => n && Math.abs(at.getTime() - n.at.getTime()) < jeda,
   );

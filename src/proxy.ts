@@ -49,6 +49,14 @@ export const config = {
     // account here. It is deliberately NOT under `buka`, whose paths app.json
     // claims as Android App Links: a scan on an employee's own phone would be
     // hijacked into the app and land on a 404 instead of the answer.
-    "/((?!login|lupa-sandi|atur-sandi|kebijakan-privasi|buka|verifikasi|api|\\.well-known|_next/static|_next/image|favicon.ico).*)",
+    //
+    // `ios` adalah PWA karyawan iOS. Ia menjaga dirinya sendiri di
+    // ios/(app)/layout.tsx dan mengarahkan ke /ios/masuk, bukan /login: PWA yang
+    // terpasang punya penyimpanan cookie sendiri, terpisah dari Safari, jadi
+    // login harus terjadi DI DALAM cakupan /ios. Proxy di sini juga akan menolak
+    // karyawan biasa (canAccess hanya membuka konsol untuk HR) dan mengalihkan
+    // service worker serta manifest-nya ke halaman login — keduanya harus bisa
+    // diambil tanpa redirect.
+    "/((?!login|lupa-sandi|atur-sandi|kebijakan-privasi|buka|verifikasi|ios|api|\\.well-known|_next/static|_next/image|favicon.ico).*)",
   ],
 };
