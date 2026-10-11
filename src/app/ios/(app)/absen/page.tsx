@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
-  Camera,
   Clock3,
   House,
   Loader2,
@@ -21,7 +20,7 @@ import { ApiError } from "../../_lib/api";
 import { formatJarak, menitDari, menitSekarangWib } from "../../_lib/format";
 import { ambilLokasi, jarakMeter, terdekat, type Fix } from "../../_lib/geo";
 import { useMe } from "../../_lib/hooks";
-import { kecilkan } from "../../_lib/image";
+import { KameraSelfie } from "../../_lib/kamera";
 import { Card, ErrorNote, Skeleton } from "../../_lib/ui";
 
 export default function AbsenPage() {
@@ -40,7 +39,6 @@ export default function AbsenPage() {
   const [pratinjau, setPratinjau] = useState<string | null>(null);
   const [kirim, setKirim] = useState(false);
   const [serverErr, setServerErr] = useState<string | null>(null);
-  const kamera = useRef<HTMLInputElement>(null);
 
   const cari = useCallback(async () => {
     setMencari(true);
@@ -313,44 +311,13 @@ export default function AbsenPage() {
       {/* Selfie */}
       <Card className="space-y-3">
         <p className="text-sm font-semibold">Foto selfie</p>
-        <input
-          ref={kamera}
-          type="file"
-          accept="image/*"
-          capture="user"
-          className="sr-only"
-          onChange={async (e) => {
-            const f = e.target.files?.[0];
-            e.target.value = "";
-            if (!f) return;
-            const kecil = await kecilkan(f, 1280, "selfie.jpg");
-            setFoto(kecil);
-            setPratinjau(URL.createObjectURL(kecil));
+        <KameraSelfie
+          foto={pratinjau}
+          onFoto={(f) => {
+            setFoto(f);
+            setPratinjau(URL.createObjectURL(f));
           }}
         />
-        {pratinjau ? (
-          <div className="relative overflow-hidden rounded-2xl outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10">
-            {/* eslint-disable-next-line @next/next/no-img-element -- blob lokal */}
-            <img src={pratinjau} alt="Pratinjau selfie" className="aspect-[3/4] w-full object-cover" />
-            <button
-              type="button"
-              onClick={() => kamera.current?.click()}
-              className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-black/65 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur"
-            >
-              <RefreshCw className="size-4" aria-hidden />
-              Ambil ulang
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => kamera.current?.click()}
-            className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-muted/40 text-muted-foreground"
-          >
-            <Camera className="size-7" aria-hidden />
-            <span className="text-sm font-medium">Buka kamera depan</span>
-          </button>
-        )}
       </Card>
 
       {serverErr ? (
