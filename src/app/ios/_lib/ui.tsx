@@ -83,6 +83,14 @@ export function ErrorNote({ message, onRetry }: { message: string; onRetry?: () 
   );
 }
 
+/**
+ * Warna latar inisial, tetap per orang (dari inisialnya), seperti di desain dan
+ * app Android: AZ magenta, AF ungu, DK hijau. Semuanya cukup gelap untuk teks putih.
+ */
+const WARNA_INISIAL = ["#3B6FB8", "#A33A68", "#6A45CF", "#2E7A68", "#B4562A", "#7A4FB0", "#2F6F8F"];
+const warnaInisial = (s: string) =>
+  WARNA_INISIAL[[...s].reduce((h, c) => h + c.charCodeAt(0), 0) % WARNA_INISIAL.length];
+
 /** Foto profil dari /api/files, atau inisial bila belum ada foto. */
 export function Avatar({
   photoKey,
@@ -131,9 +139,9 @@ export function Avatar({
   return (
     <span
       aria-hidden
-      style={style}
+      style={{ ...style, backgroundColor: warnaInisial(initials) }}
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-primary-foreground",
+        "flex shrink-0 items-center justify-center rounded-full font-semibold text-white",
         className,
       )}
     >

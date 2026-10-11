@@ -87,10 +87,16 @@ export default function PeringkatPage() {
                   <div key={r.id} className="relative flex min-w-0 flex-1 flex-col items-center gap-1.5">
                     {juara ? (
                       <>
+                        {/* Di DEPAN avatar (z-20), seperti di desain: kilaunya menimpa
+                            sudut kartu juara, bukan bersembunyi di belakangnya. */}
                         {/* eslint-disable-next-line @next/next/no-img-element -- aset statis kecil */}
-                        <img src="/ios/leaderboard/sprinkles.png" alt="" className="pointer-events-none absolute top-6 w-[142px]" />
+                        <img
+                          src="/ios/leaderboard/sprinkles.png"
+                          alt=""
+                          className="pointer-events-none absolute top-[46px] z-20 w-[150px] max-w-none"
+                        />
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/ios/leaderboard/crown.png" alt="Mahkota peringkat pertama" className="h-6 w-9 object-contain" />
+                        <img src="/ios/leaderboard/crown.png" alt="Mahkota peringkat pertama" className="h-10 w-[60px] object-contain" />
                       </>
                     ) : null}
                     <div className="relative" style={{ width: size, height: size + 20 }}>
@@ -166,7 +172,7 @@ function Baris({ r, saya }: { r: LeaderboardRow; saya?: boolean }) {
       <span className="w-7 shrink-0 text-base font-semibold text-muted-foreground tabular-nums">{r.rank}</span>
       <Avatar photoKey={r.photoKey} initials={r.initials} name={r.name} size={44} zoom className="rounded-[30%]" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-semibold">{saya ? `${r.name} (Anda)` : r.name}</p>
+        <p className="truncate text-[15px] font-semibold">{r.name}</p>
         <p className="text-[13px] text-muted-foreground tabular-nums">
           {r.tepatWaktu} hari tepat waktu{r.telat ? ` · ${r.telat} terlambat` : ""}
         </p>
