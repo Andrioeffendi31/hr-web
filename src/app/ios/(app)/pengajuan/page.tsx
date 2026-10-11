@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, ChevronRight, Clock3, Download, FileText, Loader2, Paperclip, Plus, X } from "lucide-react";
+import { CalendarDays, ChevronRight, Clock3, Download, FileText, Loader2, Paperclip, Plus, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -31,7 +32,9 @@ const bisaDibatalkan = (r: RequestItem) =>
   r.status === "menunggu" || r.status === "revisi" || (r.kind === "cuti" && r.status === "menunggu_pimpinan");
 
 export default function PengajuanPage() {
-  const [jenis, setJenis] = useState<Jenis>("cuti");
+  // aksi cepat "Lembur" di Beranda membuka tab ini lewat ?jenis=lembur
+  const awal = useSearchParams().get("jenis") === "lembur" ? "lembur" : "cuti";
+  const [jenis, setJenis] = useState<Jenis>(awal);
   const [form, setForm] = useState<{ edit: RequestItem | null } | null>(null);
   const [lihat, setLihat] = useState<RequestItem | null>(null);
   const { data, isPending, error, refetch } = useQuery({
@@ -69,25 +72,12 @@ export default function PengajuanPage() {
         ))}
       </div>
 
-      {jenis === "cuti" && data?.balance ? (
-        <Card className="flex items-end justify-between">
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Sisa cuti</p>
-            <p className="flex items-end gap-1.5">
-              <span className="text-4xl leading-none font-bold tabular-nums">{data.balance.remaining}</span>
-              <span className="text-[15px] text-muted-foreground">hari</span>
-            </p>
-          </div>
-          <p className="text-right text-xs text-muted-foreground">
-            Terpakai {data.balance.used} dari {data.balance.quota} hari
-          </p>
-        </Card>
-      ) : null}
+      {jenis === "cuti" && data ? <KartuSaldo balance={data.balance} /> : null}
 
       <button
         type="button"
         onClick={() => setForm({ edit: null })}
-        className="flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-transform active:scale-[0.98]"
+        className="flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-transform duration-150 ease-out active:scale-[0.96]"
       >
         <Plus className="size-5" aria-hidden />
         {jenis === "cuti" ? "Ajukan cuti" : "Ajukan lembur"}
@@ -151,6 +141,61 @@ export default function PengajuanPage() {
         open={!!form}
         onOpenChange={(o) => !o && setForm(null)}
       />
+    </div>
+  );
+}
+
+/**
+ * Dua kartu sejajar seperti di desain: angka sisa cuti, dan kuota tahunan
+ * sebagai kotak-kotak (satu kotak = satu hari) supaya "terpakai berapa" terbaca
+ * sekilas tanpa menghitung.
+ */
+function KartuSaldo({ balance }: { balance: Requests["balance"] }) {
+  const quota = balance?.quota ?? 0;
+  const used = Math.min(balance?.used ?? 0, quota);
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <Card className="flex min-h-44 flex-col justify-between">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[13px] font-semibold text-muted-foreground">Sisa cuti</p>
+          <span className="flex size-8 items-center justify-center rounded-[10px] bg-muted text-muted-foreground">
+            <CalendarDays className="size-4" aria-hidden />
+          </span>
+        </div>
+        <div className="space-y-1">
+          <p className="flex items-end gap-1.5">
+            <span className="text-[44px] leading-none font-bold tracking-tight tabular-nums">{balance?.remaining ?? 0}</span>
+            <span className="pb-0.5 text-[15px] text-muted-foreground">hari</span>
+          </p>
+          <p className="text-xs text-muted-foreground">dari {quota} hari kuota</p>
+        </div>
+      </Card>
+
+      <Card className="flex min-h-44 flex-col justify-between gap-3">
+        <div className="space-y-0.5">
+          <p className="text-sm font-semibold">Kuota tahunan</p>
+          <p className="text-xs text-muted-foreground">Setiap kotak = 1 hari</p>
+        </div>
+        {quota > 0 ? (
+          <div className="flex flex-wrap gap-1" role="img" aria-label={`Terpakai ${used} dari ${quota} hari`}>
+            {Array.from({ length: quota }, (_, i) => (
+              <span key={i} className={cn("size-3 rounded-[3px]", i < used ? "bg-primary" : "bg-muted ring-1 ring-border ring-inset")} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-[13px] text-muted-foreground text-pretty">Kuota belum diatur oleh HR</p>
+        )}
+        <div className="space-y-1.5 text-xs text-muted-foreground">
+          <p className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-[3px] bg-primary" aria-hidden />
+            Terpakai {used} hari
+          </p>
+          <p className="flex items-center gap-1.5">
+            <RefreshCw className="size-3" aria-hidden />
+            Reset tiap tahun
+          </p>
+        </div>
+      </Card>
     </div>
   );
 }

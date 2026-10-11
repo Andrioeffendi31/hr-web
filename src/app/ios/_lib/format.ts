@@ -28,6 +28,16 @@ export const tanggalPanjang = (ymd: string) =>
     timeZone: "UTC",
   }).format(new Date(`${ymd}T00:00:00Z`));
 
+/** "Minggu, 11 Okt 2026" — untuk chip tanggal yang sempit. */
+export const tanggalSedang = (ymd: string) =>
+  new Intl.DateTimeFormat("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${ymd}T00:00:00Z`));
+
 export const bulanTahun = (ym: string) =>
   new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(
     new Date(`${ym}-01T00:00:00Z`),

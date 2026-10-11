@@ -17,9 +17,9 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ApiError } from "../../_lib/api";
-import { formatJarak, menitDari, menitSekarangWib } from "../../_lib/format";
+import { formatJarak, menitDari, menitSekarangWib, tanggalPanjang } from "../../_lib/format";
 import { ambilLokasi, jarakMeter, terdekat, type Fix } from "../../_lib/geo";
-import { useMe } from "../../_lib/hooks";
+import { useJamBerjalan, useMe } from "../../_lib/hooks";
 import { KameraSelfie } from "../../_lib/kamera";
 import { Card, ErrorNote, Skeleton } from "../../_lib/ui";
 
@@ -174,10 +174,13 @@ export default function AbsenPage() {
         <h1 className="text-[17px] font-semibold">{aksi === "in" ? "Absen masuk" : "Absen keluar"}</h1>
       </div>
 
-      <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-        <Clock3 className="size-4" aria-hidden />
-        Shift {me.shift.start}–{me.shift.end}
-      </p>
+      <div className="space-y-1 text-center">
+        <JamAbsen />
+        <p className="flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
+          <Clock3 className="size-3.5" aria-hidden />
+          {tanggalPanjang(me.today.date)} · Shift {me.shift.start}–{me.shift.end}
+        </p>
+      </div>
 
       {/* Lokasi */}
       <Card className="space-y-4">
@@ -331,7 +334,7 @@ export default function AbsenPage() {
           type="button"
           onClick={submit}
           disabled={!siap || kirim}
-          className="flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-transform active:scale-[0.98] disabled:bg-muted disabled:text-muted-foreground"
+          className="flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-transform duration-150 ease-out active:scale-[0.96] disabled:bg-muted disabled:text-muted-foreground"
         >
           {kirim ? <Loader2 className="size-5 animate-spin" aria-hidden /> : null}
           {kirim ? "Mengirim…" : aksi === "in" ? "Konfirmasi absen masuk" : "Konfirmasi absen keluar"}
@@ -340,4 +343,10 @@ export default function AbsenPage() {
       </div>
     </div>
   );
+}
+
+/** Jam besar yang berdetak di atas layar absen — waktu yang akan tercatat. */
+function JamAbsen() {
+  const waktu = useJamBerjalan();
+  return <p className="font-heading text-5xl font-bold tracking-tight tabular-nums">{waktu}</p>;
 }

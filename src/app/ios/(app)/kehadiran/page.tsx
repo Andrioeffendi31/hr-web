@@ -26,6 +26,13 @@ export default function KehadiranPage() {
     queryFn: () => api<AttendanceMonth>(`/api/me/attendance?month=${bulan}`),
   });
 
+  // penyebutnya jumlah keempat statistik di bawahnya, bukan jumlah baris harian:
+  // dengan begitu "x dari y" tidak pernah bertentangan dengan angka di kartu yang
+  // sama, dan hari libur memang tidak termasuk di keempatnya
+  const hariKerja = data
+    ? data.stats.hadir + data.stats.telat + data.stats.cuti + data.stats.tanpaKeterangan
+    : 0;
+
   const stats = data
     ? [
         { label: "Hadir", value: data.stats.hadir, dot: "bg-success" },
@@ -69,16 +76,28 @@ export default function KehadiranPage() {
         ) : error || !data ? (
           <ErrorNote message={error?.message ?? "Gagal memuat"} onRetry={() => refetch()} />
         ) : (
-          <Card className="grid grid-cols-2 gap-x-3 gap-y-4 p-5">
-            {stats.map((s) => (
-              <div key={s.label} className="space-y-1">
-                <p className="text-2xl font-bold tabular-nums">{s.value}</p>
-                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className={`size-2 rounded-full ${s.dot}`} aria-hidden />
-                  {s.label}
-                </p>
-              </div>
-            ))}
+          <Card className="space-y-5 p-5">
+            <div className="space-y-1.5">
+              <p className="text-[13px] font-semibold text-muted-foreground">Hari hadir · {bulanTahun(bulan)}</p>
+              <p className="flex items-end gap-2">
+                <span className="text-[44px] leading-none font-bold tracking-tight tabular-nums">
+                  {data.stats.hadir + data.stats.telat}
+                </span>
+                <span className="pb-1 text-[15px] text-muted-foreground">dari {hariKerja} hari kerja</span>
+              </p>
+            </div>
+            <div className="h-px bg-border" />
+            <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+              {stats.map((s) => (
+                <div key={s.label} className="space-y-1">
+                  <p className="text-[22px] leading-tight font-bold tabular-nums">{s.value}</p>
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className={`size-2 rounded-full ${s.dot}`} aria-hidden />
+                    {s.label}
+                  </p>
+                </div>
+              ))}
+            </div>
           </Card>
         )}
       </div>

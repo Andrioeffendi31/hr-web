@@ -3,15 +3,31 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, BellRing, ChevronRight, Clock3, LogIn, LogOut, MapPin, Megaphone, Users } from "lucide-react";
+import {
+  Bell,
+  BellRing,
+  CalendarDays,
+  ChevronRight,
+  CircleCheck,
+  Clock3,
+  ClockAlert,
+  Folder,
+  LogIn,
+  LogOut,
+  MapPin,
+  Megaphone,
+  Timer,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { att } from "../_lib/status";
-import { jam, salam, tanggalPanjang } from "../_lib/format";
-import { sedangBekerja, useMe } from "../_lib/hooks";
+import { jam, menitDari, salam, tanggalSedang } from "../_lib/format";
+import { sedangBekerja, useJamBerjalan, useMenitSejak, useMe } from "../_lib/hooks";
+import type { Bootstrap } from "../_lib/api";
 import { kirimLokasi } from "../_lib/ping";
 import { aktifkanPush, usePushState } from "../_lib/push";
-import { Avatar, Badge, Card, ErrorNote, SectionTitle, Skeleton } from "../_lib/ui";
+import { Avatar, Card, ErrorNote, SectionTitle, Skeleton } from "../_lib/ui";
 
 export default function Beranda() {
   const { data: me, isPending, error, refetch } = useMe();
@@ -51,39 +67,64 @@ export default function Beranda() {
         </Link>
       </Card>
 
+      {/* Ringkasan singkat — Status dan Sisa cuti, seperti di desain */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="flex items-center gap-2.5 rounded-[22px] p-3">
+          <span
+            className={cn(
+              "flex size-[38px] shrink-0 items-center justify-center rounded-[10px]",
+              t.clockIn ? "bg-success-subtle text-success" : "bg-warning-subtle text-warning",
+            )}
+          >
+            {t.clockIn ? <CircleCheck className="size-5" aria-hidden /> : <ClockAlert className="size-5" aria-hidden />}
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">Status</p>
+            <p className="truncate text-[15px] font-semibold">{status.label}</p>
+            <p className="text-xs text-muted-foreground">Hari ini</p>
+          </div>
+        </Card>
+        <Link href="/ios/pengajuan" className="block">
+          <Card className="flex h-full items-center gap-2.5 rounded-[22px] p-3">
+            <span className="flex size-[38px] shrink-0 items-center justify-center rounded-[10px] bg-primary-subtle text-primary">
+              <CalendarDays className="size-5" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Sisa cuti</p>
+              <p className="text-[15px] font-semibold tabular-nums">{me.leave.remaining} hari</p>
+              <p className="text-xs text-muted-foreground">Tahun {t.date.slice(0, 4)}</p>
+            </div>
+          </Card>
+        </Link>
+      </div>
+
       <AjakanNotifikasi />
 
       {/* Kehadiran hari ini */}
       <Card className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Kehadiran hari ini</h2>
-          <span className="rounded-lg bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-            {tanggalPanjang(t.date)}
+          <span className="rounded-[10px] bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
+            {tanggalSedang(t.date)}
           </span>
         </div>
 
-        <div className="space-y-4 rounded-2xl bg-muted/60 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <div className="flex items-center gap-4 rounded-xl bg-muted/60 p-4">
+          <div className="min-w-0 flex-1 space-y-2">
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
               <Clock3 className="size-3.5" aria-hidden />
               Shift {me.shift.start}–{me.shift.end}
             </span>
-            <Badge tone={status.tone}>{status.label}</Badge>
+            <JamBesar />
+            <p className="text-[13px] leading-snug text-muted-foreground text-pretty">
+              {!t.clockIn
+                ? "Anda belum absen masuk hari ini"
+                : t.clockOut
+                  ? `Masuk ${jam(t.clockIn)} · Keluar ${jam(t.clockOut)}`
+                  : `Masuk ${jam(t.clockIn)} · sedang bekerja`}
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Absen masuk", value: jam(t.clockIn), icon: LogIn },
-              { label: "Absen keluar", value: jam(t.clockOut), icon: LogOut },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="space-y-1 rounded-xl bg-card p-3">
-                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Icon className="size-3.5" aria-hidden />
-                  {label}
-                </p>
-                <p className="text-2xl font-bold tabular-nums tracking-tight">{value}</p>
-              </div>
-            ))}
-          </div>
+          <CincinJamKerja masuk={t.clockIn} keluar={t.clockOut} shift={me.shift} />
         </div>
 
         {selesai ? (
@@ -93,33 +134,43 @@ export default function Beranda() {
         ) : (
           <Link
             href="/ios/absen"
-            className="flex h-13 w-full items-center justify-center gap-2.5 rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-transform active:scale-[0.98]"
+            className="flex h-13 w-full items-center justify-center gap-2.5 rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-transform duration-150 ease-out active:scale-[0.96]"
           >
             {t.clockIn ? <LogOut className="size-5" aria-hidden /> : <LogIn className="size-5" aria-hidden />}
             {t.clockIn ? "Absen keluar" : "Absen masuk sekarang"}
           </Link>
         )}
 
-        {sedangBekerja(me) ? <KirimLokasi /> : null}
+        {sedangBekerja(me) ? (
+          <KirimLokasi />
+        ) : (
+          <p className="flex items-center gap-2 px-1 text-[13px] text-muted-foreground">
+            <MapPin className="size-4 shrink-0" aria-hidden />
+            {lokasiKerja(me)}
+          </p>
+        )}
       </Card>
 
-      {/* Ringkasan */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link href="/ios/pengajuan" className="block">
-          <Card className="h-full space-y-1">
-            <p className="text-xs text-muted-foreground">Sisa cuti</p>
-            <p className="text-xl font-bold tabular-nums">{me.leave.remaining} hari</p>
-            <p className="text-xs text-muted-foreground">dari {me.leave.quota} hari kuota</p>
-          </Card>
-        </Link>
-        <Link href="/ios/pengajuan" className="block">
-          <Card className="h-full space-y-1">
-            <p className="text-xs text-muted-foreground">Pengajuan</p>
-            <p className="text-xl font-bold tabular-nums">{me.pendingRequests} menunggu</p>
-            <p className="text-xs text-muted-foreground">cuti & lembur</p>
-          </Card>
-        </Link>
-      </div>
+      {/* Aksi cepat */}
+      <nav aria-label="Aksi cepat" className="grid grid-cols-4 gap-3">
+        {[
+          { href: "/ios/pengajuan", label: "Cuti", icon: CalendarDays },
+          { href: "/ios/pengajuan?jenis=lembur", label: "Lembur", icon: Timer },
+          { href: "/ios/kehadiran", label: "Absen", icon: CircleCheck },
+          { href: "/ios/berkas", label: "Berkas", icon: Folder },
+        ].map(({ href, label, icon: Icon }) => (
+          <Link
+            key={label}
+            href={href}
+            className="flex flex-col items-center gap-2.5 rounded-[20px] border border-border bg-card pt-3.5 pb-3 shadow-sm transition-transform duration-150 ease-out active:scale-[0.96]"
+          >
+            <span className="flex size-11 items-center justify-center rounded-xl bg-primary-subtle text-primary">
+              <Icon className="size-[22px]" aria-hidden />
+            </span>
+            <span className="text-[13px] font-medium">{label}</span>
+          </Link>
+        ))}
+      </nav>
 
       {/* Rekan */}
       <Card className="space-y-3">
@@ -188,6 +239,74 @@ export default function Beranda() {
           </ul>
         )}
       </Card>
+    </div>
+  );
+}
+
+/** Jam WIB besar yang berdetak, seperti di kartu desain. */
+function JamBesar() {
+  const waktu = useJamBerjalan();
+  return (
+    <p className="font-heading text-[38px] leading-none font-bold tracking-tight tabular-nums" aria-live="off">
+      {waktu}
+    </p>
+  );
+}
+
+/** Titik absen yang paling mungkin dipakai hari ini, untuk baris lokasi di kartu. */
+function lokasiKerja(me: Bootstrap) {
+  const o = me.offices.find((x) => x.id === (me.today.officeId ?? me.defaultOfficeId)) ?? me.offices[0];
+  return o ? `${o.name} · radius absen ${o.radiusM} m` : "Belum ada titik absen yang aktif";
+}
+
+/**
+ * Cincin jam kerja: berapa dari durasi shift yang sudah dijalani. Berhenti di
+ * jam keluar; sebelum absen masuk tetap 0%.
+ */
+function CincinJamKerja({
+  masuk,
+  keluar,
+  shift,
+}: {
+  masuk: string | null;
+  keluar: string | null;
+  shift: { start: string; end: string };
+}) {
+  const berjalan = useMenitSejak(keluar ? null : masuk);
+  const menit = keluar && masuk ? Math.max(0, Math.round((+new Date(keluar) - +new Date(masuk)) / 60_000)) : berjalan;
+  const total = Math.max(1, menitDari(shift.end) - menitDari(shift.start));
+  const persen = Math.min(100, Math.round((menit / total) * 100));
+  const R = 38;
+  const keliling = 2 * Math.PI * R;
+  const jamMenit = (m: number) => `${Math.floor(m / 60)}j ${m % 60}m`;
+
+  return (
+    <div className="flex shrink-0 flex-col items-center gap-2">
+      <div className="relative size-[88px]">
+        <svg viewBox="0 0 88 88" className="size-full -rotate-90" aria-hidden>
+          <circle cx="44" cy="44" r={R} fill="none" strokeWidth="7" className="stroke-muted" />
+          <circle
+            cx="44"
+            cy="44"
+            r={R}
+            fill="none"
+            strokeWidth="7"
+            strokeLinecap="round"
+            strokeDasharray={keliling}
+            strokeDashoffset={keliling * (1 - persen / 100)}
+            className="stroke-primary transition-[stroke-dashoffset] duration-500 ease-out"
+          />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-[17px] font-semibold tabular-nums">
+          {persen}%
+        </span>
+      </div>
+      <div className="text-center">
+        <p className="text-[13px] font-semibold tabular-nums">
+          {jamMenit(menit)} <span className="font-normal text-muted-foreground">/ {Math.round(total / 60)}j</span>
+        </p>
+        <p className="text-xs text-muted-foreground">Jam kerja</p>
+      </div>
     </div>
   );
 }

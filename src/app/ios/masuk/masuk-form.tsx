@@ -100,7 +100,7 @@ export function MasukForm() {
       <button
         type="submit"
         disabled={busy}
-        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-[opacity,scale] active:scale-[0.98] disabled:opacity-60"
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-[opacity,scale] duration-150 ease-out active:scale-[0.96] disabled:opacity-60"
       >
         {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : null}
         {busy ? "Sedang masuk…" : "Masuk"}
