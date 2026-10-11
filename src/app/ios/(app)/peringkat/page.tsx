@@ -156,7 +156,7 @@ export default function PeringkatPage() {
             <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+86px)] z-30 pt-2">
               <Card className="border-primary/40 bg-card/95 p-0 shadow-lg backdrop-blur-xl">
                 <p className="px-4 pt-3 text-[13px] font-semibold text-primary">Peringkat kamu</p>
-                <Baris r={data.me} saya />
+                <Baris r={data.me} />
               </Card>
             </div>
           ) : null}
@@ -166,7 +166,7 @@ export default function PeringkatPage() {
   );
 }
 
-function Baris({ r, saya }: { r: LeaderboardRow; saya?: boolean }) {
+function Baris({ r }: { r: LeaderboardRow }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <span className="w-7 shrink-0 text-base font-semibold text-muted-foreground tabular-nums">{r.rank}</span>
