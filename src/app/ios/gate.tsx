@@ -62,25 +62,19 @@ function HalamanKhususIphone({ perusahaan }: { perusahaan: string }) {
   ];
 
   return (
-    <main className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-background">
-      {/* cahaya latar lembut — dekorasi, bukan konten */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 -top-40 -z-10 mx-auto h-[520px] max-w-4xl rounded-full bg-primary/15 blur-3xl"
-      />
-
+    <main className="flex min-h-dvh flex-col bg-background">
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 py-12 sm:py-16">
-        <div className="grid items-center gap-10 rounded-[32px] border border-border bg-card/80 p-6 shadow-lg backdrop-blur-xl sm:p-10 md:grid-cols-[1fr_auto] md:gap-14">
+        <div className="grid items-center gap-10 rounded-[32px] border border-border bg-card p-6 text-center sm:p-10 md:grid-cols-[1fr_auto] md:gap-14 md:text-left">
           {/* Kiri: identitas, penjelasan, langkah */}
           <div className="space-y-8">
-            <div className="flex items-center gap-3.5">
+            <div className="flex flex-col items-center gap-3 md:flex-row md:gap-3.5">
               {/* eslint-disable-next-line @next/next/no-img-element -- ikon aplikasi statis */}
               <img
                 src="/ios/icon-192.png"
                 alt="NanumHR"
                 width={56}
                 height={56}
-                className="size-14 rounded-[16px] shadow-md outline-1 -outline-offset-1 outline-black/10"
+                className="size-14 rounded-[16px] outline-1 -outline-offset-1 outline-black/10"
               />
               <div>
                 <p className="font-heading text-lg leading-tight font-semibold">NanumHR</p>
@@ -95,13 +89,13 @@ function HalamanKhususIphone({ perusahaan }: { perusahaan: string }) {
               <h1 className="font-heading text-[32px] leading-[1.1] font-bold tracking-tight text-balance sm:text-[40px]">
                 Buka NanumHR di iPhone Anda
               </h1>
-              <p className="max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground text-pretty sm:text-base">
+              <p className="mx-auto max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground text-pretty sm:text-base md:mx-0">
                 Versi web NanumHR untuk karyawan berjalan di iPhone dan iPad, supaya absen dengan selfie,
                 notifikasi, dan pengingat lokasi bekerja dengan benar.
               </p>
             </div>
 
-            <ol className="space-y-3">
+            <ol className="mx-auto w-fit space-y-3 text-left md:mx-0">
               {langkah.map(({ icon: Icon, teks }, i) => (
                 <li key={teks} className="flex items-center gap-3.5">
                   <span className="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground">
@@ -118,10 +112,10 @@ function HalamanKhususIphone({ perusahaan }: { perusahaan: string }) {
             <div className="h-px bg-border" />
 
             {/* Android */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex flex-col items-center gap-3 md:flex-row md:gap-4">
               <a
                 href={PLAY_STORE}
-                className="inline-flex h-14 w-fit items-center gap-3 rounded-xl bg-black px-4 text-white shadow-md transition-transform duration-150 ease-out active:scale-[0.96]"
+                className="inline-flex h-14 shrink-0 items-center gap-3 rounded-xl bg-black px-4 whitespace-nowrap text-white transition-transform duration-150 ease-out active:scale-[0.96]"
                 aria-label="Unduh NanumHR di Google Play"
               >
                 <LogoGooglePlay className="size-7" />
@@ -138,7 +132,7 @@ function HalamanKhususIphone({ perusahaan }: { perusahaan: string }) {
 
           {/* Kanan: QR untuk dipindai iPhone */}
           <div className="mx-auto w-full max-w-[280px] space-y-4 text-center">
-            <div className="rounded-3xl border border-border bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-border bg-white p-5">
               {qrSvg ? (
                 <div
                   role="img"
