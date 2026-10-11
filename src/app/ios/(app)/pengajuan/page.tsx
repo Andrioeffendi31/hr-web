@@ -271,7 +271,7 @@ function DetailPengajuan({
                 src={fileUrl(r.attachment.key)}
                 alt={r.attachment.name ?? "Lampiran"}
                 className="rounded-2xl border border-border"
-                imgClassName="max-h-64 w-full object-cover"
+                imgClassName="aspect-[4/3] w-full object-cover"
               />
             ) : r.attachment ? (
               <a

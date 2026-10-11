@@ -30,11 +30,11 @@ export const viewport: Viewport = {
 };
 
 /**
- * Saklar kunci iOS. Selama masa uji coba kuncinya MATI: perangkat apa pun boleh
- * membuka /ios. Isi `PWA_KUNCI_IOS=1` di Vercel (lalu redeploy) untuk kembali
- * mengirim Android ke Google Play dan menolak desktop.
+ * Saklar kunci iOS. Kuncinya AKTIF secara default: Android dikirim ke Google
+ * Play dan desktop ditolak. Isi `PWA_KUNCI_IOS=0` di Vercel (lalu redeploy)
+ * hanya untuk uji coba dari perangkat non-iOS.
  */
-const kunciIos = () => process.env.PWA_KUNCI_IOS === "1";
+const kunciIos = () => process.env.PWA_KUNCI_IOS !== "0";
 
 export default async function IosLayout({
   children,
