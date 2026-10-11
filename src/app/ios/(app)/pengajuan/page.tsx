@@ -19,6 +19,7 @@ import {
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { api, ApiError, fileUrl, postForm, postJson, type RequestItem, type Requests } from "../../_lib/api";
 import { hariIniWib } from "../../_lib/format";
+import { ZoomImage } from "../../_lib/lightbox";
 import { req } from "../../_lib/status";
 import { Badge, Card, ErrorNote, PageHeader, SectionTitle, Skeleton } from "../../_lib/ui";
 
@@ -265,7 +266,14 @@ function DetailPengajuan({
                 ))}
             </div>
 
-            {r.attachment ? (
+            {r.attachment && /\.(jpe?g|png|webp)$/i.test(r.attachment.key) ? (
+              <ZoomImage
+                src={fileUrl(r.attachment.key)}
+                alt={r.attachment.name ?? "Lampiran"}
+                className="rounded-2xl border border-border"
+                imgClassName="max-h-64 w-full object-cover"
+              />
+            ) : r.attachment ? (
               <a
                 href={fileUrl(r.attachment.key)}
                 target="_blank"

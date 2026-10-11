@@ -16,6 +16,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { api, ApiError, fileUrl, postForm, postJson, type Documents } from "../../_lib/api";
 import { kecilkan } from "../../_lib/image";
+import { Lightbox } from "../../_lib/lightbox";
+
+/** berkas yang dibuka sebagai pratinjau layar penuh, bukan diunduh */
+const GAMBAR = /\.(jpe?g|png|webp)$/i;
 import { BackHeader, Card, ErrorNote, Skeleton } from "../../_lib/ui";
 
 const FOLDER: Record<string, string> = {
@@ -30,6 +34,7 @@ export default function BerkasPage() {
   const input = useRef<HTMLInputElement>(null);
   const [unggah, setUnggah] = useState(false);
   const [hapus, setHapus] = useState<Documents["items"][number] | null>(null);
+  const [foto, setFoto] = useState<{ src: string; alt: string } | null>(null);
   const { data, isPending, error, refetch } = useQuery({
     queryKey: ["ios", "documents"],
     queryFn: () => api<Documents>("/api/me/documents"),
@@ -133,18 +138,39 @@ export default function BerkasPage() {
                 <Card className="divide-y divide-border p-0">
                   {items.map((d) => (
                     <div key={d.id} className="flex items-center gap-3 px-4 py-3">
-                      <a href={fileUrl(d.key)} target="_blank" rel="noreferrer" className="flex min-w-0 flex-1 items-center gap-3">
-                        <span className="flex size-10 shrink-0 flex-col items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                          <FileText className="size-4" aria-hidden />
-                          <span className="text-[9px] font-bold">{d.ext}</span>
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-[15px] font-medium">{d.name}</span>
-                          <span className="block text-xs text-muted-foreground">
-                            {d.size} · {d.uploadedAt}
+                      {GAMBAR.test(d.key) ? (
+                        <button
+                          type="button"
+                          onClick={() => setFoto({ src: fileUrl(d.key), alt: d.name })}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element -- dilayani /api/files dengan sesi */}
+                          <img
+                            src={fileUrl(d.key)}
+                            alt=""
+                            className="size-10 shrink-0 rounded-xl object-cover outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate text-[15px] font-medium">{d.name}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              {d.size} · {d.uploadedAt}
+                            </span>
                           </span>
-                        </span>
-                      </a>
+                        </button>
+                      ) : (
+                        <a href={fileUrl(d.key)} target="_blank" rel="noreferrer" className="flex min-w-0 flex-1 items-center gap-3">
+                          <span className="flex size-10 shrink-0 flex-col items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                            <FileText className="size-4" aria-hidden />
+                            <span className="text-[9px] font-bold">{d.ext}</span>
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-[15px] font-medium">{d.name}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              {d.size} · {d.uploadedAt}
+                            </span>
+                          </span>
+                        </a>
+                      )}
                       {d.mine ? (
                         <button
                           type="button"
@@ -163,6 +189,8 @@ export default function BerkasPage() {
           )}
         </>
       )}
+
+      <Lightbox src={foto?.src ?? ""} alt={foto?.alt ?? ""} open={!!foto} onOpenChange={(o) => !o && setFoto(null)} />
 
       <AlertDialog open={!!hapus} onOpenChange={(o) => !o && setHapus(null)}>
         <AlertDialogContent>

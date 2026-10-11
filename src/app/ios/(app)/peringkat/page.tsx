@@ -97,11 +97,13 @@ export default function PeringkatPage() {
                       <Avatar
                         photoKey={r.photoKey}
                         initials={r.initials}
+                        name={r.name}
+                        zoom
                         size={size}
                         className={cn("rounded-[30%]", juara && "ring-2 ring-[#e8b54a]/70")}
                       />
                       {medal ? (
-                        <span className="absolute left-1/2 flex h-[46px] w-[42px] -translate-x-1/2 justify-center" style={{ top: size - 22 }}>
+                        <span className="pointer-events-none absolute left-1/2 flex h-[46px] w-[42px] -translate-x-1/2 justify-center" style={{ top: size - 22 }}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={`/ios/leaderboard/${medal}.png`} alt="" className="absolute inset-0 size-full object-contain" />
                           <span className={cn("relative pt-[9px] font-mono text-sm font-bold", ANGKA_MEDALI[r.rank as 1 | 2 | 3])}>
@@ -139,9 +141,15 @@ export default function PeringkatPage() {
           ) : null}
 
           {data.me ? (
-            <div className="space-y-2">
-              <p className="px-1 text-[13px] font-semibold text-primary">Peringkat kamu</p>
-              <Card className="border-primary/40 p-0 shadow-md">
+            /*
+             * Melayang tepat di atas tab bar (tinggi 64 + jarak 10 + safe area)
+             * selama daftar digulir, lalu berhenti di posisi aslinya di ujung
+             * daftar — sticky, bukan fixed, jadi ia tidak pernah menutupi
+             * baris terakhir.
+             */
+            <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+86px)] z-30 pt-2">
+              <Card className="border-primary/40 bg-card/95 p-0 shadow-lg backdrop-blur-xl">
+                <p className="px-4 pt-3 text-[13px] font-semibold text-primary">Peringkat kamu</p>
                 <Baris r={data.me} saya />
               </Card>
             </div>
@@ -156,7 +164,7 @@ function Baris({ r, saya }: { r: LeaderboardRow; saya?: boolean }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <span className="w-7 shrink-0 text-base font-semibold text-muted-foreground tabular-nums">{r.rank}</span>
-      <Avatar photoKey={r.photoKey} initials={r.initials} size={44} className="rounded-[30%]" />
+      <Avatar photoKey={r.photoKey} initials={r.initials} name={r.name} size={44} zoom className="rounded-[30%]" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-semibold">{saya ? `${r.name} (Anda)` : r.name}</p>
         <p className="text-[13px] text-muted-foreground tabular-nums">

@@ -58,7 +58,7 @@ export default function ProfilPage() {
 
       <div className="flex flex-col items-center gap-3 text-center">
         <div className="relative">
-          <Avatar photoKey={p.photoKey} initials={p.initials} size={96} />
+          <Avatar photoKey={p.photoKey} initials={p.initials} name={p.name} size={96} zoom />
           <button
             type="button"
             onClick={() => input.current?.click()}

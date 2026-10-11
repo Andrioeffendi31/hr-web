@@ -191,7 +191,7 @@ export default function Beranda() {
           {me.team.avatars.length ? (
             <span className="flex -space-x-2">
               {me.team.avatars.slice(0, 5).map((a) => (
-                <Avatar key={a.id} photoKey={a.photoKey} initials={a.initials} size={32} className="ring-2 ring-card" />
+                <Avatar key={a.id} photoKey={a.photoKey} initials={a.initials} name={a.name} size={32} zoom className="ring-2 ring-card" />
               ))}
             </span>
           ) : (

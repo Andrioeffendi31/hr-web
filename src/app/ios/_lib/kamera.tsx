@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Camera, Loader2, RefreshCw, SwitchCamera } from "lucide-react";
+import { ZoomImage } from "./lightbox";
 
 /**
  * Kamera selfie langsung di halaman — sengaja BUKAN `<input type="file">`.
@@ -116,8 +117,7 @@ export function KameraSelfie({
   if (foto) {
     return (
       <div className={bingkai}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- blob lokal */}
-        <img src={foto} alt="Foto selfie yang akan dikirim" className="aspect-[3/4] w-full object-cover" />
+        <ZoomImage src={foto} alt="Foto selfie yang akan dikirim" imgClassName="aspect-[3/4] w-full object-cover" />
         <button
           type="button"
           onClick={nyalakan}

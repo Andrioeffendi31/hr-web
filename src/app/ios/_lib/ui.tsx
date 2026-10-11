@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fileUrl } from "./api";
+import { ZoomImage } from "./lightbox";
 import { toneClass, type Tone } from "./status";
 
 /** Komponen kecil PWA. Mengikuti desain canvas: kartu radius 24, padding 16. */
@@ -88,13 +89,32 @@ export function Avatar({
   initials,
   size = 44,
   className,
+  zoom,
+  name,
 }: {
   photoKey?: string | null;
   initials: string;
   size?: number;
   className?: string;
+  /** ketuk untuk membuka foto layar penuh. Jangan dipakai di dalam <Link>:
+   *  tombol di dalam tautan tidak sah dan ketukannya ambigu. */
+  zoom?: boolean;
+  /** keterangan di pratinjau layar penuh */
+  name?: string;
 }) {
   const style = { width: size, height: size, fontSize: Math.round(size * 0.34) };
+  if (photoKey && zoom)
+    return (
+      <ZoomImage
+        src={fileUrl(photoKey)}
+        alt={name ? `Foto ${name}` : "Foto profil"}
+        style={style}
+        className={cn("shrink-0 rounded-full", className)}
+        imgClassName="size-full object-cover outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
+      >
+        <span className="sr-only">{initials}</span>
+      </ZoomImage>
+    );
   if (photoKey)
     return (
       // eslint-disable-next-line @next/next/no-img-element -- dilayani /api/files dengan sesi

@@ -96,7 +96,7 @@ export default function TimPage() {
             const s = att(m.status);
             return (
               <div key={m.id} className="flex items-center gap-3 px-4 py-3">
-                <Avatar photoKey={m.photoKey} initials={m.initials} size={40} />
+                <Avatar photoKey={m.photoKey} initials={m.initials} name={m.name} size={40} zoom />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-semibold">{m.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{m.detail}</p>

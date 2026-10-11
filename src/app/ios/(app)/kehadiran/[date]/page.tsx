@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, LogIn, LogOut, MapPin, MessageSquareText, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, fileUrl, type AttendanceDay } from "../../../_lib/api";
+import { ZoomImage } from "../../../_lib/lightbox";
 import { formatJarak, tanggalPanjang } from "../../../_lib/format";
 import { att } from "../../../_lib/status";
 import { BackHeader, Badge, Card, ErrorNote, SectionTitle, Skeleton } from "../../../_lib/ui";
@@ -135,19 +136,17 @@ function Isi({ d }: { d: AttendanceDay }) {
           <SectionTitle>Foto absen</SectionTitle>
           <div className="grid grid-cols-2 gap-3">
             {foto.map((e) => (
-              <a
+              <ZoomImage
                 key={e.id}
-                href={fileUrl(e.photoKey!)}
-                target="_blank"
-                rel="noreferrer"
-                className="relative block overflow-hidden rounded-2xl outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
+                src={fileUrl(e.photoKey!)}
+                alt={`Selfie ${judul(e.kind).toLowerCase()} · ${e.at}`}
+                className="rounded-2xl outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
+                imgClassName="aspect-[3/4] w-full object-cover"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- dilayani /api/files dengan sesi */}
-                <img src={fileUrl(e.photoKey!)} alt={`Selfie ${judul(e.kind).toLowerCase()}`} className="aspect-[3/4] w-full object-cover" />
                 <span className="absolute bottom-2 left-2 rounded-lg bg-black/65 px-2 py-1 text-xs font-semibold text-white">
                   {e.kind === "masuk" ? "Masuk" : "Keluar"} · {e.at}
                 </span>
-              </a>
+              </ZoomImage>
             ))}
           </div>
         </div>
