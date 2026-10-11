@@ -29,13 +29,21 @@ export const viewport: Viewport = {
   ],
 };
 
+/**
+ * Saklar kunci iOS. Selama masa uji coba kuncinya MATI: perangkat apa pun boleh
+ * membuka /ios. Isi `PWA_KUNCI_IOS=1` di Vercel (lalu redeploy) untuk kembali
+ * mengirim Android ke Google Play dan menolak desktop.
+ */
+const kunciIos = () => process.env.PWA_KUNCI_IOS === "1";
+
 export default async function IosLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const kunci = kunciIos();
   const ua = (await headers()).get("user-agent") ?? "";
-  if (/Android/i.test(ua)) redirect(PLAY_STORE);
+  if (kunci && /Android/i.test(ua)) redirect(PLAY_STORE);
 
   // iPadOS 13+ mengaku sebagai Mac; hanya layar sentuh yang bisa membedakannya,
   // dan itu baru diketahui di klien
@@ -46,7 +54,7 @@ export default async function IosLayout({
       : "other";
 
   return (
-    <IosGate kind={kind} dev={process.env.NODE_ENV === "development"}>
+    <IosGate kind={kind} bebas={!kunci || process.env.NODE_ENV === "development"}>
       {children}
     </IosGate>
   );

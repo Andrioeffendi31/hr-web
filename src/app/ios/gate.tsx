@@ -10,15 +10,15 @@ const noop = () => () => {};
  * Hanya iPhone/iPad yang boleh masuk. `kind` dihitung server dari user-agent;
  * "mac" bisa berarti iPad (iPadOS mengaku Mac) sehingga titik sentuh yang
  * memutuskan. Di mode development semua perangkat diizinkan supaya PWA bisa
- * dikerjakan dari laptop.
+ * dikerjakan dari laptop — begitu juga selama saklar PWA_KUNCI_IOS mati.
  */
 export function IosGate({
   kind,
-  dev,
+  bebas,
   children,
 }: {
   kind: "ios" | "mac" | "other";
-  dev: boolean;
+  bebas: boolean;
   children: React.ReactNode;
 }) {
   const ipad = useSyncExternalStore(
@@ -26,7 +26,7 @@ export function IosGate({
     () => navigator.maxTouchPoints > 1,
     () => true,
   );
-  if (dev || kind === "ios" || (kind === "mac" && ipad)) return children;
+  if (bebas || kind === "ios" || (kind === "mac" && ipad)) return children;
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-background p-6">
