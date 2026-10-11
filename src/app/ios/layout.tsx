@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { PERUSAHAAN } from "@/lib/hr";
 import { PLAY_STORE } from "./_lib/shared";
 import { IosGate } from "./gate";
 
@@ -54,7 +55,7 @@ export default async function IosLayout({
       : "other";
 
   return (
-    <IosGate kind={kind} bebas={!kunci || process.env.NODE_ENV === "development"}>
+    <IosGate kind={kind} bebas={!kunci || process.env.NODE_ENV === "development"} perusahaan={PERUSAHAAN}>
       {children}
     </IosGate>
   );

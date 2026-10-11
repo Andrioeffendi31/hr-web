@@ -1,7 +1,8 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-import { Smartphone } from "lucide-react";
+import { useMemo, useState, useSyncExternalStore } from "react";
+import qrcode from "qrcode-generator";
+import { Check, Copy, House, Share, SquarePlus } from "lucide-react";
 import { PLAY_STORE } from "./_lib/shared";
 
 const noop = () => () => {};
@@ -15,10 +16,12 @@ const noop = () => () => {};
 export function IosGate({
   kind,
   bebas,
+  perusahaan,
   children,
 }: {
   kind: "ios" | "mac" | "other";
   bebas: boolean;
+  perusahaan: string;
   children: React.ReactNode;
 }) {
   const ipad = useSyncExternalStore(
@@ -27,29 +30,166 @@ export function IosGate({
     () => true,
   );
   if (bebas || kind === "ios" || (kind === "mac" && ipad)) return children;
+  return <HalamanKhususIphone perusahaan={perusahaan} />;
+}
+
+/**
+ * Halaman untuk pengunjung yang bukan iPhone/iPad — hampir selalu orang di
+ * laptop (Android sudah dialihkan ke Google Play oleh server). Karena itu
+ * tindakan utamanya kode QR: dipindai kamera iPhone, alamatnya langsung terbuka
+ * di Safari tanpa perlu diketik.
+ */
+function HalamanKhususIphone({ perusahaan }: { perusahaan: string }) {
+  const alamat = useSyncExternalStore(
+    noop,
+    () => `${window.location.origin}/ios`,
+    () => "",
+  );
+  const [disalin, setDisalin] = useState(false);
+
+  const qrSvg = useMemo(() => {
+    if (!alamat) return "";
+    const qr = qrcode(0, "M");
+    qr.addData(alamat);
+    qr.make();
+    return qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+  }, [alamat]);
+
+  const langkah = [
+    { icon: Share, teks: "Buka alamat ini di Safari, lalu ketuk Bagikan" },
+    { icon: SquarePlus, teks: "Pilih “Tambahkan ke Layar Utama”" },
+    { icon: House, teks: "Buka NanumHR dari Layar Utama dan masuk" },
+  ];
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-background p-6">
-      <div className="w-full max-w-sm space-y-5 text-center">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary-subtle text-primary">
-          <Smartphone className="size-7" aria-hidden />
+    <main className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-background">
+      {/* cahaya latar lembut — dekorasi, bukan konten */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-40 -z-10 mx-auto h-[520px] max-w-4xl rounded-full bg-primary/15 blur-3xl"
+      />
+
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 py-12 sm:py-16">
+        <div className="grid items-center gap-10 rounded-[32px] border border-border bg-card/80 p-6 shadow-lg backdrop-blur-xl sm:p-10 md:grid-cols-[1fr_auto] md:gap-14">
+          {/* Kiri: identitas, penjelasan, langkah */}
+          <div className="space-y-8">
+            <div className="flex items-center gap-3.5">
+              {/* eslint-disable-next-line @next/next/no-img-element -- ikon aplikasi statis */}
+              <img
+                src="/ios/icon-192.png"
+                alt="NanumHR"
+                width={56}
+                height={56}
+                className="size-14 rounded-[16px] shadow-md outline-1 -outline-offset-1 outline-black/10"
+              />
+              <div>
+                <p className="font-heading text-lg leading-tight font-semibold">NanumHR</p>
+                <p className="text-sm text-muted-foreground">{perusahaan}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <span className="inline-flex items-center rounded-full bg-primary-subtle px-3 py-1 text-xs font-semibold text-primary">
+                Khusus iPhone &amp; iPad
+              </span>
+              <h1 className="font-heading text-[32px] leading-[1.1] font-bold tracking-tight text-balance sm:text-[40px]">
+                Buka NanumHR di iPhone Anda
+              </h1>
+              <p className="max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground text-pretty sm:text-base">
+                Versi web NanumHR untuk karyawan berjalan di iPhone dan iPad, supaya absen dengan selfie,
+                notifikasi, dan pengingat lokasi bekerja dengan benar.
+              </p>
+            </div>
+
+            <ol className="space-y-3">
+              {langkah.map(({ icon: Icon, teks }, i) => (
+                <li key={teks} className="flex items-center gap-3.5">
+                  <span className="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground">
+                    <Icon className="size-[18px]" aria-hidden />
+                    <span className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground tabular-nums">
+                      {i + 1}
+                    </span>
+                  </span>
+                  <span className="text-[15px]">{teks}</span>
+                </li>
+              ))}
+            </ol>
+
+            <div className="h-px bg-border" />
+
+            {/* Android */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <a
+                href={PLAY_STORE}
+                className="inline-flex h-14 w-fit items-center gap-3 rounded-xl bg-black px-4 text-white shadow-md transition-transform duration-150 ease-out active:scale-[0.96]"
+                aria-label="Unduh NanumHR di Google Play"
+              >
+                <LogoGooglePlay className="size-7" />
+                <span className="flex flex-col text-left leading-none">
+                  <span className="text-[10px] font-medium tracking-wide uppercase">Tersedia di</span>
+                  <span className="pt-1 text-lg font-semibold tracking-tight">Google Play</span>
+                </span>
+              </a>
+              <p className="text-sm text-muted-foreground text-pretty">
+                Pakai Android? Pasang aplikasi NanumHR dari Google Play.
+              </p>
+            </div>
+          </div>
+
+          {/* Kanan: QR untuk dipindai iPhone */}
+          <div className="mx-auto w-full max-w-[280px] space-y-4 text-center">
+            <div className="rounded-3xl border border-border bg-white p-5 shadow-sm">
+              {qrSvg ? (
+                <div
+                  role="img"
+                  aria-label={`Kode QR menuju ${alamat}`}
+                  className="aspect-square w-full text-black [&_svg]:size-full"
+                  dangerouslySetInnerHTML={{ __html: qrSvg }}
+                />
+              ) : (
+                <div className="aspect-square w-full animate-pulse rounded-xl bg-muted" />
+              )}
+            </div>
+            <div className="space-y-1">
+              <p className="text-[15px] font-semibold">Pindai dengan kamera iPhone</p>
+              <p className="text-sm text-muted-foreground">Alamatnya langsung terbuka di Safari.</p>
+            </div>
+            <button
+              type="button"
+              disabled={!alamat}
+              onClick={async () => {
+                await navigator.clipboard?.writeText(alamat).catch(() => {});
+                setDisalin(true);
+                window.setTimeout(() => setDisalin(false), 2000);
+              }}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-medium transition-[background-color] duration-150 hover:bg-muted"
+            >
+              {disalin ? (
+                <Check className="size-4 text-success" aria-hidden />
+              ) : (
+                <Copy className="size-4 text-muted-foreground" aria-hidden />
+              )}
+              <span className="truncate">{disalin ? "Tautan disalin" : alamat.replace(/^https?:\/\//, "") || "Memuat…"}</span>
+            </button>
+          </div>
         </div>
-        <div className="space-y-2">
-          <h1 className="font-heading text-2xl font-semibold text-balance">
-            NanumHR untuk iPhone
-          </h1>
-          <p className="text-sm text-muted-foreground text-pretty">
-            Alamat ini khusus untuk iPhone dan iPad. Buka di Safari pada perangkat
-            iOS Anda, lalu pasang ke Home Screen.
-          </p>
-        </div>
-        <a
-          href={PLAY_STORE}
-          className="inline-block text-sm font-medium text-primary underline underline-offset-4"
-        >
-          Pakai Android? Unduh NanumHR di Google Play
-        </a>
       </div>
+
+      <footer className="pb-8 text-center text-xs text-muted-foreground">
+        © {new Date().getFullYear()} {perusahaan}
+      </footer>
     </main>
+  );
+}
+
+/** Logo Google Play empat warna (segitiga "play"). */
+function LogoGooglePlay({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <path fill="#00D7FE" d="M3.61 1.81 13.79 12 3.61 22.19a1.4 1.4 0 0 1-.61-1.2V3.01c0-.5.23-.94.61-1.2Z" />
+      <path fill="#FFCE00" d="m17.15 15.36-3.36-3.36 3.36-3.36 3.97 2.26c1.17.67 1.17 1.53 0 2.2l-3.97 2.26Z" />
+      <path fill="#FF3A44" d="M17.15 15.36 13.79 12 3.61 22.19c.42.43 1.07.48 1.82.06l11.72-6.89Z" />
+      <path fill="#00F076" d="M17.15 8.64 5.43 1.75c-.75-.42-1.4-.37-1.82.06L13.79 12l3.36-3.36Z" />
+    </svg>
   );
 }
