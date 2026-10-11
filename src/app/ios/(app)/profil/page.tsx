@@ -8,7 +8,7 @@ import { ApiError, postForm, postJson } from "../../_lib/api";
 import { tanggalPanjang } from "../../_lib/format";
 import { useMe } from "../../_lib/hooks";
 import { kecilkan } from "../../_lib/image";
-import { Avatar, BackHeader, Card, ErrorNote, Skeleton } from "../../_lib/ui";
+import { Avatar, BackHeader, Card, ErrorNote, FIELD, Skeleton } from "../../_lib/ui";
 
 export default function ProfilPage() {
   const { data: me, isPending, error, refetch } = useMe();
@@ -141,8 +141,7 @@ function FormKontak({ awal }: { awal: Kontak }) {
     }
   }
 
-  const field =
-    "h-12 w-full rounded-xl border border-input bg-card px-3.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40";
+  const field = FIELD;
   const set = (k: keyof Kontak) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setV((x) => ({ ...x, [k]: e.target.value }));
 

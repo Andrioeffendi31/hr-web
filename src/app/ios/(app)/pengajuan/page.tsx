@@ -21,7 +21,7 @@ import { api, ApiError, fileUrl, postForm, postJson, type RequestItem, type Requ
 import { hariIniWib } from "../../_lib/format";
 import { ZoomImage } from "../../_lib/lightbox";
 import { req } from "../../_lib/status";
-import { Badge, Card, ErrorNote, PageHeader, SectionTitle, Skeleton } from "../../_lib/ui";
+import { Badge, Card, ErrorNote, FIELD, PageHeader, SectionTitle, Select, Skeleton } from "../../_lib/ui";
 
 type Jenis = "cuti" | "lembur";
 const TIPE_CUTI = ["Cuti Tahunan", "Cuti Sakit", "Izin Khusus", "Izin Setengah Hari"] as const;
@@ -416,8 +416,7 @@ function FormPengajuan({
     }
   }
 
-  const field =
-    "h-12 w-full rounded-xl border border-input bg-card px-3.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40";
+  const field = FIELD;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -439,11 +438,11 @@ function FormPengajuan({
           {jenis === "cuti" ? (
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">Jenis</span>
-              <select value={tipe} onChange={(e) => setTipe(e.target.value as TipeCuti)} className={field}>
+              <Select value={tipe} onChange={(e) => setTipe(e.target.value as TipeCuti)}>
                 {TIPE_CUTI.map((t) => (
                   <option key={t}>{t}</option>
                 ))}
-              </select>
+              </Select>
             </label>
           ) : null}
 
@@ -478,14 +477,14 @@ function FormPengajuan({
               <span className="text-sm font-medium">
                 Pengganti tugas <span className="font-normal text-muted-foreground">(opsional)</span>
               </span>
-              <select value={pengganti} onChange={(e) => setPengganti(e.target.value)} className={field}>
+              <Select value={pengganti} onChange={(e) => setPengganti(e.target.value)}>
                 <option value="">Tidak ada</option>
                 {delegates.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           ) : null}
 

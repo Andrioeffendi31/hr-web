@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fileUrl } from "./api";
 import { ZoomImage } from "./lightbox";
@@ -185,5 +185,32 @@ export function RowLink({
       </span>
       <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
     </Link>
+  );
+}
+
+/**
+ * Satu gaya untuk semua field PWA — input teks, tanggal, jam, dan select.
+ *
+ * `appearance-none` wajib: tanpanya Safari iOS menggambar <select> dan input
+ * tanggal/jam dengan gaya native-nya sendiri, sehingga radius dan padding dari
+ * kelas ini kalah dan field-nya tampak berbeda dari input di sebelahnya. Nilai
+ * tanggal/jam di iOS juga dirata-tengah secara bawaan; dibuat rata kiri supaya
+ * sejajar dengan label dan field lain.
+ */
+export const FIELD =
+  "h-12 w-full appearance-none rounded-xl border border-input bg-card px-3.5 text-base text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 disabled:opacity-60 [&::-webkit-date-and-time-value]:text-left [&::-webkit-date-and-time-value]:leading-[2.75rem]";
+
+/** <select> native (pemilih roda iOS tetap dipakai) dengan tampilan field yang sama. */
+export function Select({ className, children, ...p }: React.ComponentProps<"select">) {
+  return (
+    <span className="relative block">
+      <select {...p} className={cn(FIELD, "pr-10", className)}>
+        {children}
+      </select>
+      <ChevronDown
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 right-3.5 size-5 -translate-y-1/2 text-muted-foreground"
+      />
+    </span>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import { signIn } from "next-auth/react";
 import { Eye, EyeOff, Fingerprint, Loader2 } from "lucide-react";
 import { dibatalkan, masukPasskey, passkeyDidukung } from "../_lib/passkey";
+import { FIELD } from "../_lib/ui";
 
 const noop = () => () => {};
 
@@ -45,8 +46,7 @@ export function MasukForm() {
     window.location.replace("/ios");
   }
 
-  const field =
-    "h-12 w-full rounded-xl border border-input bg-card px-3.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40";
+  const field = FIELD;
 
   return (
     <form onSubmit={submit} className="space-y-4" noValidate>
