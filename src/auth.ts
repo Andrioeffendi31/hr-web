@@ -160,21 +160,45 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) {
         token.uid = user.id;
         token.role = (user as { role: string }).role;
         token.division = (user as { division: string }).division;
         token.position = (user as { position: string }).position;
         token.pwdAt = (user as { pwdAt: number }).pwdAt;
+        return token;
+      }
+
+      /**
+       * Peran, divisi, dan jabatan dibaca ulang dari baris karyawan, bukan dibekukan
+       * sejak masuk: kalau HR menaikkan seseorang menjadi Pimpinan, proxy dan sidebar
+       * harus langsung mengikutinya tanpa orangnya masuk lagi. Proxy Next 16 berjalan
+       * di runtime Node, jadi `pg` bisa dipakai di sini.
+       *
+       * Gagal membaca DB → token lama dipakai apa adanya, supaya proxy tidak ikut
+       * meledak dan (app)/layout.tsx tetap bisa menampilkan pesan DB tak terjangkau.
+       */
+      // ponytail: satu lookup PK per auth(); tambahkan jeda refresh (mis. 30 dtk) kalau beban DB terasa
+      if (token.uid) {
+        try {
+          const [row] = await db
+            .select({
+              role: employees.role,
+              division: employees.division,
+              position: employees.position,
+            })
+            .from(employees)
+            .where(eq(employees.id, Number(token.uid)))
+            .limit(1);
+          if (row) Object.assign(token, row);
+        } catch {}
       }
       return token;
     },
     session({ session, token }) {
-      // No database call here on purpose: this callback also runs inside the Edge
-      // proxy, where `pg` cannot go, and it runs on every navigation. The staleness
-      // comparison happens in the three places that already load the row —
-      // lib/me.ts, (app)/layout.tsx and requireAdmin().
+      // The password-epoch staleness comparison happens in the three places that
+      // already load the row — lib/me.ts, (app)/layout.tsx and requireAdmin().
       session.user.pwdAt = (token.pwdAt as number) ?? 0;
       session.user.id = token.uid as string;
       session.user.role = token.role as Role;

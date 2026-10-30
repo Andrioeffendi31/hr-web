@@ -1,9 +1,6 @@
 import { redirect } from "next/navigation";
 import Image from "next/image";
-import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
-import { db } from "@/db";
-import { employees } from "@/db/schema";
 import { canAccess, homeFor, loginNext, type Role } from "@/lib/access";
 import { LoginForm } from "./login-form";
 import loginBanner from "../../../public/images/nanumhr-login-banner.png";
@@ -29,31 +26,7 @@ export default async function LoginPage({
   // `stale` means the (app) layout just refused this very cookie. Bouncing a
   // signed-in user away from /login is right in every other case; here it would
   // send them back to the page that rejected them, forever.
-  /**
-   * Peran di dalam token adalah potret saat masuk TERAKHIR, dan berlaku 30 hari.
-   *
-   * Kalau HR mengubah peran seseorang sesudah itu, sesinya tidak ikut berubah:
-   * proxy membaca peran dari token, jadi karyawan yang baru dinaikkan menjadi
-   * hr_admin tetap dilempar ke /buka/absen. Satu-satunya cara menyegarkan
-   * tokennya adalah masuk lagi — dan memantulkan orangnya dari halaman ini
-   * membuat itu MUSTAHIL: ia terkunci sampai cookienya kedaluwarsa sendiri.
-   *
-   * Jadi sebelum memantulkan, peran di token dibandingkan dengan barisnya. Beda
-   * berarti halaman ini dibiarkan menampilkan formnya, supaya ia bisa masuk lagi
-   * dan mendapat token yang benar. Satu kueri, dan hanya untuk pengunjung yang
-   * memang sudah punya sesi.
-   */
-  let peranBerubah = false;
   if (session?.user && !stale) {
-    const [row] = await db
-      .select({ role: employees.role })
-      .from(employees)
-      .where(eq(employees.id, Number(session.user.id)))
-      .limit(1);
-    peranBerubah = Boolean(row) && row.role !== session.user.role;
-  }
-
-  if (session?.user && !stale && !peranBerubah) {
     const role = session.user.role as Role;
     redirect(safeNext && canAccess(safeNext, role) ? safeNext : homeFor(role));
   }
@@ -65,9 +38,7 @@ export default async function LoginPage({
   const initialError =
     error === "invalid"
       ? "Email atau kata sandi salah."
-      : peranBerubah
-        ? "Peran akun Anda berubah. Masuk lagi untuk memakainya."
-        : undefined;
+      : undefined;
 
   const brand = (
     <div className="flex items-center gap-2.5">
