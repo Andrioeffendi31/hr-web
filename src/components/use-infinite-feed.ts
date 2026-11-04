@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 
 type Page<T> = { items: T[]; nextPage: number | null };
 
@@ -24,8 +24,11 @@ export function useInfiniteFeed<T>({
   const search = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v) search.set(k, v);
 
+  const queryKey = ["feed", kind, search.toString()];
+  const qc = useQueryClient();
+
   const q = useInfiniteQuery<Page<T>>({
-    queryKey: ["feed", kind, search.toString()],
+    queryKey,
     initialPageParam: 1,
     getNextPageParam: (last) => last.nextPage,
     queryFn: async ({ pageParam }) => {
@@ -42,6 +45,25 @@ export function useInfiniteFeed<T>({
     // the server already rendered page 1; don't refetch it on mount
     staleTime: 30_000,
   });
+
+  /**
+   * `initialData` only seeds an EMPTY cache, so after a mutation calls
+   * `router.refresh()` the fresh page 1 from the server was ignored and the list
+   * kept showing the deleted/changed row until a full reload. Every caller passes
+   * `initial` straight from the server page, so a new array identity means the
+   * server re-rendered: adopt it as the new page 1 (later pages are dropped and
+   * reload on scroll, since their offsets may have shifted).
+   */
+  const lastInitial = useRef(initial);
+  useEffect(() => {
+    if (lastInitial.current === initial) return;
+    lastInitial.current = initial;
+    qc.setQueryData(queryKey, {
+      pages: [{ items: initial, nextPage: initialHasMore ? 2 : null }],
+      pageParams: [1],
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- queryKey is rebuilt each render; its parts are in deps
+  }, [initial, initialHasMore, qc, kind, search.toString()]);
 
   const { fetchNextPage, hasNextPage, isFetchingNextPage } = q;
   const observer = useRef<IntersectionObserver | null>(null);
