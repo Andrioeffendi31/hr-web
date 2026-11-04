@@ -410,4 +410,18 @@ export const KARYAWAN: Karyawan[] = [
     emergencyName: "Kontak Darurat",
     emergencyPhone: "081200000001",
   },
+  // dari formulir data pribadi kertas (2026-11-04); KTP 3604094608020003 tidak punya kolom
+  {
+    name: "Nathasya Berlian",
+    email: "nathasyaberlian08@gmail.com",
+    role: "employee",
+    birthPlace: "Serang",
+    birthDate: "2002-08-06",
+    address: "TCP BLOK I3 NO 31 PELAWAD CIRUAS",
+    gender: "Perempuan",
+    religion: "Islam",
+    phone: "089678772262",
+    emergencyName: "Dea (kakak)",
+    emergencyPhone: "0895370722330",
+  },
 ];
